@@ -77,6 +77,11 @@ ALLOW_FILENAME = ['ntoskrnl.exe', 'ntkrnlmp.exe', 'ntkrla57.exe']
 ALLOW_FILEDESC = ['NT Kernel & System']
 ALLOW_ARCH = ['x86', 'amd64', 'arm64']
 
+# Threaded HTTP server to allow concurrent requests (e.g., uploads + health checks).
+class ThreadedHTTPServer(http.server.ThreadingHTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
 # Regex pattern for file version: X.X.X.X where X is a ushort (0-65535)
 FILEVERSION_PATTERN = re.compile(
     r'^(?:0|[1-9]\d{0,4}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])\.'
@@ -717,7 +722,7 @@ def main():
     
     # Start server
     try:
-        with socketserver.TCPServer(("", port), handler_factory) as httpd:
+        with ThreadedHTTPServer(("", port), handler_factory) as httpd:
             print(f"Server started. Press Ctrl+C to stop.")
             httpd.serve_forever()
     except KeyboardInterrupt:
