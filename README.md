@@ -5,15 +5,15 @@ Several scripts are included to generate offsets for [SystemInformer](https://gi
 ## Get kphdyn.xml
 
 ```bash
-wget https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/kph-staging/kphlib/kphdyn.xml
+wget https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml
 ```
 
 ```bash
-curl -O https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/kph-staging/kphlib/kphdyn.xml
+curl -O https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml
 ```
 
 ```powershell
-powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/kph-staging/kphlib/kphdyn.xml' -OutFile kphdyn.xml"
+powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml' -OutFile kphdyn.xml"
 ```
 
 ## Requirements
