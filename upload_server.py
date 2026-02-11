@@ -12,10 +12,10 @@ Optional features:
     - X-File-Compressed: gzip header to indicate gzip-compressed file
 
 Usage:
-    python upload_server.py -symboldir=C:/Symbols [-port=8000]
+    python upload_server.py -symboldir=C:/Symbols [-port=8000] [-debug]
 
     Or:
-    python upload_server.py -symboldir C:/Symbols -port 8000
+    python upload_server.py -symboldir C:/Symbols -port 8000 -debug
 
     Upload example:
     curl -X POST -H "Content-Type: application/octet-stream" --data-binary "@ntoskrnl.exe" http://localhost:8000/upload
@@ -194,6 +194,11 @@ def parse_args():
         type=int,
         default=8000,
         help="Port to listen on (default: 8000, can also be set via KPHTOOLS_SERVER_PORT environment variable)"
+    )
+    parser.add_argument(
+        "-debug",
+        action="store_true",
+        help="Enable debug mode (includes HTTP request logging)"
     )
     
     args = parser.parse_args()
@@ -458,8 +463,9 @@ def save_file(file_data, file_name, file_version, arch, symboldir):
 class UploadHandler(http.server.BaseHTTPRequestHandler):
     """HTTP request handler for file uploads."""
     
-    def __init__(self, *args, symboldir=None, **kwargs):
+    def __init__(self, *args, symboldir=None, debug=False, **kwargs):
         self.symboldir = symboldir
+        self.debug = debug
         super().__init__(*args, **kwargs)
     
     def send_json_response(self, status_code, message, data=None):
@@ -666,7 +672,8 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
     
     def log_message(self, format, *args):
         """Override to customize log format."""
-        pass
+        if not self.debug:
+            return
         sys.stderr.write("%s - - [%s] %s\n" %
                         (self.address_string(),
                          self.log_date_time_string(),
@@ -716,8 +723,8 @@ def main():
     print(f"Upload endpoint: http://localhost:{port}/upload")
     
     # Create handler with symboldir parameter
-    def handler_factory(*args, **kwargs):
-        return UploadHandler(*args, symboldir=symboldir, **kwargs)
+    def handler_factory(*handler_args, **handler_kwargs):
+        return UploadHandler(*handler_args, symboldir=symboldir, debug=args.debug, **handler_kwargs)
     
     # Start server
     try:
