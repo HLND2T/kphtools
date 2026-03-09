@@ -392,7 +392,7 @@ For each PE file missing PDB:
 ```shell
 @echo Get latest kphdyn.xml
 
-powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/kph-staging/kphlib/kphdyn.xml' -OutFile kphdyn.official.xml"
+powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml' -OutFile kphdyn.official.xml"
 
 copy kphdyn.official.xml kphdyn.xml /y
 ```
