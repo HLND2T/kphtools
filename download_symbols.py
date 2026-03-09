@@ -211,7 +211,7 @@ def download_file(url, target_path):
     """
     try:
         print(f"  Downloading: {url}")
-        response = requests.get(url, timeout=60)
+        response = requests.get(url, timeout=600)
         response.raise_for_status()
 
         # Cache content in memory first
