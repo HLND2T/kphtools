@@ -18,8 +18,7 @@ powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/w
 
 ## Requirements
 
-Python packages:
-依赖现在由 `pyproject.toml` 管理：
+Requirements are managed by `pyproject.toml`:
 
 ```bash
 uv sync
@@ -38,10 +37,7 @@ System dependencies (for signify library, required on Linux):
   sudo dnf install -y openssl-devel
   ```
 
-- **Fix oscrypto issue - Error detecting the version of libcrypto :**
-```bash
-  uv pip install -I "git+https://github.com/wbond/oscrypto.git"
-```
+- Fix oscrypto issue - `Error detecting the version of libcrypto` : `uv pip install -I "git+https://github.com/wbond/oscrypto.git"`
 
 ## Download PE & Symbol listed
 
@@ -85,7 +81,6 @@ Also supports **syncfile mode** to scan symbol directory and add missing entries
 ### Requirements
 
 - `llvm-pdbutil` must be available in system PATH (part of LLVM tools)
-- Python 依赖已由 `pyproject.toml` 管理，请先执行 `uv sync`
 
 ### Usage
 
