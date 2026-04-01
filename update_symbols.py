@@ -6,23 +6,23 @@ Updates field offsets in kphdyn.xml by parsing PDB files using llvm-pdbutil.
 
 Usage:
     # Normal mode: Update symbol offsets from PDB files
-    python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -yaml kphdyn.yaml
-    python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -yaml kphdyn.yaml -sha256 <hash>
-    python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -yaml kphdyn.yaml -pdbutil /path/to/llvm-pdbutil
-    python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -yaml kphdyn.yaml -outxml kphdyn_updated.xml
+    uv run python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -yaml kphdyn.yaml
+    uv run python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -yaml kphdyn.yaml -sha256 <hash>
+    uv run python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -yaml kphdyn.yaml -pdbutil /path/to/llvm-pdbutil
+    uv run python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -yaml kphdyn.yaml -outxml kphdyn_updated.xml
 
     # Syncfile mode: Sync PE files from symbol directory to XML entries
-    python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -syncfile
-    python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -syncfile -fast
-    python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -syncfile -outxml kphdyn_updated.xml
+    uv run python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -syncfile
+    uv run python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -syncfile -fast
+    uv run python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -syncfile -outxml kphdyn_updated.xml
 
     # Fixnull mode: Fix null entries (fields ID = 0) using SymbolMapping.yaml
-    python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -yaml kphdyn.yaml -fixnull
-    python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -yaml kphdyn.yaml -fixnull -debug
+    uv run python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -yaml kphdyn.yaml -fixnull
+    uv run python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -yaml kphdyn.yaml -fixnull -debug
 
     # Fixstruct mode: Fix struct_offset fallback values from closest valid version
-    python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -yaml kphdyn.yaml -fixstruct
-    python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -yaml kphdyn.yaml -fixstruct -debug
+    uv run python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -yaml kphdyn.yaml -fixstruct
+    uv run python update_symbols.py -xml kphdyn.xml -symboldir C:/Symbols -yaml kphdyn.yaml -fixstruct -debug
 
 YAML Config Format:
     - file:
@@ -120,8 +120,7 @@ Fixstruct Mode:
 
 Requirements:
     - llvm-pdbutil must be available in system PATH or specified via -pdbutil
-    - pefile module required for -syncfile mode (pip install pefile)
-    - pyyaml module required for YAML config (pip install pyyaml)
+    - Run `uv sync` in the repository root to install Python dependencies from pyproject.toml
 """
 
 import os
@@ -240,7 +239,7 @@ def load_yaml_config(yaml_path):
     """
     if not HAS_YAML:
         print("Error: PyYAML module is required")
-        print("Install it with: pip install pyyaml")
+        print("Install project dependencies with: uv sync")
         sys.exit(1)
 
     if not os.path.exists(yaml_path):
@@ -1483,7 +1482,7 @@ def load_symbol_mapping(mapping_path):
     """
     if not HAS_YAML:
         print("Error: PyYAML module is required for -fixnull mode")
-        print("Install it with: pip install pyyaml")
+        print("Install project dependencies with: uv sync")
         sys.exit(1)
 
     if not os.path.exists(mapping_path):
@@ -2168,7 +2167,7 @@ def parse_pe_info(pe_path):
     """
     if not HAS_PEFILE:
         print("Error: pefile module is required for -syncfile mode")
-        print("Install it with: pip install pefile")
+        print("Install project dependencies with: uv sync")
         sys.exit(1)
 
     try:

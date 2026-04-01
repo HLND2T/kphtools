@@ -9,7 +9,7 @@ This avoids conflicts when PE files have the same arch, filename, and fileversio
 but different SHA256 hashes.
 
 Usage:
-    python migrate_symboldir.py -symboldir=D:/kphtools/symbols
+    uv run python migrate_symboldir.py -symboldir=D:/kphtools/symbols
 
 Example:
     Before:

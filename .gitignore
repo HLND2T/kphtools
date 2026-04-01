@@ -1,4 +1,5 @@
 .claude
+.venv
 __pycache__
 output
 symbols

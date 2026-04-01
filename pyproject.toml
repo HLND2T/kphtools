@@ -1,0 +1,17 @@
+[project]
+name = "kphtools"
+version = "0.1.0"
+description = "Toolkits for KPH dynamic data"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "anthropic",
+    "openai",
+    "pefile",
+    "pyyaml",
+    "requests",
+    "signify",
+]
+
+[tool.uv]
+package = false

@@ -12,17 +12,17 @@ Optional features:
     - X-File-Compressed: gzip header to indicate gzip-compressed file
 
 Usage:
-    python upload_server.py -symboldir=C:/Symbols [-port=8000] [-debug]
+    uv run python upload_server.py -symboldir=C:/Symbols [-port=8000] [-debug]
 
     Or:
-    python upload_server.py -symboldir C:/Symbols -port 8000 -debug
+    uv run python upload_server.py -symboldir C:/Symbols -port 8000 -debug
 
     Upload example:
     curl -X POST -H "Content-Type: application/octet-stream" --data-binary "@ntoskrnl.exe" http://localhost:8000/upload
 
 Requirements:
     Python packages:
-        pip install pefile signify
+        Run `uv sync` in the repository root to install project dependencies.
 
     System dependencies (Ubuntu/Debian):
         sudo apt-get install -y libssl-dev
@@ -51,7 +51,7 @@ try:
 except ImportError as e:
     error_name = getattr(e, 'name', str(e).split("'")[1] if "'" in str(e) else 'unknown')
     print(f"Error: Missing required dependency: {error_name}")
-    print("Please install required packages: pip install pefile signify")
+    print("Please run `uv sync` in the repository root to install project dependencies.")
     sys.exit(1)
 except Exception as e:
     # Handle oscrypto errors (missing OpenSSL libraries)

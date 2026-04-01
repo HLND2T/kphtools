@@ -6,7 +6,7 @@ Downloads PE files and their corresponding PDB symbol files from Microsoft Symbo
 based on entries in kphdyn.xml.
 
 Usage:
-    python download_symbols.py -xml=kphdyn.xml -symboldir=C:/Symbols [-arch=amd64] [-version=10.0.19041] [-symbol_server=URL]
+    uv run python download_symbols.py -xml=kphdyn.xml -symboldir=C:/Symbols [-arch=amd64] [-version=10.0.19041] [-symbol_server=URL]
 
     The XML path can also be set via KPHTOOLS_XML environment variable.
     If KPHTOOLS_XML is set, it takes precedence over -xml argument.
@@ -18,7 +18,7 @@ Usage:
     If KPHTOOLS_SYMBOL_SERVER is set, it takes precedence over -symbol_server argument.
 
 Requirements:
-    pip install pefile requests
+    Run `uv sync` in the repository root to install project dependencies.
 """
 
 import argparse
@@ -32,7 +32,7 @@ try:
     import requests
 except ImportError as e:
     print(f"Error: Missing required dependency: {e.name}")
-    print("Please install required packages: pip install pefile requests")
+    print("Please run `uv sync` in the repository root to install project dependencies.")
     sys.exit(1)
 
 
@@ -491,4 +491,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

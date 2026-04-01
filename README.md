@@ -19,8 +19,10 @@ powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/w
 ## Requirements
 
 Python packages:
+依赖现在由 `pyproject.toml` 管理：
+
 ```bash
-pip install -r requirements.txt --break-system-packages
+uv sync
 ```
 
 System dependencies (for signify library, required on Linux):
@@ -38,7 +40,7 @@ System dependencies (for signify library, required on Linux):
 
 - **Fix oscrypto issue - Error detecting the version of libcrypto :**
 ```bash
-  pip install -I git+https://github.com/wbond/oscrypto.git --break-system-packages
+  uv pip install -I "git+https://github.com/wbond/oscrypto.git"
 ```
 
 ## Download PE & Symbol listed
@@ -49,7 +51,7 @@ based on entries from `kphdyn.xml`
 ### Usage, [] for optional
 
 ```bash
-python download_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" [-arch=amd64] [-version=10.0.10240.16393] [-symbol_server="https//msdl.microsoft.com/download/symbols"]
+uv run python download_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" [-arch=amd64] [-version=10.0.10240.16393] [-symbol_server="https//msdl.microsoft.com/download/symbols"]
 ```
 
 ### Possible environment variables
@@ -83,32 +85,32 @@ Also supports **syncfile mode** to scan symbol directory and add missing entries
 ### Requirements
 
 - `llvm-pdbutil` must be available in system PATH (part of LLVM tools)
-- `pefile` Python package required for syncfile mode (`pip install pefile`)
+- Python 依赖已由 `pyproject.toml` 管理，请先执行 `uv sync`
 
 ### Usage
 
 **Normal mode** - Update symbol offsets from PDB files:
 
 ```bash
-python update_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" -yaml="path/to/kphdyn.yaml"
+uv run python update_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" -yaml="path/to/kphdyn.yaml"
 ```
 
 **Syncfile mode** - Scan symbol directory and add missing entries:
 
 ```bash
-python update_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" -syncfile
+uv run python update_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" -syncfile
 ```
 
 **Fixnull mode** - Fix null entries (fields ID = 0) using SymbolMapping.yaml:
 
 ```bash
-python update_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" -fixnull
+uv run python update_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" -fixnull
 ```
 
 **Fixstruct mode** - Fix struct_offset fallback values from closest valid version:
 
 ```bash
-python update_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" -fixstruct
+uv run python update_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" -fixstruct
 ```
 
 ### Optional Arguments
@@ -127,25 +129,25 @@ python update_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" -fixs
 Update and overwrite the original file:
 
 ```bash
-python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -yaml="kphdyn.yaml"
+uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -yaml="kphdyn.yaml"
 ```
 
 Save to a different output file:
 
 ```bash
-python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -yaml="kphdyn.yaml" -outxml="kphdyn_updated.xml"
+uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -yaml="kphdyn.yaml" -outxml="kphdyn_updated.xml"
 ```
 
 Process only a specific SHA256 hash:
 
 ```bash
-python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -yaml="kphdyn.yaml" -sha256="abc123..."
+uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -yaml="kphdyn.yaml" -sha256="abc123..."
 ```
 
 Use custom llvm-pdbutil path:
 
 ```bash
-python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -yaml="kphdyn.yaml" -pdbutil="/path/to/llvm-pdbutil"
+uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -yaml="kphdyn.yaml" -pdbutil="/path/to/llvm-pdbutil"
 ```
 
 **Syncfile mode examples:**
@@ -153,19 +155,19 @@ python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -yaml="kphdyn
 Scan symbol directory and add missing entries:
 
 ```bash
-python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile
+uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile
 ```
 
 Use fast mode (only parse PE when entry is missing):
 
 ```bash
-python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile -fast
+uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile -fast
 ```
 
 Save to a different output file:
 
 ```bash
-python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile -outxml="kphdyn_updated.xml"
+uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile -outxml="kphdyn_updated.xml"
 ```
 
 ### Syncfile Mode Details
@@ -173,7 +175,7 @@ python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile -ou
 The syncfile mode scans the symbol directory for PE files (exe/dll/sys) and adds missing entries to the XML:
 
 ```bash
-python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile
+uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile
 ```
 
 **How it works:**
@@ -192,7 +194,7 @@ python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile
 In normal syncfile mode, all PE files are parsed upfront. With `-fast` flag, PE parsing is deferred until an entry is confirmed to be missing, which can significantly speed up the process when most entries already exist.
 
 ```bash
-python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile -syncfile -fast
+uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile -syncfile -fast
 ```
 
 **Expected symbol directory structure:**
@@ -280,8 +282,8 @@ Example:
 
 ### Usage, [] for optional
 
-```
-python upload_server.py -symboldir="C:/Symbols" [-port=8000]
+```bash
+uv run python upload_server.py -symboldir="C:/Symbols" [-port=8000]
 ```
 
 ### Possible environment variables
@@ -346,13 +348,13 @@ Reverse engineers symbols for PE files missing PDB by comparing with similar ver
 ### Basic Usage
 
 ```bash
-python reverse_symbols.py -symboldir=C:/Symbols -reverse=PsSetCreateProcessNotifyRoutine -provider=openai -api_key="YOUR_KEY"
+uv run python reverse_symbols.py -symboldir=C:/Symbols -reverse=PsSetCreateProcessNotifyRoutine -provider=openai -api_key="YOUR_KEY"
 ```
 
 With custom model and API base:
 
 ```bash
-python reverse_symbols.py -symboldir=C:/Symbols -reverse=PsSetCreateProcessNotifyRoutune \
+uv run python reverse_symbols.py -symboldir=C:/Symbols -reverse=PsSetCreateProcessNotifyRoutune \
     -provider=openai -api_key="YOUR_KEY" -model="deepseek-chat" -api_base="https://api.deepseek.com"
 ```
 
@@ -380,7 +382,7 @@ For each PE file missing PDB:
 ### Tool Requirements
 
 - IDA Pro with `ida64.exe`
-- Python packages: `pyyaml`, `openai` or `anthropic`
+- Python 依赖由 `pyproject.toml` 管理，请先执行 `uv sync`
 
 ## Reference workflow in Jenkins (Windows)
 
@@ -400,15 +402,15 @@ copy kphdyn.official.xml kphdyn.xml /y
 ```shell
 @echo Sync unmanaged ntoskrnl to kphdyn.xml
 
-python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -syncfile -fast
+uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -syncfile -fast
 ```
 
 ```shell
 @echo Download ntoskrnl via kphdyn.xml, this may takes hours for the first run
 
-pip install -r requirements.txt
+uv sync
 
-python download_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -fast
+uv run python download_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -fast
 
 exit 0
 ```
@@ -423,36 +425,36 @@ set LLM_API_BASE=https://api.deepseek.com
 set LLM_MODEL=deepseek-chat
 set LLM_API_KEY=
 
-python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PsSetCreateProcessNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
+uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PsSetCreateProcessNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
 
-python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PspSetCreateProcessNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
+uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PspSetCreateProcessNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
 
-python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PsSetCreateThreadNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
+uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PsSetCreateThreadNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
 
-python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PspSetCreateThreadNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
+uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PspSetCreateThreadNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
 
-python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PsSetLoadImageNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
+uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PsSetLoadImageNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
 
-python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PsSetLoadImageNotifyRoutineEx -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
+uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PsSetLoadImageNotifyRoutineEx -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
 
-python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PgInitContextFillPtr -signature=FB488D05????????4989 -no_procedure -disasm_lines=200 -template="%WORKSPACE%\ida\GenerateMappingDisasmOnly.md" -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
+uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PgInitContextFillPtr -signature=FB488D05????????4989 -no_procedure -disasm_lines=200 -template="%WORKSPACE%\ida\GenerateMappingDisasmOnly.md" -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
 
 ```
 
 ```shell
 @echo Generate strut function and variable RVA via ntoskrnl pdb, llvm-pdbutil assumed in PATH
 
-python update_symbols.py -xml kphdyn.xml -symboldir "%WORKSPACE%\symbols" -yaml kphdyn.yaml
+uv run python update_symbols.py -xml kphdyn.xml -symboldir "%WORKSPACE%\symbols" -yaml kphdyn.yaml
 ```
 
 ```shell
 @echo Fix function and variable RVA via SymbolMapping.yaml
 
-python update_symbols.py -xml kphdyn.xml -symboldir "%WORKSPACE%\symbols" -yaml kphdyn.yaml -fixnull
+uv run python update_symbols.py -xml kphdyn.xml -symboldir "%WORKSPACE%\symbols" -yaml kphdyn.yaml -fixnull
 ```
 
 ```shell
 @echo Fix struct offset
 
-python update_symbols.py -xml kphdyn.xml -symboldir "%WORKSPACE%\symbols" -yaml kphdyn.yaml -fixstruct
+uv run python update_symbols.py -xml kphdyn.xml -symboldir "%WORKSPACE%\symbols" -yaml kphdyn.yaml -fixstruct
 ```

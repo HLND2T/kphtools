@@ -1,6 +1,2 @@
-pefile
-requests
-signify
-openai
-anthropic
-PyYAML
+# Dependencies are managed in pyproject.toml.
+# Use `uv sync` to install them and `uv run python <script>.py ...` to run tools.

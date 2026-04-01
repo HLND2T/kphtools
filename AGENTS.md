@@ -21,7 +21,7 @@
 ## 当 memories 不足时的“源文件”入口（按需查询和读取）
 
 - 快速说明：`README.md`
-- 依赖说明：`requirements.txt`
+- 依赖说明：`pyproject.toml`
 - 主要脚本入口：`download_symbols.py`、`update_symbols.py`、`reverse_symbols.py`、`upload_server.py`、`migrate_symboldir.py`
 - 逆向相关脚本：`ida/generate_mapping.py`、`ida/ida.py`
 - 配置/数据：`kphdyn.xml`、`kphdyn.yaml`、`kphdyn2.yaml`、`kphdyn.official.xml`

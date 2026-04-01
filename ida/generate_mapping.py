@@ -5,17 +5,17 @@ Symbol Mapping Generator - 符号映射生成器
 通过对比两个 Windows 内核版本的反汇编代码，利用 LLM 建立符号名映射关系。
 
 用法:
-    python generate_mapping.py -func=FuncName -reference=path/to/ref.exe -reverse=path/to/rev.exe
+    uv run python generate_mapping.py -func=FuncName -reference=path/to/ref.exe -reverse=path/to/rev.exe
 
 示例 (OpenAI):
-    python generate_mapping.py \
+    uv run python generate_mapping.py \
         -func=PsSetCreateProcessNotifyRoutine \
         -reference="D:\\kphtools\\symbols\\amd64\\ntoskrnl.exe.10.0.22621.3646\\ntoskrnl.exe" \
         -reverse="D:\\kphtools\\symbols\\amd64\\ntoskrnl.exe.10.0.22621.3668\\ntoskrnl.exe" \
         -provider=openai -api_key="sk-xxx"
 
 示例 (Anthropic):
-    python generate_mapping.py \
+    uv run python generate_mapping.py \
         -func=PsSetCreateProcessNotifyRoutine \
         -reference="D:\\kphtools\\symbols\\amd64\\ntoskrnl.exe.10.0.22621.3646\\ntoskrnl.exe" \
         -reverse="D:\\kphtools\\symbols\\amd64\\ntoskrnl.exe.10.0.22621.3668\\ntoskrnl.exe" \
@@ -496,7 +496,7 @@ def _call_openai(prompt, api_key, api_base, model, debug=False):
     """调用 OpenAI API"""
     if not HAS_OPENAI:
         print("Error: openai 模块未安装")
-        print("请运行: pip install openai")
+        print("请先在仓库根目录运行: uv sync")
         sys.exit(1)
 
     # 构建客户端
@@ -527,7 +527,7 @@ def _call_anthropic(prompt, api_key, api_base, model, debug=False):
     """调用 Anthropic API"""
     if not HAS_ANTHROPIC:
         print("Error: anthropic 模块未安装")
-        print("请运行: pip install anthropic")
+        print("请先在仓库根目录运行: uv sync")
         sys.exit(1)
 
     # 构建客户端

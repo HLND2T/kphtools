@@ -10,10 +10,10 @@ Directory Structure:
     Example: symbols/amd64/ntoskrnl.exe.10.0.16299.551/68d5867b.../ntoskrnl.exe
 
 Usage:
-    python reverse_symbols.py -symboldir=C:/Symbols -reverse=PsSetCreateProcessNotifyRoutine -provider=openai -api_key="YOUR_KEY"
+    uv run python reverse_symbols.py -symboldir=C:/Symbols -reverse=PsSetCreateProcessNotifyRoutine -provider=openai -api_key="YOUR_KEY"
 
     # With custom model and API base
-    python reverse_symbols.py -symboldir=C:/Symbols -reverse=PsSetCreateProcessNotifyRoutine \
+    uv run python reverse_symbols.py -symboldir=C:/Symbols -reverse=PsSetCreateProcessNotifyRoutine \
         -provider=openai -api_key="YOUR_KEY" -model="deepseek-chat" -api_base="https://api.deepseek.com"
 
 Environment Variables:
@@ -44,7 +44,7 @@ Workflow:
 
 Requirements:
     - IDA Pro with ida64.exe
-    - Python packages: pyyaml, openai or anthropic
+    - Run `uv sync` in the repository root to install Python dependencies from pyproject.toml
 """
 
 import argparse
