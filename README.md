@@ -377,7 +377,6 @@ For each PE file missing PDB:
 ### Tool Requirements
 
 - IDA Pro with `ida64.exe`
-- Python 依赖由 `pyproject.toml` 管理，请先执行 `uv sync`
 
 ## Reference workflow in Jenkins (Windows)
 
