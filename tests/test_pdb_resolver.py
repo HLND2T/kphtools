@@ -16,6 +16,45 @@ TYPES_OUTPUT = """
     list[1] = LF_MEMBER, public, type = 0x3001, offset = 0x8, member name = `ObjectPointerBits`
 """
 
+TYPES_OUTPUT_WITH_MULTIPLE_BITFIELDS = """
+1100 | LF_STRUCTURE [size = 16] `_FLAGS`
+    field list: <fieldlist 0x2100>
+2100 | LF_FIELDLIST
+    list[0] = LF_BITFIELD, type = T_UINT4, length = 1, position = 3
+    list[1] = LF_MEMBER, public, type = 0x3100, offset = 0x4, member name = `FlagA`
+    list[2] = LF_BITFIELD, type = T_UINT4, length = 2, position = 6
+    list[3] = LF_MEMBER, public, type = 0x3101, offset = 0x4, member name = `FlagB`
+"""
+
+TYPES_OUTPUT_WITH_DOTTED_MEMBER = """
+1200 | LF_STRUCTURE [size = 56] `_ALPC_PORT`
+    field list: <fieldlist 0x2200>
+2200 | LF_FIELDLIST
+    list[0] = LF_MEMBER, public, type = 0x3200, offset = 0x30, member name = `u1`
+
+3200 | LF_UNION [size = 8] `_ALPC_PORT_U1`
+    field list: <fieldlist 0x2201>
+2201 | LF_FIELDLIST
+    list[0] = LF_MEMBER, public, type = T_UINT4, offset = 0x0, member name = `State`
+"""
+
+TYPES_OUTPUT_WITH_REAL_CANDIDATES = """
+1300 | LF_STRUCTURE [size = 64] `_SECTION`
+    field list: <fieldlist 0x2300>
+2300 | LF_FIELDLIST
+    list[0] = LF_MEMBER, public, type = 0x3300, offset = 0x10, member name = `u1`
+
+3300 | LF_UNION [size = 8] `_SECTION_U1`
+    field list: <fieldlist 0x2301>
+2301 | LF_FIELDLIST
+    list[0] = LF_MEMBER, public, type = T_64PVOID, offset = 0x0, member name = `OtherField`
+
+1301 | LF_STRUCTURE [size = 32] `_SECTION_OBJECT`
+    field list: <fieldlist 0x2302>
+2302 | LF_FIELDLIST
+    list[0] = LF_MEMBER, public, type = T_64PVOID, offset = 0x20, member name = `Segment`
+"""
+
 PUBLICS_OUTPUT = """
 Public Symbols:
 0001:00045678 PspCreateProcessNotifyRoutine
@@ -51,6 +90,25 @@ class TestPdbResolver(unittest.TestCase):
         self.assertEqual(0x8, result["offset"])
         self.assertEqual(20, result["bit_offset"])
 
+    def test_resolve_struct_offset_scopes_bitfield_to_matching_member(self) -> None:
+        result = pdb_resolver.resolve_struct_symbol_from_text(
+            TYPES_OUTPUT_WITH_MULTIPLE_BITFIELDS,
+            "_FLAGS->FlagB",
+            bits=True,
+        )
+        self.assertEqual(0x4, result["offset"])
+        self.assertEqual(6, result["bit_offset"])
+
+    def test_resolve_struct_offset_supports_dotted_member(self) -> None:
+        result = pdb_resolver.resolve_struct_symbol_from_text(
+            TYPES_OUTPUT_WITH_DOTTED_MEMBER,
+            "_ALPC_PORT->u1.State",
+            bits=False,
+        )
+        self.assertEqual("_ALPC_PORT", result["struct_name"])
+        self.assertEqual("u1.State", result["member_name"])
+        self.assertEqual(0x30, result["offset"])
+
     def test_resolve_struct_offset_uses_first_matching_candidate(self) -> None:
         result = pdb_resolver.resolve_struct_symbol_from_text(
             TYPES_OUTPUT,
@@ -59,6 +117,16 @@ class TestPdbResolver(unittest.TestCase):
         )
         self.assertEqual("_EPROCESS", result["struct_name"])
         self.assertEqual("ObjectTable", result["member_name"])
+
+    def test_resolve_struct_offset_supports_real_style_multi_candidate(self) -> None:
+        result = pdb_resolver.resolve_struct_symbol_from_text(
+            TYPES_OUTPUT_WITH_REAL_CANDIDATES,
+            "_SECTION->u1.ControlArea,_SECTION_OBJECT->Segment",
+            bits=False,
+        )
+        self.assertEqual("_SECTION_OBJECT", result["struct_name"])
+        self.assertEqual("Segment", result["member_name"])
+        self.assertEqual(0x20, result["offset"])
 
     def test_resolve_gv_rva_returns_expected_value(self) -> None:
         result = pdb_resolver.resolve_public_symbol_from_text(
