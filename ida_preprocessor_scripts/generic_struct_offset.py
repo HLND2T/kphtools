@@ -20,11 +20,18 @@ async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, 
         if not llm_config:
             return PREPROCESS_STATUS_FAILED
 
-    payload = await resolve_struct_offset_via_llm(
-        llm_config=llm_config,
-        reference_blocks=[symbol.struct_name or ""],
-        target_blocks=[symbol.member_name or ""],
-    )
+    try:
+        payload = await resolve_struct_offset_via_llm(
+            llm_config=llm_config,
+            reference_blocks=[symbol.struct_name or ""],
+            target_blocks=[symbol.member_name or ""],
+        )
+    except (ValueError, TypeError):
+        return PREPROCESS_STATUS_FAILED
+
+    if symbol.bits and "bit_offset" not in payload:
+        return PREPROCESS_STATUS_FAILED
+
     write_struct_yaml(
         output_path,
         {

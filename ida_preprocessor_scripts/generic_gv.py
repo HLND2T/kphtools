@@ -18,7 +18,7 @@ async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, 
                 lookup_name,
                 image_base=0x140000000,
             )
-        except KeyError:
+        except (KeyError, ValueError, TypeError):
             return PREPROCESS_STATUS_FAILED
 
     write_gv_yaml(output_path, {"gv_name": symbol.name, "gv_rva": payload["rva"]})
