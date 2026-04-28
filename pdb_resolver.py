@@ -286,7 +286,7 @@ def resolve_struct_symbol_from_text(
             if bit_offset is None:
                 bit_offset = _lookup_type_bit_offset(lines, member_entry.get("type_id"))
             if bit_offset is None:
-                raise KeyError(f"bitfield position missing for {symbol_expr}")
+                continue
             payload["bit_offset"] = int(bit_offset)
 
         return payload

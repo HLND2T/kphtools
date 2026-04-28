@@ -85,6 +85,19 @@ TYPES_OUTPUT_WITH_FORWARD_REF = """
     list[0] = LF_MEMBER, public, type = T_64PVOID, offset = 0x40, member name = `Privileges`
 """
 
+TYPES_OUTPUT_WITH_BITS_FALLBACK = """
+1600 | LF_STRUCTURE [size = 24] `_FIRST`
+    field list: <fieldlist 0x2600>
+2600 | LF_FIELDLIST
+    list[0] = LF_MEMBER, public, type = T_UINT4, offset = 0x8, member name = `Flags`
+
+1601 | LF_STRUCTURE [size = 24] `_SECOND`
+    field list: <fieldlist 0x2601>
+2601 | LF_FIELDLIST
+    list[0] = LF_BITFIELD, type = T_UINT8, length = 2, position = 5
+    list[1] = LF_MEMBER, public, type = 0x3601, offset = 0x10, member name = `Flags`
+"""
+
 PUBLICS_OUTPUT = """
 Public Symbols:
 0001:00045678 PspCreateProcessNotifyRoutine
@@ -187,6 +200,17 @@ class TestPdbResolver(unittest.TestCase):
         )
         self.assertEqual(0x4, result["offset"])
         self.assertEqual(6, result["bit_offset"])
+
+    def test_resolve_struct_offset_bits_falls_back_to_later_candidate(self) -> None:
+        result = pdb_resolver.resolve_struct_symbol_from_text(
+            TYPES_OUTPUT_WITH_BITS_FALLBACK,
+            "_FIRST->Flags,_SECOND->Flags",
+            bits=True,
+        )
+        self.assertEqual("_SECOND", result["struct_name"])
+        self.assertEqual("Flags", result["member_name"])
+        self.assertEqual(0x10, result["offset"])
+        self.assertEqual(5, result["bit_offset"])
 
     def test_resolve_struct_offset_supports_dotted_member(self) -> None:
         result = pdb_resolver.resolve_struct_symbol_from_text(
