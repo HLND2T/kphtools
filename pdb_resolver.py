@@ -11,6 +11,9 @@ FIELD_LIST_RE = re.compile(r"field list:\s*(?:<fieldlist\s+)?([0-9A-Fa-fx]+)")
 OFFSET_RE = re.compile(r"offset\s*=\s*(0x[0-9A-Fa-f]+|\d+)")
 TYPE_REF_RE = re.compile(r"(?:type|Type)\s*=\s*([^,\]\s]+)")
 BIT_OFFSET_RE = re.compile(r"(?:position|bit offset)\s*=\s*(\d+)")
+SECTION_HEADER_RE = re.compile(r"SECTION HEADER #(\d+)")
+SECTION_VA_RE = re.compile(r"^\s*([0-9A-Fa-f]+)\s+virtual address", re.IGNORECASE)
+SECTION_VIRTUAL_ADDRESS_RE = re.compile(r"VirtualAddress:\s*(0x[0-9A-Fa-f]+)")
 
 
 def run_llvm_pdbutil(
@@ -258,6 +261,67 @@ def resolve_struct_symbol_from_text(
     raise KeyError(symbol_expr)
 
 
+def _parse_section_headers(sections_output: str) -> dict[int, int]:
+    sections: dict[int, int] = {}
+    current_section: int | None = None
+
+    for line in sections_output.splitlines():
+        section_match = SECTION_HEADER_RE.search(line)
+        if section_match:
+            current_section = int(section_match.group(1))
+            continue
+
+        if current_section is None:
+            continue
+
+        va_match = SECTION_VA_RE.search(line)
+        if va_match:
+            sections[current_section] = int(va_match.group(1), 16)
+            current_section = None
+            continue
+
+        virtual_address_match = SECTION_VIRTUAL_ADDRESS_RE.search(line)
+        if virtual_address_match:
+            sections[current_section] = int(virtual_address_match.group(1), 16)
+            current_section = None
+
+    return sections
+
+
+def _resolve_public_symbol_from_spub32(
+    publics_output: str,
+    sections_output: str,
+    symbol_name: str,
+) -> int | None:
+    section_vas = _parse_section_headers(sections_output)
+    if not section_vas:
+        return None
+
+    lines = publics_output.splitlines()
+    for index, line in enumerate(lines):
+        if "S_PUB32" not in line or f"`{symbol_name}`" not in line:
+            continue
+        if index + 1 >= len(lines):
+            continue
+
+        next_line = lines[index + 1]
+        if "flags =" not in next_line:
+            continue
+
+        addr_match = re.search(r"addr\s*=\s*(\d+):(\d+)", next_line)
+        if not addr_match:
+            continue
+
+        segment = int(addr_match.group(1), 10)
+        offset = int(addr_match.group(2), 10)
+        section_va = section_vas.get(segment)
+        if section_va is None:
+            continue
+        return section_va + offset
+
+    return None
+
+
 def resolve_public_symbol_from_text(
     publics_output: str,
     sections_output: str,
@@ -268,13 +332,24 @@ def resolve_public_symbol_from_text(
         re.MULTILINE,
     )
     match = symbol_pattern.search(publics_output)
-    if not match:
-        raise KeyError(symbol_name)
+    if match:
+        return {
+            "name": symbol_name,
+            "rva": int(match.group(1), 16),
+        }
 
-    return {
-        "name": symbol_name,
-        "rva": int(match.group(1), 16),
-    }
+    spub32_rva = _resolve_public_symbol_from_spub32(
+        publics_output,
+        sections_output,
+        symbol_name,
+    )
+    if spub32_rva is not None:
+        return {
+            "name": symbol_name,
+            "rva": spub32_rva,
+        }
+
+    raise KeyError(symbol_name)
 
 
 def resolve_struct_symbol(

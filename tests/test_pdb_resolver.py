@@ -61,12 +61,29 @@ Public Symbols:
 0001:00012340 ExReferenceCallBackBlock
 """
 
+PUBLICS_OUTPUT_S_PUB32 = """
+Public Symbols:
+     4 | S_PUB32 [size = 36] `PspCreateProcessNotifyRoutine`
+           flags = none, addr = 0026:1068896
+     5 | S_PUB32 [size = 44] `ExReferenceCallBackBlock`
+           flags = function, addr = 0008:123456
+"""
+
 SECTIONS_OUTPUT = """
 SECTION HEADER #1
   Name: .text
   VirtualSize: 0x00080000
   VirtualAddress: 0x00001000
   SizeOfRawData: 0x00080000
+"""
+
+SECTIONS_OUTPUT_S_PUB32 = """
+SECTION HEADER #8
+  Name: .text
+  00001000 virtual address
+SECTION HEADER #26
+  Name: .data
+  00100000 virtual address
 """
 
 
@@ -143,3 +160,12 @@ class TestPdbResolver(unittest.TestCase):
             "ExReferenceCallBackBlock",
         )
         self.assertEqual(0x12340, result["rva"])
+
+    def test_resolve_public_symbol_supports_spub32_with_section_headers(self) -> None:
+        result = pdb_resolver.resolve_public_symbol_from_text(
+            PUBLICS_OUTPUT_S_PUB32,
+            SECTIONS_OUTPUT_S_PUB32,
+            "ExReferenceCallBackBlock",
+        )
+        self.assertEqual("ExReferenceCallBackBlock", result["name"])
+        self.assertEqual(0x1000 + 123456, result["rva"])
