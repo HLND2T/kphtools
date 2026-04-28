@@ -421,8 +421,8 @@ This applies per symbol, not per entry.
 
 If a `<data>` entry has a partial YAML set:
 
-- resolved symbols export their real values
-- unresolved symbols export type-based fallback values
+- in the same version-specific fields set, resolved symbols export their real values
+- unresolved symbols export type-based fallback values `0xffff` or `0xffffffff` according to their declared type
 - the exporter still reports missing YAML or unresolved symbols
 
 The entry should still receive a normal `fields id` derived from the mixed real-value plus fallback-value field set.
