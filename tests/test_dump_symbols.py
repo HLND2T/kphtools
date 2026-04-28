@@ -295,6 +295,12 @@ class TestDumpSymbols(unittest.TestCase):
                 ) as mock_open_session,
                 patch.object(
                     dump_symbols,
+                    "_session_matches_binary",
+                    new=AsyncMock(return_value=True),
+                    create=True,
+                ) as mock_session_matches_binary,
+                patch.object(
+                    dump_symbols,
                     "process_binary_dir",
                     new=AsyncMock(return_value=True),
                 ) as mock_process_binary,
@@ -307,4 +313,56 @@ class TestDumpSymbols(unittest.TestCase):
         mock_allocate_port.assert_called_once_with("127.0.0.1")
         mock_start.assert_called_once_with(binary_path, host="127.0.0.1", port=24567)
         mock_open_session.assert_awaited_once_with("http://127.0.0.1:24567/mcp")
+        mock_session_matches_binary.assert_awaited_once_with(fake_session, binary_path)
         mock_process_binary.assert_awaited_once()
+
+    def test_process_module_binary_fails_when_session_path_mismatches(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            binary_path = binary_dir / "ntoskrnl.exe"
+            binary_path.write_text("", encoding="utf-8")
+            pdb_path = binary_dir / "ntkrnlmp.pdb"
+            pdb_path.write_text("", encoding="utf-8")
+
+            module = SimpleNamespace(path=["ntoskrnl.exe"], skills=[], symbols=[])
+            args = SimpleNamespace(agent="codex", debug=False, force=False)
+            fake_process = MagicMock()
+            fake_streams = AsyncMock()
+            fake_session = AsyncMock()
+
+            with (
+                patch.object(
+                    dump_symbols,
+                    "_allocate_local_port",
+                    return_value=24567,
+                    create=True,
+                ),
+                patch.object(
+                    dump_symbols, "start_idalib_mcp", return_value=fake_process
+                ),
+                patch.object(
+                    dump_symbols,
+                    "_open_session",
+                    new=AsyncMock(return_value=(fake_streams, fake_session)),
+                ),
+                patch.object(
+                    dump_symbols,
+                    "_session_matches_binary",
+                    new=AsyncMock(return_value=False),
+                    create=True,
+                ) as mock_session_matches_binary,
+                patch.object(
+                    dump_symbols,
+                    "process_binary_dir",
+                    new=AsyncMock(return_value=True),
+                ) as mock_process_binary,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "MCP session target mismatch"):
+                    asyncio.run(
+                        dump_symbols._process_module_binary(
+                            module, binary_dir, pdb_path, args
+                        )
+                    )
+
+        mock_session_matches_binary.assert_awaited_once_with(fake_session, binary_path)
+        mock_process_binary.assert_not_awaited()

@@ -16,6 +16,23 @@ from ida_skill_preprocessor import (
 )
 from symbol_config import load_config
 
+SURVEY_CURRENT_IDB_PATH_PY_EVAL = (
+    "import json\n"
+    "path = ''\n"
+    "try:\n"
+    "    import idaapi\n"
+    "    path = idaapi.get_path(idaapi.PATH_TYPE_IDB) or ''\n"
+    "except Exception:\n"
+    "    pass\n"
+    "if not path:\n"
+    "    try:\n"
+    "        import idc\n"
+    "        path = idc.get_idb_path() or ''\n"
+    "    except Exception:\n"
+    "        pass\n"
+    "result = json.dumps({'metadata': {'path': path}})\n"
+)
+
 
 def _field(item: Any, name: str, default: Any = None) -> Any:
     if isinstance(item, dict):
@@ -37,6 +54,37 @@ def _strip_frontmatter(text: str) -> str:
         if line.strip() == "---":
             return "\n".join(lines[index + 1 :]).strip()
     return content
+
+
+def _parse_tool_json_content(result) -> dict[str, Any] | None:
+    content = getattr(result, "content", None)
+    if not content:
+        return None
+
+    item = content[0]
+    raw = getattr(item, "text", None)
+    if not isinstance(raw, str):
+        raw = str(item)
+    try:
+        payload = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _parse_py_eval_result_json(result) -> dict[str, Any] | None:
+    payload = _parse_tool_json_content(result)
+    if not isinstance(payload, dict):
+        return None
+
+    result_text = payload.get("result", "")
+    if not isinstance(result_text, str) or not result_text:
+        return None
+    try:
+        parsed = json.loads(result_text)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return parsed if isinstance(parsed, dict) else None
 
 
 def parse_args(argv=None):
@@ -247,6 +295,39 @@ async def _open_session(base_url: str):
     return streams, session
 
 
+async def _session_matches_binary(session, binary_path: Path) -> bool:
+    try:
+        result = await session.call_tool(
+            name="py_eval",
+            arguments={"code": SURVEY_CURRENT_IDB_PATH_PY_EVAL},
+        )
+    except Exception:
+        return False
+
+    payload = _parse_py_eval_result_json(result)
+    if not isinstance(payload, dict):
+        return False
+
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, dict):
+        return False
+
+    current_path = metadata.get("path")
+    if not isinstance(current_path, str) or not current_path:
+        return False
+
+    try:
+        current_idb_path = Path(current_path).resolve(strict=False)
+        target_binary_path = Path(binary_path).resolve(strict=False)
+    except OSError:
+        return False
+
+    return (
+        current_idb_path.name.lower().startswith(target_binary_path.name.lower())
+        and current_idb_path.parent == target_binary_path.parent
+    )
+
+
 def _iter_binary_dirs(symboldir: Path, arch: str, config):
     arch_dir = Path(symboldir) / arch
     for module in config.modules:
@@ -274,8 +355,9 @@ def _resolve_binary_path(module, binary_dir: Path) -> Path:
 async def _process_module_binary(module, binary_dir, pdb_path, args):
     host = "127.0.0.1"
     port = _allocate_local_port(host)
+    binary_path = _resolve_binary_path(module, Path(binary_dir))
     process = start_idalib_mcp(
-        _resolve_binary_path(module, Path(binary_dir)),
+        binary_path,
         host=host,
         port=port,
     )
@@ -283,6 +365,8 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
     session = None
     try:
         streams, session = await _open_session(f"http://{host}:{port}/mcp")
+        if not await _session_matches_binary(session, binary_path):
+            raise RuntimeError(f"MCP session target mismatch for {binary_path}")
         return await process_binary_dir(
             binary_dir=Path(binary_dir),
             pdb_path=Path(pdb_path),
