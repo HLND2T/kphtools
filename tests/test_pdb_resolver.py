@@ -55,6 +55,24 @@ TYPES_OUTPUT_WITH_REAL_CANDIDATES = """
     list[0] = LF_MEMBER, public, type = T_64PVOID, offset = 0x20, member name = `Segment`
 """
 
+TYPES_OUTPUT_WITH_DOTTED_FALLBACK_TRAP = """
+1400 | LF_STRUCTURE [size = 64] `_SECTION`
+    field list: <fieldlist 0x2400>
+2400 | LF_FIELDLIST
+    list[0] = LF_MEMBER, public, type = 0x3400, offset = 0x10, member name = `u1`
+    list[1] = LF_MEMBER, public, type = T_64PVOID, offset = 0x18, member name = `ControlArea`
+
+3400 | LF_UNION [size = 8] `_SECTION_U1`
+    field list: <fieldlist 0x2401>
+2401 | LF_FIELDLIST
+    list[0] = LF_MEMBER, public, type = T_64PVOID, offset = 0x0, member name = `OtherField`
+
+1401 | LF_STRUCTURE [size = 32] `_SECTION_OBJECT`
+    field list: <fieldlist 0x2402>
+2402 | LF_FIELDLIST
+    list[0] = LF_MEMBER, public, type = T_64PVOID, offset = 0x20, member name = `Segment`
+"""
+
 PUBLICS_OUTPUT = """
 Public Symbols:
 0001:00045678 PspCreateProcessNotifyRoutine
@@ -138,6 +156,18 @@ class TestPdbResolver(unittest.TestCase):
     def test_resolve_struct_offset_supports_real_style_multi_candidate(self) -> None:
         result = pdb_resolver.resolve_struct_symbol_from_text(
             TYPES_OUTPUT_WITH_REAL_CANDIDATES,
+            "_SECTION->u1.ControlArea,_SECTION_OBJECT->Segment",
+            bits=False,
+        )
+        self.assertEqual("_SECTION_OBJECT", result["struct_name"])
+        self.assertEqual("Segment", result["member_name"])
+        self.assertEqual(0x20, result["offset"])
+
+    def test_resolve_struct_offset_skips_bad_dotted_candidate_with_parent_direct_match(
+        self,
+    ) -> None:
+        result = pdb_resolver.resolve_struct_symbol_from_text(
+            TYPES_OUTPUT_WITH_DOTTED_FALLBACK_TRAP,
             "_SECTION->u1.ControlArea,_SECTION_OBJECT->Segment",
             bits=False,
         )

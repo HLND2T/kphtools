@@ -212,12 +212,16 @@ def _resolve_member(
     if parent_entry is None:
         return None
 
+    parent_type_id = parent_entry.get("type_id")
+
     nested_entry = _resolve_member_by_type_id(
         lines,
-        parent_entry.get("type_id"),
+        parent_type_id,
         nested_name,
     )
     if nested_entry is None:
+        if parent_type_id is not None:
+            return None
         nested_entry = _resolve_direct_member(lines, struct_name, nested_name)
         if nested_entry is None:
             return None
