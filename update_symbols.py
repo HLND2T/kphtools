@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any
 import xml.etree.ElementTree as ET
 
+import pefile
+
 from symbol_artifacts import load_artifact
 from symbol_config import load_config
 
@@ -92,22 +94,51 @@ def _find_or_create_fields_id(root: ET.Element, values: dict[str, int]) -> str:
     return str(next_id)
 
 
+def _load_binary_metadata(binary_path: Path) -> dict[str, str]:
+    pe = pefile.PE(str(binary_path), fast_load=True)
+    try:
+        return {
+            "timestamp": hex(pe.FILE_HEADER.TimeDateStamp),
+            "size": hex(pe.OPTIONAL_HEADER.SizeOfImage),
+        }
+    finally:
+        pe.close()
+
+
 def _ensure_data_entry(
-    root: ET.Element, arch: str, file_name: str, version: str, sha256: str
+    root: ET.Element,
+    arch: str,
+    file_name: str,
+    version: str,
+    sha256: str,
+    metadata: dict[str, str],
 ) -> ET.Element:
     for data_elem in root.findall("data"):
+        existing_hash = data_elem.get("hash") or data_elem.get("sha256")
         if (
             data_elem.get("arch") == arch
             and data_elem.get("file") == file_name
             and data_elem.get("version") == version
-            and data_elem.get("sha256") == sha256
+            and existing_hash
+            and existing_hash.lower() == sha256.lower()
         ):
+            if not data_elem.get("hash"):
+                data_elem.set("hash", sha256)
+            if not data_elem.get("sha256"):
+                data_elem.set("sha256", sha256)
+            if not data_elem.get("timestamp"):
+                data_elem.set("timestamp", metadata["timestamp"])
+            if not data_elem.get("size"):
+                data_elem.set("size", metadata["size"])
             return data_elem
     data_elem = ET.SubElement(root, "data")
     data_elem.set("arch", arch)
     data_elem.set("file", file_name)
     data_elem.set("version", version)
+    data_elem.set("hash", sha256)
     data_elem.set("sha256", sha256)
+    data_elem.set("timestamp", metadata["timestamp"])
+    data_elem.set("size", metadata["size"])
     data_elem.set("fields", "0")
     return data_elem
 
@@ -124,11 +155,12 @@ def export_xml(tree: ET.ElementTree, config: Any, symboldir: Path) -> ET.Element
                     for sha_dir in version_dir.iterdir():
                         if not sha_dir.is_dir():
                             continue
+                        metadata = _load_binary_metadata(sha_dir / module_path)
                         payloads = _load_module_yaml(sha_dir, symbol_specs)
                         values = collect_symbol_values(symbol_specs, payloads)
                         fields_id = _find_or_create_fields_id(root, values)
                         data_elem = _ensure_data_entry(
-                            root, arch, module_path, version, sha_dir.name
+                            root, arch, module_path, version, sha_dir.name, metadata
                         )
                         data_elem.set("fields", fields_id)
     return tree
