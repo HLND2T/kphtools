@@ -410,15 +410,22 @@ The existing `fields id` reuse model remains valuable and should be retained:
 
 ### 8.4 Missing YAML Behavior
 
-No XML fallback values are generated in the new design.
+XML fallback values are generated for symbols whose YAML cannot provide a resolved offset or RVA.
 
-If a `<data>` entry does not have the full required YAML set:
+Fallback rule:
 
-- the entry remains `fields="0"`
-- the missing outputs are reported
-- the operator is expected to rerun `dump_symbols.py`
+- `uint16` symbols export as `0xffff`
+- `uint32` symbols export as `0xffffffff`
 
-This removes the old repair loop and keeps XML as a pure export.
+This applies per symbol, not per entry.
+
+If a `<data>` entry has a partial YAML set:
+
+- resolved symbols export their real values
+- unresolved symbols export type-based fallback values
+- the exporter still reports missing YAML or unresolved symbols
+
+The entry should still receive a normal `fields id` derived from the mixed real-value plus fallback-value field set.
 
 ## 9. Reverse Workflow Consolidation
 
@@ -449,9 +456,10 @@ A failed skill does not stop unrelated skills. Final command status should still
 
 Export behavior is also strict:
 
-1. missing required YAML means no completed fields for that entry
-2. the XML exporter never invents fallback values
+1. missing required YAML for a symbol does not block export of the whole entry
+2. unresolved symbols export type-based fallback values
 3. reporting must clearly identify missing symbols or YAML paths
+4. generated fallback values still participate in normal `fields id` matching and reuse
 
 ## 11. Cache and Skip Strategy
 
@@ -520,7 +528,9 @@ Validate:
 2. bitfield export calculation
 3. `fields id` reuse
 4. orphan field cleanup
-5. `fields="0"` behavior for incomplete YAML sets
+5. `0xffff` fallback export for unresolved `uint16` symbols
+6. `0xffffffff` fallback export for unresolved `uint32` symbols
+7. mixed real-value plus fallback-value field sets
 
 ## 14. Scope Control for the First Implementation
 
@@ -529,7 +539,7 @@ The first implementation explicitly does **not** include:
 1. cross-repository framework extraction
 2. complex cache invalidation
 3. compatibility wrappers for deprecated CLI modes
-4. XML repair/fallback workflows
+4. post-export XML repair workflows beyond normal fallback export
 5. a second artifact directory
 
 ## 15. Final Outcome
