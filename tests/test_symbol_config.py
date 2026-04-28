@@ -361,6 +361,83 @@ class TestSymbolConfig(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "bits must be a boolean"):
                 symbol_config.load_config(config_path)
 
+    def test_load_config_rejects_null_required_string_fields(self) -> None:
+        cases = [
+            (
+                "module.name",
+                """
+                modules:
+                  - name: null
+                    path: [ntoskrnl.exe]
+                    skills:
+                      - name: find-EpObjectTable
+                        symbol: EpObjectTable
+                        expected_output: [EpObjectTable.yaml]
+                    symbols:
+                      - name: EpObjectTable
+                        category: struct_offset
+                        symbol_expr: _EPROCESS->ObjectTable
+                        data_type: uint16
+                """,
+            ),
+            (
+                "symbol.data_type",
+                """
+                modules:
+                  - name: ntoskrnl
+                    path: [ntoskrnl.exe]
+                    skills:
+                      - name: find-EpObjectTable
+                        symbol: EpObjectTable
+                        expected_output: [EpObjectTable.yaml]
+                    symbols:
+                      - name: EpObjectTable
+                        category: struct_offset
+                        symbol_expr: _EPROCESS->ObjectTable
+                        data_type: null
+                """,
+            ),
+        ]
+
+        for field_name, content in cases:
+            with self.subTest(field_name=field_name):
+                with TemporaryDirectory() as temp_dir:
+                    config_path = Path(temp_dir) / "config.yaml"
+                    config_path.write_text(
+                        textwrap.dedent(content).strip() + "\n",
+                        encoding="utf-8",
+                    )
+
+                    with self.assertRaisesRegex(ValueError, field_name):
+                        symbol_config.load_config(config_path)
+
+    def test_load_config_rejects_non_string_required_field(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: 123
+                            symbol: EpObjectTable
+                            expected_output: [EpObjectTable.yaml]
+                        symbols:
+                          - name: EpObjectTable
+                            category: struct_offset
+                            symbol_expr: _EPROCESS->ObjectTable
+                            data_type: uint16
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "skill.name"):
+                symbol_config.load_config(config_path)
+
     def test_load_config_reads_repository_baseline(self) -> None:
         config = symbol_config.load_config(Path("config.yaml"))
 

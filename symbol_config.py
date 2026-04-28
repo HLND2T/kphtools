@@ -48,6 +48,18 @@ def _require_field(entry: dict[str, Any], field_name: str, owner_name: str) -> A
     return entry[field_name]
 
 
+def _require_non_empty_string(
+    entry: dict[str, Any], field_name: str, owner_name: str
+) -> str:
+    value = _require_field(entry, field_name, owner_name)
+    if not isinstance(value, str):
+        raise ValueError(f"{owner_name}.{field_name} must be a non-empty string")
+    value = value.strip()
+    if not value:
+        raise ValueError(f"{owner_name}.{field_name} must be a non-empty string")
+    return value
+
+
 def _require_mapping(value: Any, field_name: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{field_name} must be a mapping")
@@ -83,8 +95,8 @@ def _load_skill(entry: dict[str, Any]) -> SkillSpec:
     )
     expected_input = _require_string_list(entry.get("expected_input", []), "expected_input")
     return SkillSpec(
-        name=str(_require_field(entry, "name", "skill")).strip(),
-        symbol=str(_require_field(entry, "symbol", "skill")).strip(),
+        name=_require_non_empty_string(entry, "name", "skill"),
+        symbol=_require_non_empty_string(entry, "symbol", "skill"),
         expected_output=[_validate_expected_output_name(item) for item in expected_output],
         expected_input=expected_input,
         agent_skill=str(entry.get("agent_skill", "")).strip() or "find-kph-func",
@@ -111,9 +123,9 @@ def _load_symbol(entry: dict[str, Any]) -> SymbolSpec:
         raise ValueError("bits must be a boolean")
 
     return SymbolSpec(
-        name=str(_require_field(entry, "name", "symbol")).strip(),
-        category=str(_require_field(entry, "category", "symbol")).strip(),
-        data_type=str(_require_field(entry, "data_type", "symbol")).strip(),
+        name=_require_non_empty_string(entry, "name", "symbol"),
+        category=_require_non_empty_string(entry, "category", "symbol"),
+        data_type=_require_non_empty_string(entry, "data_type", "symbol"),
         symbol_expr=symbol_expr,
         struct_name=struct_name,
         member_name=member_name,
@@ -151,7 +163,7 @@ def load_config(path: str | Path) -> ConfigSpec:
 
         modules.append(
             ModuleSpec(
-                name=str(_require_field(module_data, "name", "module")).strip(),
+                name=_require_non_empty_string(module_data, "name", "module"),
                 path=path_items,
                 skills=skills,
                 symbols=symbols,
