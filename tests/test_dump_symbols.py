@@ -1,6 +1,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import asyncio
+import subprocess
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -85,3 +86,177 @@ class TestDumpSymbols(unittest.TestCase):
             max_retries=3,
             agent_skill_name="find-kph-struct-offset",
         )
+
+    def test_process_binary_absent_ok_still_falls_back_to_agent(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            config = {
+                "skills": [
+                    {
+                        "name": "find-EpObjectTable",
+                        "symbol": "EpObjectTable",
+                        "expected_output": ["EpObjectTable.yaml"],
+                        "agent_skill": "find-kph-struct-offset",
+                    }
+                ],
+                "symbols": [
+                    {
+                        "name": "EpObjectTable",
+                        "category": "struct_offset",
+                        "data_type": "uint16",
+                        "symbol_expr": "_EPROCESS->ObjectTable",
+                        "struct_name": "_EPROCESS",
+                        "member_name": "ObjectTable",
+                    }
+                ],
+            }
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=AsyncMock(return_value="absent_ok"),
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                    )
+                )
+
+        self.assertTrue(ok)
+        mock_run_skill.assert_called_once()
+
+    def test_process_binary_success_does_not_require_output_files(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            config = {
+                "skills": [
+                    {
+                        "name": "find-EpObjectTable",
+                        "symbol": "EpObjectTable",
+                        "expected_output": ["EpObjectTable.yaml"],
+                        "agent_skill": "find-kph-struct-offset",
+                    }
+                ],
+                "symbols": [
+                    {
+                        "name": "EpObjectTable",
+                        "category": "struct_offset",
+                        "data_type": "uint16",
+                        "symbol_expr": "_EPROCESS->ObjectTable",
+                        "struct_name": "_EPROCESS",
+                        "member_name": "ObjectTable",
+                    }
+                ],
+            }
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS),
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                    )
+                )
+
+        self.assertTrue(ok)
+        mock_run_skill.assert_not_called()
+
+    def test_process_binary_returns_false_immediately_when_run_skill_fails(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            skills = [
+                {
+                    "name": "find-A",
+                    "symbol": "SymbolA",
+                    "expected_output": ["A.yaml"],
+                    "agent_skill": "find-kph-struct-offset",
+                },
+                {
+                    "name": "find-B",
+                    "symbol": "SymbolB",
+                    "expected_output": ["B.yaml"],
+                    "agent_skill": "find-kph-struct-offset",
+                },
+            ]
+            symbols = [
+                {
+                    "name": "SymbolA",
+                    "category": "struct_offset",
+                    "data_type": "uint16",
+                    "symbol_expr": "_EPROCESS->ObjectTable",
+                    "struct_name": "_EPROCESS",
+                    "member_name": "ObjectTable",
+                },
+                {
+                    "name": "SymbolB",
+                    "category": "struct_offset",
+                    "data_type": "uint16",
+                    "symbol_expr": "_EPROCESS->ObjectTable",
+                    "struct_name": "_EPROCESS",
+                    "member_name": "ObjectTable",
+                },
+            ]
+            preprocess_mock = AsyncMock(return_value="failed")
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=False) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=skills,
+                        symbols=symbols,
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                    )
+                )
+
+        self.assertFalse(ok)
+        self.assertEqual(1, mock_run_skill.call_count)
+        self.assertEqual(1, preprocess_mock.await_count)
+
+    def test_run_skill_calls_subprocess_once_even_with_higher_retry_limit(self) -> None:
+        completed = subprocess.CompletedProcess(args=["codex"], returncode=1)
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.read_text", return_value="developer prompt"),
+            patch.object(dump_symbols.subprocess, "run", return_value=completed) as mock_run,
+        ):
+            ok = dump_symbols.run_skill(
+                "find-test",
+                agent="codex",
+                debug=False,
+                expected_yaml_paths=[],
+                max_retries=5,
+                agent_skill_name="find-kph-struct-offset",
+            )
+
+        self.assertFalse(ok)
+        mock_run.assert_called_once()

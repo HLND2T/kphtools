@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any
 
 from ida_skill_preprocessor import (
-    PREPROCESS_STATUS_ABSENT_OK,
     PREPROCESS_STATUS_SUCCESS,
     preprocess_single_skill_via_mcp,
 )
@@ -144,16 +143,12 @@ def run_skill(
         "-",
     ]
     prompt = f"Run SKILL: {skill_md_path}"
-
-    for _attempt in range(max_retries):
-        completed = subprocess.run(cmd, input=prompt, text=True, check=False)
-        if completed.returncode == 0 and all(
-            Path(path).exists() for path in expected_yaml_paths
-        ):
-            return True
+    completed = subprocess.run(cmd, input=prompt, text=True, check=False)
+    if completed.returncode != 0:
         if debug:
             print(f"skill failed: {selected_skill}")
-    return False
+        return False
+    return all(Path(path).exists() for path in expected_yaml_paths)
 
 
 async def process_binary_dir(
@@ -169,7 +164,6 @@ async def process_binary_dir(
 ):
     skill_map = {_field(skill, "name"): skill for skill in skills}
     symbol_map = {_field(symbol, "name"): symbol for symbol in symbols}
-    overall_success = True
 
     for skill_name in topological_sort_skills(skills):
         skill = skill_map[skill_name]
@@ -189,12 +183,7 @@ async def process_binary_dir(
             debug=debug,
             llm_config=llm_config,
         )
-        if status == PREPROCESS_STATUS_SUCCESS or status is True:
-            if all(Path(path).exists() for path in expected_outputs):
-                continue
-            overall_success = False
-            continue
-        if status == PREPROCESS_STATUS_ABSENT_OK:
+        if status == PREPROCESS_STATUS_SUCCESS:
             continue
 
         skill_max_retries = _field(skill, "max_retries") or 3
@@ -206,8 +195,8 @@ async def process_binary_dir(
             max_retries=skill_max_retries,
             agent_skill_name=_field(skill, "agent_skill"),
         ):
-            overall_success = False
-    return overall_success
+            return False
+    return True
 
 
 def _wait_for_port(host: str, port: int, timeout: float = 30.0) -> bool:
