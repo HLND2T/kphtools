@@ -276,9 +276,15 @@ def start_idalib_mcp(binary_path: Path, host: str = "127.0.0.1", port: int = 133
         str(port),
         str(binary_path),
     ]
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
     if not _wait_for_port(host, port):
         process.kill()
+        process.wait()
         raise RuntimeError(f"idalib-mcp failed to start for {binary_path}")
     return process
 

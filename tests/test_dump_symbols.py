@@ -366,3 +366,47 @@ class TestDumpSymbols(unittest.TestCase):
 
         mock_session_matches_binary.assert_awaited_once_with(fake_session, binary_path)
         mock_process_binary.assert_not_awaited()
+
+    def test_start_idalib_mcp_uses_devnull_streams(self) -> None:
+        fake_process = MagicMock()
+        binary_path = Path("/tmp/ntoskrnl.exe")
+
+        with (
+            patch.object(
+                dump_symbols.subprocess, "Popen", return_value=fake_process
+            ) as mock_popen,
+            patch.object(dump_symbols, "_wait_for_port", return_value=True),
+        ):
+            process = dump_symbols.start_idalib_mcp(binary_path, host="127.0.0.1", port=13337)
+
+        self.assertIs(process, fake_process)
+        mock_popen.assert_called_once_with(
+            [
+                "uv",
+                "run",
+                "idalib-mcp",
+                "--unsafe",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "13337",
+                str(binary_path),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+
+    def test_start_idalib_mcp_waits_after_timeout_failure(self) -> None:
+        fake_process = MagicMock()
+        binary_path = Path("/tmp/ntoskrnl.exe")
+
+        with (
+            patch.object(dump_symbols.subprocess, "Popen", return_value=fake_process),
+            patch.object(dump_symbols, "_wait_for_port", return_value=False),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "failed to start"):
+                dump_symbols.start_idalib_mcp(binary_path, host="127.0.0.1", port=13337)
+
+        fake_process.kill.assert_called_once_with()
+        fake_process.wait.assert_called_once_with()
