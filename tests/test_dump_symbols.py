@@ -2,8 +2,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import asyncio
 import subprocess
+from types import SimpleNamespace
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import dump_symbols
 
@@ -260,3 +261,50 @@ class TestDumpSymbols(unittest.TestCase):
 
         self.assertFalse(ok)
         mock_run.assert_called_once()
+
+    def test_process_module_binary_uses_same_dynamic_port_for_mcp_start_and_session(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            binary_path = binary_dir / "ntoskrnl.exe"
+            binary_path.write_text("", encoding="utf-8")
+            pdb_path = binary_dir / "ntkrnlmp.pdb"
+            pdb_path.write_text("", encoding="utf-8")
+
+            module = SimpleNamespace(path=["ntoskrnl.exe"], skills=[], symbols=[])
+            args = SimpleNamespace(agent="codex", debug=False, force=False)
+            fake_process = MagicMock()
+            fake_streams = AsyncMock()
+            fake_session = AsyncMock()
+
+            with (
+                patch.object(
+                    dump_symbols,
+                    "_allocate_local_port",
+                    return_value=24567,
+                    create=True,
+                ) as mock_allocate_port,
+                patch.object(
+                    dump_symbols, "start_idalib_mcp", return_value=fake_process
+                ) as mock_start,
+                patch.object(
+                    dump_symbols,
+                    "_open_session",
+                    new=AsyncMock(return_value=(fake_streams, fake_session)),
+                ) as mock_open_session,
+                patch.object(
+                    dump_symbols,
+                    "process_binary_dir",
+                    new=AsyncMock(return_value=True),
+                ) as mock_process_binary,
+            ):
+                ok = asyncio.run(
+                    dump_symbols._process_module_binary(module, binary_dir, pdb_path, args)
+                )
+
+        self.assertTrue(ok)
+        mock_allocate_port.assert_called_once_with("127.0.0.1")
+        mock_start.assert_called_once_with(binary_path, host="127.0.0.1", port=24567)
+        mock_open_session.assert_awaited_once_with("http://127.0.0.1:24567/mcp")
+        mock_process_binary.assert_awaited_once()

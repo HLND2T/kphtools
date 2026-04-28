@@ -210,6 +210,12 @@ def _wait_for_port(host: str, port: int, timeout: float = 30.0) -> bool:
     return False
 
 
+def _allocate_local_port(host: str = "127.0.0.1") -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind((host, 0))
+        return int(sock.getsockname()[1])
+
+
 def start_idalib_mcp(binary_path: Path, host: str = "127.0.0.1", port: int = 13337):
     cmd = [
         "uv",
@@ -266,11 +272,17 @@ def _resolve_binary_path(module, binary_dir: Path) -> Path:
 
 
 async def _process_module_binary(module, binary_dir, pdb_path, args):
-    process = start_idalib_mcp(_resolve_binary_path(module, Path(binary_dir)))
+    host = "127.0.0.1"
+    port = _allocate_local_port(host)
+    process = start_idalib_mcp(
+        _resolve_binary_path(module, Path(binary_dir)),
+        host=host,
+        port=port,
+    )
     streams = None
     session = None
     try:
-        streams, session = await _open_session("http://127.0.0.1:13337/mcp")
+        streams, session = await _open_session(f"http://{host}:{port}/mcp")
         return await process_binary_dir(
             binary_dir=Path(binary_dir),
             pdb_path=Path(pdb_path),
