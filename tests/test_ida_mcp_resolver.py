@@ -58,3 +58,17 @@ class TestIdaMcpResolver(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(0x570, payload["offset"])
+
+    async def test_llm_struct_offset_parser_supports_fenced_yaml(self) -> None:
+        with patch.object(
+            ida_mcp_resolver,
+            "call_llm_text",
+            AsyncMock(return_value="```yaml\noffset: 0x570\n```\n"),
+        ):
+            payload = await ida_mcp_resolver.resolve_struct_offset_via_llm(
+                llm_config={"model": "gpt-4o"},
+                reference_blocks=["ref"],
+                target_blocks=["target"],
+            )
+
+        self.assertEqual(0x570, payload["offset"])

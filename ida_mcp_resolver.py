@@ -20,6 +20,17 @@ def _parse_offset_value(value: Any) -> int:
     return int(str(value), 16)
 
 
+def _strip_yaml_fence(raw: str) -> str:
+    text = raw.strip()
+    if not text.startswith("```"):
+        return raw
+
+    lines = text.splitlines()
+    if len(lines) >= 2 and lines[0].startswith("```") and lines[-1] == "```":
+        return "\n".join(lines[1:-1]).strip()
+    return raw
+
+
 def _parse_rva_value(payload: dict[str, Any]) -> int:
     if "rva" not in payload:
         raise ValueError("missing rva in py_eval result")
@@ -75,5 +86,5 @@ async def resolve_struct_offset_via_llm(
         base_url=llm_config.get("base_url"),
         temperature=llm_config.get("temperature"),
     )
-    payload = yaml.safe_load(raw) or {}
+    payload = yaml.safe_load(_strip_yaml_fence(raw)) or {}
     return {"offset": _parse_offset_value(payload["offset"])}
