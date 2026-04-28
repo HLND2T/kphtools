@@ -22,6 +22,10 @@ def run_llvm_pdbutil(
     pdbutil_path: str = "llvm-pdbutil",
 ) -> str:
     cmd = [pdbutil_path, "dump", mode, str(pdb_path)]
+    if mode == "-section-headers":
+        result = subprocess.run(cmd, capture_output=True, check=True)
+        return result.stdout.decode(errors="replace")
+
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     return result.stdout
 

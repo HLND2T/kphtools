@@ -1,4 +1,6 @@
+import subprocess
 import unittest
+from unittest import mock
 
 import pdb_resolver
 
@@ -116,6 +118,26 @@ SECTION HEADER #26
 
 
 class TestPdbResolver(unittest.TestCase):
+    def test_run_llvm_pdbutil_decodes_section_headers_with_replace(self) -> None:
+        def fake_run(*args, **kwargs):
+            if kwargs.get("text"):
+                raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+
+            return subprocess.CompletedProcess(
+                args=args[0],
+                returncode=0,
+                stdout=b"SECTION HEADER #1\n\xff\n",
+                stderr=b"\xfe",
+            )
+
+        with mock.patch("pdb_resolver.subprocess.run", side_effect=fake_run):
+            result = pdb_resolver.run_llvm_pdbutil(
+                "dummy.pdb",
+                "-section-headers",
+            )
+
+        self.assertEqual("SECTION HEADER #1\n\ufffd\n", result)
+
     def test_resolve_struct_offset_returns_member_offset(self) -> None:
         result = pdb_resolver.resolve_struct_symbol_from_text(
             TYPES_OUTPUT,
