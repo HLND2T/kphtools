@@ -73,6 +73,16 @@ TYPES_OUTPUT_WITH_DOTTED_FALLBACK_TRAP = """
     list[0] = LF_MEMBER, public, type = T_64PVOID, offset = 0x20, member name = `Segment`
 """
 
+TYPES_OUTPUT_WITH_FORWARD_REF = """
+1500 | LF_STRUCTURE [size = 0, forward ref] `_TOKEN`
+    field list: <fieldlist 0x0>
+
+1501 | LF_STRUCTURE [size = 48] `_TOKEN`
+    field list: <fieldlist 0x2500>
+2500 | LF_FIELDLIST
+    list[0] = LF_MEMBER, public, type = T_64PVOID, offset = 0x40, member name = `Privileges`
+"""
+
 PUBLICS_OUTPUT = """
 Public Symbols:
 0001:00045678 PspCreateProcessNotifyRoutine
@@ -174,6 +184,18 @@ class TestPdbResolver(unittest.TestCase):
         self.assertEqual("_SECTION_OBJECT", result["struct_name"])
         self.assertEqual("Segment", result["member_name"])
         self.assertEqual(0x20, result["offset"])
+
+    def test_resolve_struct_offset_skips_forward_ref_and_uses_real_definition(
+        self,
+    ) -> None:
+        result = pdb_resolver.resolve_struct_symbol_from_text(
+            TYPES_OUTPUT_WITH_FORWARD_REF,
+            "_TOKEN->Privileges",
+            bits=False,
+        )
+        self.assertEqual("_TOKEN", result["struct_name"])
+        self.assertEqual("Privileges", result["member_name"])
+        self.assertEqual(0x40, result["offset"])
 
     def test_resolve_gv_rva_returns_expected_value(self) -> None:
         result = pdb_resolver.resolve_public_symbol_from_text(

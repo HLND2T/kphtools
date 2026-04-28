@@ -63,9 +63,13 @@ def _find_field_list_id(
             continue
         if normalized_type_id is not None and _normalize_record_id(record_id) != normalized_type_id:
             continue
+        if "forward ref" in line:
+            continue
 
         for body_line in lines[index + 1 :]:
             if TYPE_HEADER_RE.match(body_line):
+                break
+            if "forward ref" in body_line:
                 break
             field_list_match = FIELD_LIST_RE.search(body_line)
             if field_list_match:
