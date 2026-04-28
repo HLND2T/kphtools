@@ -412,6 +412,15 @@ def resolve_public_symbol(
             "-publics",
             pdbutil_path=pdbutil_path,
         )
+    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        raise KeyError(symbol_name) from exc
+
+    try:
+        return resolve_public_symbol_from_text(publics_output, "", symbol_name)
+    except KeyError:
+        pass
+
+    try:
         sections_output = run_llvm_pdbutil(
             pdb_path,
             "-section-headers",
@@ -419,4 +428,5 @@ def resolve_public_symbol(
         )
     except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         raise KeyError(symbol_name) from exc
+
     return resolve_public_symbol_from_text(publics_output, sections_output, symbol_name)

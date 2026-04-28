@@ -290,6 +290,22 @@ class TestPdbResolver(unittest.TestCase):
         self.assertEqual("ExReferenceCallBackBlock", result["name"])
         self.assertEqual(0x1000 + 123456, result["rva"])
 
+    def test_resolve_public_symbol_skips_section_headers_when_simple_publics_hit(
+        self,
+    ) -> None:
+        with mock.patch(
+            "pdb_resolver.run_llvm_pdbutil",
+            return_value=PUBLICS_OUTPUT,
+        ) as run_mock:
+            result = pdb_resolver.resolve_public_symbol(
+                "dummy.pdb",
+                "PspCreateProcessNotifyRoutine",
+            )
+
+        self.assertEqual("PspCreateProcessNotifyRoutine", result["name"])
+        self.assertEqual(0x45678, result["rva"])
+        self.assertEqual(1, run_mock.call_count)
+
     def test_resolve_public_symbol_converts_tool_failure_to_keyerror(self) -> None:
         with mock.patch(
             "pdb_resolver.run_llvm_pdbutil",
