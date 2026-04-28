@@ -47,7 +47,7 @@ based on entries from `kphdyn.xml`
 ### Usage, [] for optional
 
 ```bash
-uv run python download_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" [-arch=amd64] [-version=10.0.10240.16393] [-symbol_server="https//msdl.microsoft.com/download/symbols"]
+uv run python download_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" [-arch=amd64] [-version=10.0.10240.16393] [-symbol_server="https://msdl.microsoft.com/download/symbols"]
 ```
 
 ### Possible environment variables
@@ -197,7 +197,7 @@ copy kphdyn.official.xml kphdyn.xml /y
 ```shell
 @echo Sync unmanaged ntoskrnl to kphdyn.xml
 
-uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -syncfile -fast
+uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -syncfile
 ```
 
 ```shell
