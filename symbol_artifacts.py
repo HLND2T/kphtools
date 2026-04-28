@@ -18,17 +18,17 @@ def _hexify_fields(payload: dict) -> dict:
 
 
 def write_struct_yaml(path: str | Path, payload: dict) -> None:
-    body = {"category": "struct_offset", **_hexify_fields(payload)}
+    body = {**_hexify_fields(payload), "category": "struct_offset"}
     Path(path).write_text(yaml.safe_dump(body, sort_keys=False), encoding="utf-8")
 
 
 def write_gv_yaml(path: str | Path, payload: dict) -> None:
-    body = {"category": "gv", **_hexify_fields(payload)}
+    body = {**_hexify_fields(payload), "category": "gv"}
     Path(path).write_text(yaml.safe_dump(body, sort_keys=False), encoding="utf-8")
 
 
 def write_func_yaml(path: str | Path, payload: dict) -> None:
-    body = {"category": "func", **_hexify_fields(payload)}
+    body = {**_hexify_fields(payload), "category": "func"}
     Path(path).write_text(yaml.safe_dump(body, sort_keys=False), encoding="utf-8")
 
 
