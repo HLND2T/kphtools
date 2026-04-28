@@ -3,9 +3,11 @@ name = "kphtools"
 version = "0.1.0"
 description = "Toolkits for KPH dynamic data"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "anthropic",
+    "httpx",
+    "mcp",
     "openai",
     "pefile",
     "pyyaml",
