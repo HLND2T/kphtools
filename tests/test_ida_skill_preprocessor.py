@@ -94,6 +94,47 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_FAILED, status)
             self.assertFalse(output_path.exists())
 
+    async def test_generic_struct_preprocessor_returns_failed_on_missing_offset_payload(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "PspHostSiloGlobals.yaml"
+
+            with (
+                patch(
+                    "ida_preprocessor_scripts.generic_struct_offset.resolve_struct_symbol",
+                    side_effect=KeyError("_ESERVERSILO_GLOBALS->PspHostSiloGlobals"),
+                ),
+                patch(
+                    "ida_preprocessor_scripts.generic_struct_offset.resolve_struct_offset_via_llm",
+                    new=AsyncMock(side_effect=KeyError("offset")),
+                ),
+            ):
+                status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
+                    session=AsyncMock(),
+                    skill=SkillSpec(
+                        name="find-PspHostSiloGlobals",
+                        symbol="PspHostSiloGlobals",
+                        expected_output=["PspHostSiloGlobals.yaml"],
+                        expected_input=[],
+                        agent_skill="find-kph-struct-offset",
+                    ),
+                    symbol=SymbolSpec(
+                        name="PspHostSiloGlobals",
+                        category="struct_offset",
+                        data_type="uint64",
+                        struct_name="_ESERVERSILO_GLOBALS",
+                        member_name="PspHostSiloGlobals",
+                    ),
+                    binary_dir=Path(temp_dir),
+                    pdb_path=Path(temp_dir) / "ntkrnlmp.pdb",
+                    debug=False,
+                    llm_config={"model": "test-model"},
+                )
+
+            self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_FAILED, status)
+            self.assertFalse(output_path.exists())
+
     async def test_generic_gv_preprocessor_returns_failed_when_all_fallbacks_miss(
         self,
     ) -> None:

@@ -26,7 +26,7 @@ async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, 
             reference_blocks=[symbol.struct_name or ""],
             target_blocks=[symbol.member_name or ""],
         )
-    except (ValueError, TypeError):
+    except (KeyError, ValueError, TypeError):
         return PREPROCESS_STATUS_FAILED
 
     if symbol.bits and "bit_offset" not in payload:
