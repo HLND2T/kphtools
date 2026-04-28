@@ -170,9 +170,7 @@ curl "http://localhost:8000/"
 {"status": "healthy"}
 ```
 
-## Reverse engineer symbols using IDA and LLM
-
-`reverse_symbols.py` is deprecated and kept as a compatibility entry only.
+## Migrated symbol analysis workflow
 
 Use the migrated workflow:
 
@@ -213,45 +211,14 @@ exit 0
 ```
 
 ```shell
+@echo Analyze symbols and dump YAML artifacts
 
-@echo Generate SymbolMapping.yaml for missing-pdb ntoskrnl
-
-set IDA64_PATH=C:\Program Files\IDA Professional 9.0\ida64.exe
-set LLM_PROVIDER=openai
-set LLM_API_BASE=https://api.deepseek.com
-set LLM_MODEL=deepseek-chat
-set LLM_API_KEY=
-
-uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PsSetCreateProcessNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
-
-uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PspSetCreateProcessNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
-
-uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PsSetCreateThreadNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
-
-uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PspSetCreateThreadNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
-
-uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PsSetLoadImageNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
-
-uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PsSetLoadImageNotifyRoutineEx -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
-
-uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PgInitContextFillPtr -signature=FB488D05????????4989 -no_procedure -disasm_lines=200 -template="%WORKSPACE%\ida\GenerateMappingDisasmOnly.md" -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
-
+uv run python dump_symbols.py -symboldir="%WORKSPACE%\symbols" -arch=amd64 -configyaml="%WORKSPACE%\config.yaml"
+uv run python dump_symbols.py -symboldir="%WORKSPACE%\symbols" -arch=arm64 -configyaml="%WORKSPACE%\config.yaml"
 ```
 
 ```shell
-@echo Generate strut function and variable RVA via ntoskrnl pdb, llvm-pdbutil assumed in PATH
+@echo Export kphdyn.xml from YAML artifacts
 
-uv run python update_symbols.py -xml kphdyn.xml -symboldir "%WORKSPACE%\symbols" -yaml kphdyn.yaml
-```
-
-```shell
-@echo Fix function and variable RVA via SymbolMapping.yaml
-
-uv run python update_symbols.py -xml kphdyn.xml -symboldir "%WORKSPACE%\symbols" -yaml kphdyn.yaml -fixnull
-```
-
-```shell
-@echo Fix struct offset
-
-uv run python update_symbols.py -xml kphdyn.xml -symboldir "%WORKSPACE%\symbols" -yaml kphdyn.yaml -fixstruct
+uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -configyaml="%WORKSPACE%\config.yaml" -syncfile
 ```
