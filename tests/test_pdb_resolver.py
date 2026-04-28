@@ -201,7 +201,7 @@ class TestPdbResolver(unittest.TestCase):
     def test_resolve_struct_offset_uses_first_matching_candidate(self) -> None:
         result = pdb_resolver.resolve_struct_symbol_from_text(
             TYPES_OUTPUT,
-            "_MISSING->Field,_EPROCESS->ObjectTable",
+            "_MISSING->Field, _EPROCESS->ObjectTable",
             bits=False,
         )
         self.assertEqual("_EPROCESS", result["struct_name"])
@@ -274,5 +274,14 @@ class TestPdbResolver(unittest.TestCase):
                 ["llvm-pdbutil", "dump", "-publics", "dummy.pdb"],
             ),
         ):
+            with self.assertRaises(KeyError):
+                pdb_resolver.resolve_public_symbol("dummy.pdb", "MissingSymbol")
+
+    def test_resolve_public_symbol_converts_timeout_to_keyerror(self) -> None:
+        def fake_run(*args, **kwargs):
+            self.assertEqual(300, kwargs.get("timeout"))
+            raise subprocess.TimeoutExpired(args[0], kwargs["timeout"])
+
+        with mock.patch("pdb_resolver.subprocess.run", side_effect=fake_run):
             with self.assertRaises(KeyError):
                 pdb_resolver.resolve_public_symbol("dummy.pdb", "MissingSymbol")

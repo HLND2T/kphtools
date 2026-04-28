@@ -14,6 +14,7 @@ BIT_OFFSET_RE = re.compile(r"(?:position|bit offset)\s*=\s*(\d+)")
 SECTION_HEADER_RE = re.compile(r"SECTION HEADER #(\d+)")
 SECTION_VA_RE = re.compile(r"^\s*([0-9A-Fa-f]+)\s+virtual address", re.IGNORECASE)
 SECTION_VIRTUAL_ADDRESS_RE = re.compile(r"VirtualAddress:\s*(0x[0-9A-Fa-f]+)")
+LLVM_PDBUTIL_TIMEOUT_SECONDS = 300
 _LLVM_PDBUTIL_CACHE: dict[tuple[str, str, str], str] = {}
 
 
@@ -29,12 +30,23 @@ def run_llvm_pdbutil(
 
     cmd = [pdbutil_path, "dump", mode, str(pdb_path)]
     if mode == "-section-headers":
-        result = subprocess.run(cmd, capture_output=True, check=True)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            check=True,
+            timeout=LLVM_PDBUTIL_TIMEOUT_SECONDS,
+        )
         output = result.stdout.decode(errors="replace")
         _LLVM_PDBUTIL_CACHE[cache_key] = output
         return output
 
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=LLVM_PDBUTIL_TIMEOUT_SECONDS,
+    )
     _LLVM_PDBUTIL_CACHE[cache_key] = result.stdout
     return result.stdout
 
@@ -257,7 +269,7 @@ def resolve_struct_symbol_from_text(
 ) -> dict[str, int | str]:
     lines = types_output.splitlines()
 
-    for candidate in symbol_expr.split(","):
+    for candidate in (item.strip() for item in symbol_expr.split(",")):
         struct_name, member_name = candidate.split("->", 1)
         member_entry = _resolve_member(lines, struct_name, member_name)
         if member_entry is None:
