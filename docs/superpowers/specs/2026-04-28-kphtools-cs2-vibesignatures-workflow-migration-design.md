@@ -72,9 +72,9 @@ Example:
 symboldir/amd64/ntoskrnl.exe.10.0.22621.5189/<sha256>/
   ntoskrnl.exe
   ntkrnlmp.pdb
-  EpObjectTable.windows.yaml
-  PspCreateProcessNotifyRoutine.windows.yaml
-  ExReferenceCallBackBlock.windows.yaml
+  EpObjectTable.amd64.yaml
+  PspCreateProcessNotifyRoutine.amd64.yaml
+  ExReferenceCallBackBlock.amd64.yaml
 ```
 
 This is intentional. In `kphtools`, `symboldir` is semantically equivalent to `CS2_VibeSignatures/bin`.
@@ -94,6 +94,15 @@ New YAML field names:
 - struct member output: `offset`
 - global variable output: `gv_rva`
 - function output: `func_rva`
+
+In `kphtools`, `{platform}` means architecture, not operating system.
+
+Allowed platform values are:
+
+- `amd64`
+- `arm64`
+
+`kphtools` does not use the `CS2_VibeSignatures` meaning of `{platform}` as `windows` or `linux`. The OS dimension is fixed to Windows kernel binaries; the platform dimension distinguishes architecture only.
 
 Legacy `kphtools` names survive only in the XML export mapping layer:
 
@@ -151,22 +160,22 @@ Proposed shape:
 ```yaml
 modules:
   - name: ntoskrnl
-    path_windows:
+    path:
       - ntoskrnl.exe
       - ntkrla57.exe
 
     skills:
       - name: find-EpObjectTable
         expected_output:
-          - EpObjectTable.windows.yaml
+          - EpObjectTable.amd64.yaml
 
       - name: find-PspCreateProcessNotifyRoutine
         expected_output:
-          - PspCreateProcessNotifyRoutine.windows.yaml
+          - PspCreateProcessNotifyRoutine.amd64.yaml
 
       - name: find-ExReferenceCallBackBlock
         expected_output:
-          - ExReferenceCallBackBlock.windows.yaml
+          - ExReferenceCallBackBlock.amd64.yaml
 
     symbols:
       - name: EpObjectTable
@@ -200,8 +209,9 @@ Notes:
 1. `skills` defines workflow execution.
 2. `symbols` defines symbol semantics and output interpretation.
 3. `expected_input` and `expected_output` keep CS2 semantics.
-4. Platform suffix stays `.windows.yaml` even though the first migration is Windows-only.
-5. `path_windows` is interpreted as candidate file basenames to resolve inside `symboldir`.
+4. The `{platform}` placeholder means architecture and uses values such as `amd64` and `arm64`.
+5. Output suffixes therefore use names such as `.amd64.yaml` and `.arm64.yaml`.
+6. `path` is interpreted as candidate file basenames to resolve inside `symboldir`.
 
 ### 5.3 Skill Execution Model
 
@@ -320,13 +330,13 @@ func_size: 0x40
 
 Generated YAML file names follow the CS2 convention:
 
-- `<symbol>.windows.yaml`
+- `<symbol>.<platform>.yaml`
 
 Examples:
 
-- `EpObjectTable.windows.yaml`
-- `PspCreateProcessNotifyRoutine.windows.yaml`
-- `ExReferenceCallBackBlock.windows.yaml`
+- `EpObjectTable.amd64.yaml`
+- `PspCreateProcessNotifyRoutine.amd64.yaml`
+- `ExReferenceCallBackBlock.amd64.yaml`
 
 ### 7.2 File Placement
 
