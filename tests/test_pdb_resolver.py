@@ -118,6 +118,28 @@ SECTION HEADER #26
 
 
 class TestPdbResolver(unittest.TestCase):
+    def setUp(self) -> None:
+        pdb_resolver._LLVM_PDBUTIL_CACHE.clear()
+
+    def test_run_llvm_pdbutil_reuses_cached_dump(self) -> None:
+        completed_process = subprocess.CompletedProcess(
+            args=["llvm-pdbutil", "dump", "-types", "dummy.pdb"],
+            returncode=0,
+            stdout="cached output",
+            stderr="",
+        )
+
+        with mock.patch(
+            "pdb_resolver.subprocess.run",
+            return_value=completed_process,
+        ) as run_mock:
+            first = pdb_resolver.run_llvm_pdbutil("dummy.pdb", "-types")
+            second = pdb_resolver.run_llvm_pdbutil("dummy.pdb", "-types")
+
+        self.assertEqual("cached output", first)
+        self.assertEqual("cached output", second)
+        self.assertEqual(1, run_mock.call_count)
+
     def test_run_llvm_pdbutil_decodes_section_headers_with_replace(self) -> None:
         def fake_run(*args, **kwargs):
             if kwargs.get("text"):
@@ -243,3 +265,14 @@ class TestPdbResolver(unittest.TestCase):
         )
         self.assertEqual("ExReferenceCallBackBlock", result["name"])
         self.assertEqual(0x1000 + 123456, result["rva"])
+
+    def test_resolve_public_symbol_converts_tool_failure_to_keyerror(self) -> None:
+        with mock.patch(
+            "pdb_resolver.run_llvm_pdbutil",
+            side_effect=subprocess.CalledProcessError(
+                1,
+                ["llvm-pdbutil", "dump", "-publics", "dummy.pdb"],
+            ),
+        ):
+            with self.assertRaises(KeyError):
+                pdb_resolver.resolve_public_symbol("dummy.pdb", "MissingSymbol")
