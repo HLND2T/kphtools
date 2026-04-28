@@ -17,7 +17,8 @@ def _parse_py_eval_result(tool_result: Any) -> dict:
 def _parse_offset_value(value: Any) -> int:
     if isinstance(value, int):
         return value
-    return int(str(value), 16)
+    text = str(value).strip()
+    return int(text, 0 if text.lower().startswith("0x") else 10)
 
 
 def _strip_yaml_fence(raw: str) -> str:
@@ -31,7 +32,10 @@ def _strip_yaml_fence(raw: str) -> str:
     return raw
 
 
-def _parse_rva_value(payload: dict[str, Any]) -> int:
+def _parse_rva_value(payload: dict[str, Any], symbol_name: str) -> int:
+    if payload.get("missing") == symbol_name:
+        raise KeyError(symbol_name)
+
     if "rva" not in payload:
         raise ValueError("missing rva in py_eval result")
 
@@ -55,14 +59,14 @@ async def resolve_public_name_via_mcp(
         f"image_base = {image_base}\n"
         "ea = idc.get_name_ea_simple(symbol_name)\n"
         "if ea == idc.BADADDR:\n"
-        "    result = json.dumps({})\n"
+        "    result = json.dumps({'missing': symbol_name})\n"
         "else:\n"
         "    rva = ea - image_base\n"
         "    result = json.dumps({'rva': hex(rva)})\n"
     )
     tool_result = await session.call_tool("py_eval", {"code": py_code})
     payload = _parse_py_eval_result(tool_result)
-    return {"name": symbol_name, "rva": _parse_rva_value(payload)}
+    return {"name": symbol_name, "rva": _parse_rva_value(payload, symbol_name)}
 
 
 async def resolve_struct_offset_via_llm(

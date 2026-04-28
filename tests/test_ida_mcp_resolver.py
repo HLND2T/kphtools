@@ -32,13 +32,29 @@ class TestIdaMcpResolver(unittest.IsolatedAsyncioTestCase):
         self.assertIn("ea - image_base", py_code)
         self.assertNotIn("0x45678", py_code)
 
+    async def test_resolve_public_name_via_mcp_raises_key_error_on_miss(self) -> None:
+        symbol_name = "PspCreateProcessNotifyRoutine"
+        session = AsyncMock()
+        session.call_tool.return_value.content = [
+            type("Text", (), {"text": '{"result":"{\\"missing\\": \\"PspCreateProcessNotifyRoutine\\"}"}'})()
+        ]
+
+        with self.assertRaises(KeyError) as ctx:
+            await ida_mcp_resolver.resolve_public_name_via_mcp(
+                session,
+                symbol_name=symbol_name,
+                image_base=0x140000000,
+            )
+
+        self.assertEqual(symbol_name, ctx.exception.args[0])
+
     async def test_resolve_public_name_via_mcp_raises_on_invalid_result(self) -> None:
         session = AsyncMock()
         session.call_tool.return_value.content = [
             type("Text", (), {"text": '{"result":"{}"}'})()
         ]
 
-        with self.assertRaises((KeyError, ValueError, TypeError)):
+        with self.assertRaises(ValueError):
             await ida_mcp_resolver.resolve_public_name_via_mcp(
                 session,
                 symbol_name="PspCreateProcessNotifyRoutine",
@@ -58,6 +74,20 @@ class TestIdaMcpResolver(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(0x570, payload["offset"])
+
+    async def test_llm_struct_offset_parser_supports_decimal_string(self) -> None:
+        with patch.object(
+            ida_mcp_resolver,
+            "call_llm_text",
+            AsyncMock(return_value='offset: "570"\n'),
+        ):
+            payload = await ida_mcp_resolver.resolve_struct_offset_via_llm(
+                llm_config={"model": "gpt-4o"},
+                reference_blocks=["ref"],
+                target_blocks=["target"],
+            )
+
+        self.assertEqual(570, payload["offset"])
 
     async def test_llm_struct_offset_parser_supports_fenced_yaml(self) -> None:
         with patch.object(
