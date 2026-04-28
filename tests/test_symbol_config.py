@@ -7,6 +7,14 @@ import symbol_config
 
 
 class TestSymbolConfig(unittest.TestCase):
+    def test_load_config_rejects_non_mapping_top_level(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text("- not-a-mapping\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "top-level config must be a mapping"):
+                symbol_config.load_config(config_path)
+
     def test_load_config_reads_modules_skills_symbols(self) -> None:
         with TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "config.yaml"
@@ -211,6 +219,146 @@ class TestSymbolConfig(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(ValueError, "must be a non-empty list"):
+                symbol_config.load_config(config_path)
+
+    def test_load_config_rejects_missing_required_fields(self) -> None:
+        cases = [
+            (
+                "module.name",
+                """
+                modules:
+                  - path: [ntoskrnl.exe]
+                    skills:
+                      - name: find-EpObjectTable
+                        symbol: EpObjectTable
+                        expected_output: [EpObjectTable.yaml]
+                    symbols:
+                      - name: EpObjectTable
+                        category: struct_offset
+                        symbol_expr: _EPROCESS->ObjectTable
+                        data_type: uint16
+                """,
+            ),
+            (
+                "skill.name",
+                """
+                modules:
+                  - name: ntoskrnl
+                    path: [ntoskrnl.exe]
+                    skills:
+                      - symbol: EpObjectTable
+                        expected_output: [EpObjectTable.yaml]
+                    symbols:
+                      - name: EpObjectTable
+                        category: struct_offset
+                        symbol_expr: _EPROCESS->ObjectTable
+                        data_type: uint16
+                """,
+            ),
+            (
+                "skill.symbol",
+                """
+                modules:
+                  - name: ntoskrnl
+                    path: [ntoskrnl.exe]
+                    skills:
+                      - name: find-EpObjectTable
+                        expected_output: [EpObjectTable.yaml]
+                    symbols:
+                      - name: EpObjectTable
+                        category: struct_offset
+                        symbol_expr: _EPROCESS->ObjectTable
+                        data_type: uint16
+                """,
+            ),
+            (
+                "symbol.name",
+                """
+                modules:
+                  - name: ntoskrnl
+                    path: [ntoskrnl.exe]
+                    skills:
+                      - name: find-EpObjectTable
+                        symbol: EpObjectTable
+                        expected_output: [EpObjectTable.yaml]
+                    symbols:
+                      - category: struct_offset
+                        symbol_expr: _EPROCESS->ObjectTable
+                        data_type: uint16
+                """,
+            ),
+            (
+                "symbol.category",
+                """
+                modules:
+                  - name: ntoskrnl
+                    path: [ntoskrnl.exe]
+                    skills:
+                      - name: find-EpObjectTable
+                        symbol: EpObjectTable
+                        expected_output: [EpObjectTable.yaml]
+                    symbols:
+                      - name: EpObjectTable
+                        symbol_expr: _EPROCESS->ObjectTable
+                        data_type: uint16
+                """,
+            ),
+            (
+                "symbol.data_type",
+                """
+                modules:
+                  - name: ntoskrnl
+                    path: [ntoskrnl.exe]
+                    skills:
+                      - name: find-EpObjectTable
+                        symbol: EpObjectTable
+                        expected_output: [EpObjectTable.yaml]
+                    symbols:
+                      - name: EpObjectTable
+                        category: struct_offset
+                        symbol_expr: _EPROCESS->ObjectTable
+                """,
+            ),
+        ]
+
+        for field_name, content in cases:
+            with self.subTest(field_name=field_name):
+                with TemporaryDirectory() as temp_dir:
+                    config_path = Path(temp_dir) / "config.yaml"
+                    config_path.write_text(
+                        textwrap.dedent(content).strip() + "\n",
+                        encoding="utf-8",
+                    )
+
+                    with self.assertRaisesRegex(ValueError, field_name):
+                        symbol_config.load_config(config_path)
+
+    def test_load_config_rejects_non_boolean_bits(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-ObDecodeShift
+                            symbol: ObDecodeShift
+                            expected_output: [ObDecodeShift.yaml]
+                        symbols:
+                          - name: ObDecodeShift
+                            category: struct_offset
+                            symbol_expr: _HANDLE_TABLE_ENTRY->ObjectPointerBits
+                            data_type: uint16
+                            bits: "false"
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "bits must be a boolean"):
                 symbol_config.load_config(config_path)
 
     def test_load_config_reads_repository_baseline(self) -> None:

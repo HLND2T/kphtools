@@ -42,6 +42,12 @@ class ConfigSpec:
     modules: list[ModuleSpec]
 
 
+def _require_field(entry: dict[str, Any], field_name: str, owner_name: str) -> Any:
+    if field_name not in entry:
+        raise ValueError(f"{owner_name}.{field_name} is required")
+    return entry[field_name]
+
+
 def _require_mapping(value: Any, field_name: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{field_name} must be a mapping")
@@ -77,8 +83,8 @@ def _load_skill(entry: dict[str, Any]) -> SkillSpec:
     )
     expected_input = _require_string_list(entry.get("expected_input", []), "expected_input")
     return SkillSpec(
-        name=str(entry["name"]).strip(),
-        symbol=str(entry["symbol"]).strip(),
+        name=str(_require_field(entry, "name", "skill")).strip(),
+        symbol=str(_require_field(entry, "symbol", "skill")).strip(),
         expected_output=[_validate_expected_output_name(item) for item in expected_output],
         expected_input=expected_input,
         agent_skill=str(entry.get("agent_skill", "")).strip() or "find-kph-func",
@@ -100,21 +106,25 @@ def _load_symbol(entry: dict[str, Any]) -> SymbolSpec:
     alias = None
     if alias_value is not None:
         alias = _require_string_list(alias_value, "alias") or None
+    bits_value = entry.get("bits", False)
+    if not isinstance(bits_value, bool):
+        raise ValueError("bits must be a boolean")
 
     return SymbolSpec(
-        name=str(entry["name"]).strip(),
-        category=str(entry["category"]).strip(),
-        data_type=str(entry["data_type"]).strip(),
+        name=str(_require_field(entry, "name", "symbol")).strip(),
+        category=str(_require_field(entry, "category", "symbol")).strip(),
+        data_type=str(_require_field(entry, "data_type", "symbol")).strip(),
         symbol_expr=symbol_expr,
         struct_name=struct_name,
         member_name=member_name,
         alias=alias,
-        bits=bool(entry.get("bits", False)),
+        bits=bits_value,
     )
 
 
 def load_config(path: str | Path) -> ConfigSpec:
     raw = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    raw = _require_mapping(raw, "top-level config")
     module_entries = raw.get("modules", [])
     if not isinstance(module_entries, list):
         raise ValueError("modules must be a list")
@@ -141,7 +151,7 @@ def load_config(path: str | Path) -> ConfigSpec:
 
         modules.append(
             ModuleSpec(
-                name=str(module_data["name"]).strip(),
+                name=str(_require_field(module_data, "name", "module")).strip(),
                 path=path_items,
                 skills=skills,
                 symbols=symbols,
