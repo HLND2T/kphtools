@@ -72,6 +72,70 @@ class TestSymbolConfig(unittest.TestCase):
                 symbol_config.load_config(config_path)
 
     def test_load_config_rejects_symbol_locating_fields(self) -> None:
+        cases = [
+            ("symbol.symbol_expr", "symbol_expr: _ETW_GUID_ENTRY->Guid"),
+            ("symbol.struct_name", "struct_name: _ETW_GUID_ENTRY"),
+            ("symbol.member_name", "member_name: Guid"),
+            ("symbol.bits", "bits: true"),
+            ("symbol.alias", "alias: [GuidAlias]"),
+        ]
+
+        for field_name, extra_field in cases:
+            with self.subTest(field_name=field_name):
+                with TemporaryDirectory() as temp_dir:
+                    config_path = Path(temp_dir) / "config.yaml"
+                    config_path.write_text(
+                        textwrap.dedent(
+                            f"""
+                            modules:
+                              - name: ntoskrnl
+                                path: [ntoskrnl.exe]
+                                skills:
+                                  - name: find-EgeGuid
+                                    symbol: EgeGuid
+                                    expected_output: [EgeGuid.yaml]
+                                symbols:
+                                  - name: EgeGuid
+                                    category: struct_offset
+                                    data_type: uint16
+                                    {extra_field}
+                            """
+                        ).strip()
+                        + "\n",
+                        encoding="utf-8",
+                    )
+
+                    with self.assertRaisesRegex(ValueError, field_name):
+                        symbol_config.load_config(config_path)
+
+    def test_load_config_rejects_unknown_skill_field(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-EgeGuid
+                            symbol: EgeGuid
+                            expected_output: [EgeGuid.yaml]
+                            unexpected_skill_field: true
+                        symbols:
+                          - name: EgeGuid
+                            category: struct_offset
+                            data_type: uint16
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "skill.unexpected_skill_field"):
+                symbol_config.load_config(config_path)
+
+    def test_load_config_rejects_unknown_symbol_field(self) -> None:
         with TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "config.yaml"
             config_path.write_text(
@@ -87,7 +151,34 @@ class TestSymbolConfig(unittest.TestCase):
                         symbols:
                           - name: EgeGuid
                             category: struct_offset
-                            symbol_expr: _ETW_GUID_ENTRY->Guid
+                            data_type: uint16
+                            unexpected_symbol_field: true
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "symbol.unexpected_symbol_field"):
+                symbol_config.load_config(config_path)
+
+    def test_load_config_rejects_non_integer_max_retries(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-EgeGuid
+                            symbol: EgeGuid
+                            expected_output: [EgeGuid.yaml]
+                            max_retries: not-an-int
+                        symbols:
+                          - name: EgeGuid
+                            category: struct_offset
                             data_type: uint16
                     """
                 ).strip()
@@ -95,7 +186,7 @@ class TestSymbolConfig(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with self.assertRaisesRegex(ValueError, "symbol.symbol_expr"):
+            with self.assertRaisesRegex(ValueError, "skill.max_retries"):
                 symbol_config.load_config(config_path)
 
     def test_load_config_rejects_arch_suffix_in_expected_output(self) -> None:

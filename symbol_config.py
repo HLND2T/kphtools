@@ -36,6 +36,24 @@ class ConfigSpec:
     modules: list[ModuleSpec]
 
 
+_ALLOWED_SKILL_FIELDS = frozenset(
+    {"name", "symbol", "expected_input", "expected_output", "max_retries"}
+)
+_ALLOWED_SYMBOL_FIELDS = frozenset({"name", "category", "data_type"})
+_LEGACY_FIELD_MESSAGES = {
+    "skill": {
+        "agent_skill": "is not supported; use skill.name",
+    },
+    "symbol": {
+        "symbol_expr": "is not supported; move it to the skill script",
+        "struct_name": "is not supported; move it to the skill script",
+        "member_name": "is not supported; move it to the skill script",
+        "bits": "is not supported; move it to the skill script",
+        "alias": "is not supported; move it to the skill script",
+    },
+}
+
+
 def _require_field(entry: dict[str, Any], field_name: str, owner_name: str) -> Any:
     if field_name not in entry:
         raise ValueError(f"{owner_name}.{field_name} is required")
@@ -83,36 +101,38 @@ def _validate_expected_output_name(name: str) -> str:
     return name
 
 
+def _reject_unknown_fields(
+    entry: dict[str, Any], allowed_fields: frozenset[str], owner_name: str
+) -> None:
+    for field_name in entry:
+        if field_name in allowed_fields:
+            continue
+        custom_message = _LEGACY_FIELD_MESSAGES.get(owner_name, {}).get(field_name)
+        if custom_message is not None:
+            raise ValueError(f"{owner_name}.{field_name} {custom_message}")
+        raise ValueError(f"{owner_name}.{field_name} is not supported")
+
+
 def _load_skill(entry: dict[str, Any]) -> SkillSpec:
-    if "agent_skill" in entry:
-        raise ValueError("skill.agent_skill is not supported; use skill.name")
+    _reject_unknown_fields(entry, _ALLOWED_SKILL_FIELDS, "skill")
     expected_output = _require_string_list(
         entry.get("expected_output", []), "expected_output"
     )
     expected_input = _require_string_list(entry.get("expected_input", []), "expected_input")
+    max_retries = entry.get("max_retries")
+    if max_retries is not None and type(max_retries) is not int:
+        raise ValueError("skill.max_retries must be an integer or null")
     return SkillSpec(
         name=_require_non_empty_string(entry, "name", "skill"),
         symbol=_require_non_empty_string(entry, "symbol", "skill"),
         expected_output=[_validate_expected_output_name(item) for item in expected_output],
         expected_input=expected_input,
-        max_retries=entry.get("max_retries"),
+        max_retries=max_retries,
     )
 
 
 def _load_symbol(entry: dict[str, Any]) -> SymbolSpec:
-    forbidden_fields = (
-        "symbol_expr",
-        "struct_name",
-        "member_name",
-        "bits",
-        "alias",
-    )
-    for field_name in forbidden_fields:
-        if field_name in entry:
-            raise ValueError(
-                f"symbol.{field_name} is not supported; move it to the skill script"
-            )
-
+    _reject_unknown_fields(entry, _ALLOWED_SYMBOL_FIELDS, "symbol")
     return SymbolSpec(
         name=_require_non_empty_string(entry, "name", "symbol"),
         category=_require_non_empty_string(entry, "category", "symbol"),
