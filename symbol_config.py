@@ -13,7 +13,6 @@ class SkillSpec:
     symbol: str
     expected_output: list[str]
     expected_input: list[str]
-    agent_skill: str
     max_retries: int | None = None
 
 
@@ -22,11 +21,6 @@ class SymbolSpec:
     name: str
     category: str
     data_type: str
-    symbol_expr: str | None = None
-    struct_name: str | None = None
-    member_name: str | None = None
-    alias: list[str] | None = None
-    bits: bool = False
 
 
 @dataclass(frozen=True)
@@ -90,6 +84,8 @@ def _validate_expected_output_name(name: str) -> str:
 
 
 def _load_skill(entry: dict[str, Any]) -> SkillSpec:
+    if "agent_skill" in entry:
+        raise ValueError("skill.agent_skill is not supported; use skill.name")
     expected_output = _require_string_list(
         entry.get("expected_output", []), "expected_output"
     )
@@ -99,38 +95,28 @@ def _load_skill(entry: dict[str, Any]) -> SkillSpec:
         symbol=_require_non_empty_string(entry, "symbol", "skill"),
         expected_output=[_validate_expected_output_name(item) for item in expected_output],
         expected_input=expected_input,
-        agent_skill=str(entry.get("agent_skill", "")).strip() or "find-kph-func",
         max_retries=entry.get("max_retries"),
     )
 
 
 def _load_symbol(entry: dict[str, Any]) -> SymbolSpec:
-    struct_name = entry.get("struct_name")
-    member_name = entry.get("member_name")
-    symbol_expr = entry.get("symbol_expr")
-    if symbol_expr is None and (struct_name is None) != (member_name is None):
-        raise ValueError(
-            "struct_name and member_name must be provided together when symbol_expr is omitted"
-        )
-    if symbol_expr is None and struct_name and member_name:
-        symbol_expr = f"{struct_name}->{member_name}"
-    alias_value = entry.get("alias")
-    alias = None
-    if alias_value is not None:
-        alias = _require_string_list(alias_value, "alias") or None
-    bits_value = entry.get("bits", False)
-    if not isinstance(bits_value, bool):
-        raise ValueError("bits must be a boolean")
+    forbidden_fields = (
+        "symbol_expr",
+        "struct_name",
+        "member_name",
+        "bits",
+        "alias",
+    )
+    for field_name in forbidden_fields:
+        if field_name in entry:
+            raise ValueError(
+                f"symbol.{field_name} is not supported; move it to the skill script"
+            )
 
     return SymbolSpec(
         name=_require_non_empty_string(entry, "name", "symbol"),
         category=_require_non_empty_string(entry, "category", "symbol"),
         data_type=_require_non_empty_string(entry, "data_type", "symbol"),
-        symbol_expr=symbol_expr,
-        struct_name=struct_name,
-        member_name=member_name,
-        alias=alias,
-        bits=bits_value,
     )
 
 

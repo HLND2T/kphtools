@@ -15,48 +15,7 @@ class TestSymbolConfig(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "top-level config must be a mapping"):
                 symbol_config.load_config(config_path)
 
-    def test_load_config_reads_modules_skills_symbols(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            config_path = Path(temp_dir) / "config.yaml"
-            config_path.write_text(
-                textwrap.dedent(
-                    """
-                    modules:
-                      - name: ntoskrnl
-                        path:
-                          - ntoskrnl.exe
-                          - ntkrla57.exe
-                        skills:
-                          - name: find-EpObjectTable
-                            symbol: EpObjectTable
-                            expected_output:
-                              - EpObjectTable.yaml
-                            agent_skill: find-kph-struct-offset
-                        symbols:
-                          - name: EpObjectTable
-                            category: struct_offset
-                            struct_name: _EPROCESS
-                            member_name: ObjectTable
-                            data_type: uint16
-                    """
-                ).strip()
-                + "\n",
-                encoding="utf-8",
-            )
-
-            config = symbol_config.load_config(config_path)
-
-        self.assertEqual(["ntoskrnl.exe", "ntkrla57.exe"], config.modules[0].path)
-        self.assertEqual("EpObjectTable", config.modules[0].skills[0].symbol)
-        self.assertEqual(
-            "find-kph-struct-offset", config.modules[0].skills[0].agent_skill
-        )
-        self.assertEqual("struct_offset", config.modules[0].symbols[0].category)
-        self.assertEqual(
-            "_EPROCESS->ObjectTable", config.modules[0].symbols[0].symbol_expr
-        )
-
-    def test_load_config_preserves_explicit_multi_candidate_symbol_expr(self) -> None:
+    def test_load_config_reads_minimal_symbol_inventory(self) -> None:
         with TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "config.yaml"
             config_path.write_text(
@@ -66,15 +25,12 @@ class TestSymbolConfig(unittest.TestCase):
                       - name: ntoskrnl
                         path: [ntoskrnl.exe]
                         skills:
-                          - name: find-MmSectionControlArea
-                            symbol: MmSectionControlArea
-                            expected_output: [MmSectionControlArea.yaml]
+                          - name: find-EgeGuid
+                            symbol: EgeGuid
+                            expected_output: [EgeGuid.yaml]
                         symbols:
-                          - name: MmSectionControlArea
+                          - name: EgeGuid
                             category: struct_offset
-                            symbol_expr: _SECTION->u1.ControlArea,_SECTION_OBJECT->Segment
-                            struct_name: _SECTION
-                            member_name: u1.ControlArea
                             data_type: uint16
                     """
                 ).strip()
@@ -84,10 +40,63 @@ class TestSymbolConfig(unittest.TestCase):
 
             config = symbol_config.load_config(config_path)
 
-        self.assertEqual(
-            "_SECTION->u1.ControlArea,_SECTION_OBJECT->Segment",
-            config.modules[0].symbols[0].symbol_expr,
-        )
+        self.assertEqual("EgeGuid", config.modules[0].skills[0].symbol)
+        self.assertEqual("struct_offset", config.modules[0].symbols[0].category)
+        self.assertFalse(hasattr(config.modules[0].symbols[0], "symbol_expr"))
+
+    def test_load_config_rejects_agent_skill_override(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-EpObjectTable
+                            symbol: EpObjectTable
+                            expected_output: [EpObjectTable.yaml]
+                            agent_skill: find-kph-struct-offset
+                        symbols:
+                          - name: EpObjectTable
+                            category: struct_offset
+                            data_type: uint16
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "skill.agent_skill"):
+                symbol_config.load_config(config_path)
+
+    def test_load_config_rejects_symbol_locating_fields(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-EgeGuid
+                            symbol: EgeGuid
+                            expected_output: [EgeGuid.yaml]
+                        symbols:
+                          - name: EgeGuid
+                            category: struct_offset
+                            symbol_expr: _ETW_GUID_ENTRY->Guid
+                            data_type: uint16
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "symbol.symbol_expr"):
+                symbol_config.load_config(config_path)
 
     def test_load_config_rejects_arch_suffix_in_expected_output(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -106,8 +115,6 @@ class TestSymbolConfig(unittest.TestCase):
                         symbols:
                           - name: EpObjectTable
                             category: struct_offset
-                            struct_name: _EPROCESS
-                            member_name: ObjectTable
                             data_type: uint16
                     """
                 ).strip()
@@ -136,7 +143,6 @@ class TestSymbolConfig(unittest.TestCase):
                         symbols:
                           - name: EpObjectTable
                             category: struct_offset
-                            symbol_expr: _EPROCESS->ObjectTable
                             data_type: uint16
                     """
                 ).strip()
@@ -163,7 +169,6 @@ class TestSymbolConfig(unittest.TestCase):
                         symbols:
                           - name: EpObjectTable
                             category: struct_offset
-                            symbol_expr: _EPROCESS->ObjectTable
                             data_type: uint16
                     """
                 ).strip()
@@ -190,7 +195,6 @@ class TestSymbolConfig(unittest.TestCase):
                         symbols:
                           - name: EpObjectTable
                             category: struct_offset
-                            symbol_expr: _EPROCESS->ObjectTable
                             data_type: uint16
                     """
                 ).strip()
@@ -235,7 +239,6 @@ class TestSymbolConfig(unittest.TestCase):
                     symbols:
                       - name: EpObjectTable
                         category: struct_offset
-                        symbol_expr: _EPROCESS->ObjectTable
                         data_type: uint16
                 """,
             ),
@@ -251,7 +254,6 @@ class TestSymbolConfig(unittest.TestCase):
                     symbols:
                       - name: EpObjectTable
                         category: struct_offset
-                        symbol_expr: _EPROCESS->ObjectTable
                         data_type: uint16
                 """,
             ),
@@ -267,7 +269,6 @@ class TestSymbolConfig(unittest.TestCase):
                     symbols:
                       - name: EpObjectTable
                         category: struct_offset
-                        symbol_expr: _EPROCESS->ObjectTable
                         data_type: uint16
                 """,
             ),
@@ -283,7 +284,6 @@ class TestSymbolConfig(unittest.TestCase):
                         expected_output: [EpObjectTable.yaml]
                     symbols:
                       - category: struct_offset
-                        symbol_expr: _EPROCESS->ObjectTable
                         data_type: uint16
                 """,
             ),
@@ -299,7 +299,6 @@ class TestSymbolConfig(unittest.TestCase):
                         expected_output: [EpObjectTable.yaml]
                     symbols:
                       - name: EpObjectTable
-                        symbol_expr: _EPROCESS->ObjectTable
                         data_type: uint16
                 """,
             ),
@@ -316,7 +315,6 @@ class TestSymbolConfig(unittest.TestCase):
                     symbols:
                       - name: EpObjectTable
                         category: struct_offset
-                        symbol_expr: _EPROCESS->ObjectTable
                 """,
             ),
         ]
@@ -333,34 +331,6 @@ class TestSymbolConfig(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, field_name):
                         symbol_config.load_config(config_path)
 
-    def test_load_config_rejects_non_boolean_bits(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            config_path = Path(temp_dir) / "config.yaml"
-            config_path.write_text(
-                textwrap.dedent(
-                    """
-                    modules:
-                      - name: ntoskrnl
-                        path: [ntoskrnl.exe]
-                        skills:
-                          - name: find-ObDecodeShift
-                            symbol: ObDecodeShift
-                            expected_output: [ObDecodeShift.yaml]
-                        symbols:
-                          - name: ObDecodeShift
-                            category: struct_offset
-                            symbol_expr: _HANDLE_TABLE_ENTRY->ObjectPointerBits
-                            data_type: uint16
-                            bits: "false"
-                    """
-                ).strip()
-                + "\n",
-                encoding="utf-8",
-            )
-
-            with self.assertRaisesRegex(ValueError, "bits must be a boolean"):
-                symbol_config.load_config(config_path)
-
     def test_load_config_rejects_null_required_string_fields(self) -> None:
         cases = [
             (
@@ -376,7 +346,6 @@ class TestSymbolConfig(unittest.TestCase):
                     symbols:
                       - name: EpObjectTable
                         category: struct_offset
-                        symbol_expr: _EPROCESS->ObjectTable
                         data_type: uint16
                 """,
             ),
@@ -393,7 +362,6 @@ class TestSymbolConfig(unittest.TestCase):
                     symbols:
                       - name: EpObjectTable
                         category: struct_offset
-                        symbol_expr: _EPROCESS->ObjectTable
                         data_type: null
                 """,
             ),
@@ -427,7 +395,6 @@ class TestSymbolConfig(unittest.TestCase):
                         symbols:
                           - name: EpObjectTable
                             category: struct_offset
-                            symbol_expr: _EPROCESS->ObjectTable
                             data_type: uint16
                     """
                 ).strip()
