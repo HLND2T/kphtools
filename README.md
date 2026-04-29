@@ -47,7 +47,7 @@ based on entries from `kphdyn.xml`
 ### Usage, [] for optional
 
 ```bash
-uv run python download_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" [-arch=amd64] [-version=10.0.10240.16393] [-symbol_server="https//msdl.microsoft.com/download/symbols"]
+uv run python download_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" [-arch=amd64] [-version=10.0.10240.16393] [-symbol_server="https://msdl.microsoft.com/download/symbols"]
 ```
 
 ### Possible environment variables
@@ -72,189 +72,28 @@ C:\Symbols\amd64\ntoskrnl.exe.10.0.10240.16393\{sha256}\ntkrnlmp.pdb
 
 Where `{sha256}` is the lowercase SHA256 hash of the PE file (e.g., `68d5867b5e66fce486c863c11cf69020658cadbbacbbda1e167766f236fefe78`).
 
-## Update symbols in kphdyn.xml
+## Dump YAML artifacts
 
-Updates field offsets in `kphdyn.xml` by parsing PDB files using `llvm-pdbutil`.
-
-Also supports **syncfile mode** to scan symbol directory and add missing entries to XML.
-
-### Requirements
-
-- `llvm-pdbutil` must be available in system PATH (part of LLVM tools)
-
-### Usage
-
-**Normal mode** - Update symbol offsets from PDB files:
+`dump_symbols.py` is the primary analysis entry point.
 
 ```bash
-uv run python update_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" -yaml="path/to/kphdyn.yaml"
+uv run python dump_symbols.py -symboldir="C:/Symbols" -arch=amd64 -configyaml="config.yaml"
 ```
 
-**Syncfile mode** - Scan symbol directory and add missing entries:
+The script scans `symboldir/<arch>/<file>.<version>/<sha256>/`, resolves symbols into `{symbol}.yaml`, and writes them next to the corresponding PE/PDB files.
+
+## Export kphdyn.xml
+
+`update_symbols.py` is now a YAML-to-XML exporter.
 
 ```bash
-uv run python update_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" -syncfile
+uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -configyaml="config.yaml" -syncfile
 ```
 
-**Fixnull mode** - Fix null entries (fields ID = 0) using SymbolMapping.yaml:
+If a symbol YAML is missing or unresolved, `update_symbols.py` exports:
 
-```bash
-uv run python update_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" -fixnull
-```
-
-**Fixstruct mode** - Fix struct_offset fallback values from closest valid version:
-
-```bash
-uv run python update_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" -fixstruct
-```
-
-### Optional Arguments
-
-- `-sha256`: Only process entries with this SHA256 hash value (case-insensitive)
-- `-pdbutil`: Path to llvm-pdbutil executable (default: search in PATH)
-- `-outxml`: Path to output XML file (default: overwrite input XML file)
-- `-debug`: Enable debug logging for symbol parsing
-- `-syncfile`: Sync PE files from symbol directory to XML (add missing entries)
-- `-fast`: Fast mode for syncfile - only parse PE when entry is missing
-
-### Examples
-
-**Normal mode examples:**
-
-Update and overwrite the original file:
-
-```bash
-uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -yaml="kphdyn.yaml"
-```
-
-Save to a different output file:
-
-```bash
-uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -yaml="kphdyn.yaml" -outxml="kphdyn_updated.xml"
-```
-
-Process only a specific SHA256 hash:
-
-```bash
-uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -yaml="kphdyn.yaml" -sha256="abc123..."
-```
-
-Use custom llvm-pdbutil path:
-
-```bash
-uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -yaml="kphdyn.yaml" -pdbutil="/path/to/llvm-pdbutil"
-```
-
-**Syncfile mode examples:**
-
-Scan symbol directory and add missing entries:
-
-```bash
-uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile
-```
-
-Use fast mode (only parse PE when entry is missing):
-
-```bash
-uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile -fast
-```
-
-Save to a different output file:
-
-```bash
-uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile -outxml="kphdyn_updated.xml"
-```
-
-### Syncfile Mode Details
-
-The syncfile mode scans the symbol directory for PE files (exe/dll/sys) and adds missing entries to the XML:
-
-```bash
-uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile
-```
-
-**How it works:**
-
-1. Scans all PE files in the symbol directory (e.g., `C:/Symbols/amd64/ntoskrnl.exe.10.0.16299.551/{sha256}/ntoskrnl.exe`)
-2. Extracts metadata from file path: `arch`, `file`, `version`, `sha256`
-3. Checks if a matching `<data>` entry exists in XML (by arch + file + version + sha256)
-4. If the entry doesn't exist:
-   - Parses PE file to extract `hash` (SHA256), `timestamp`, and `size`
-   - Finds the insertion position (after the closest smaller version)
-   - Creates new entry with `fields id="0"` (not yet resolved)
-5. Skips entries that already exist in XML
-
-**Fast mode (`-fast`):**
-
-In normal syncfile mode, all PE files are parsed upfront. With `-fast` flag, PE parsing is deferred until an entry is confirmed to be missing, which can significantly speed up the process when most entries already exist.
-
-```bash
-uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -syncfile -syncfile -fast
-```
-
-**Expected symbol directory structure:**
-
-```text
-C:/Symbols/
-├── amd64/
-│   ├── ntoskrnl.exe.10.0.16299.551/
-│   │   └── 68d5867b5e66fce486c863c11cf69020658cadbbacbbda1e167766f236fefe78/
-│   │       ├── ntoskrnl.exe
-│   │       └── ntkrnlmp.pdb
-│   └── ntkrla57.exe.10.0.20348.4529/
-│       └── a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456/
-│           ├── ntkrla57.exe
-│           └── ntkrla57.pdb
-└── arm64/
-    └── ntoskrnl.exe.10.0.16299.1004/
-        └── f1e2d3c4b5a6978012345678901234567890fedcba1234567890fedcba123456/
-            ├── ntoskrnl.exe
-            └── ntkrnlmp.pdb
-```
-
-**Output example:**
-
-```text
-Scanning symbol directory: C:/Symbols
-  Found 3071 PE files
-
-[1457/3071] amd64/ntoskrnl.exe v10.0.19041.5070
-  Entry missing, parsing PE...
-  Added new entry after version 10.0.19041.5007
-
-Summary: 2 added, 3069 skipped, 0 failed
-```
-
-### Configuration (kphdyn.yaml)
-
-The yaml config file specifies which files to process and which symbols to extract
-
-```yaml
-  symbols:
-    - name: EgeGuid
-      struct_offset: "_ETW_GUID_ENTRY->Guid"
-      type: uint16
-
-    - name: EpObjectTable
-      struct_offset: "_EPROCESS->ObjectTable"
-      type: uint16
-```
-
-### Output
-
-For each `<data>` entry matching the specified files, the script:
-1. Parses the corresponding PDB file to extract all symbol offsets
-2. Assigns a `<fields>` ID (reuses existing ID if offsets match exactly)
-3. Updates the `<data>` entry to reference the correct `<fields>` ID
-4. Removes orphan `<fields>` elements that are no longer referenced
-
-```xml
-<data arch="amd64" version="10.0.10240.16384" file="ntoskrnl.exe" ...>1</data>
-<fields id="1">
-    <field value="0x0418" name="EpObjectTable"/>
-    <field value="0x03b8" name="EpSectionObject"/>
-</fields>
-```
+- `0xffff` for `uint16`
+- `0xffffffff` for `uint32`
 
 ## HTTP server for collecting ntoskrnl.exe 
 
@@ -331,52 +170,14 @@ curl "http://localhost:8000/"
 {"status": "healthy"}
 ```
 
-## Reverse engineer symbols using IDA and LLM
+## Migrated symbol analysis workflow
 
-Reverse engineers symbols for PE files missing PDB by comparing with similar versions that have PDB files using IDA Pro and LLM (OpenAI or Anthropic).
-
-**Directory Structure:**
-
-- Works with: `{symboldir}/{arch}/{filename}.{version}/{sha256}/{files}`
-- Requires IDA Pro with `ida64.exe`
-
-### Basic Usage
+Use the migrated workflow:
 
 ```bash
-uv run python reverse_symbols.py -symboldir=C:/Symbols -reverse=PsSetCreateProcessNotifyRoutine -provider=openai -api_key="YOUR_KEY"
+uv run python dump_symbols.py -symboldir="C:/Symbols" -arch=amd64 -configyaml="config.yaml"
+uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -configyaml="config.yaml" -syncfile
 ```
-
-With custom model and API base:
-
-```bash
-uv run python reverse_symbols.py -symboldir=C:/Symbols -reverse=PsSetCreateProcessNotifyRoutune \
-    -provider=openai -api_key="YOUR_KEY" -model="deepseek-chat" -api_base="https://api.deepseek.com"
-```
-
-### Command Arguments
-
-- `-symboldir`: Symbol directory containing PE files (required, or set `KPHTOOLS_SYMBOLDIR`)
-- `-reverse`: Function name to reverse engineer (required, e.g., `PsSetCreateProcessNotifyRoutine`)
-- `-provider`: LLM provider: `openai` or `anthropic` (default: `openai`)
-- `-api_key`: API key (or use `OPENAI_API_KEY`/`ANTHROPIC_API_KEY` environment variable)
-- `-model`: LLM model name (optional)
-- `-api_base`: API base URL (optional, or use `OPENAI_API_BASE`/`ANTHROPIC_API_BASE`)
-- `-ida`: Path to `ida64.exe` (optional, searches PATH or uses `IDA64_PATH` environment variable)
-- `-debug`: Enable debug output
-
-### Processing Workflow
-
-For each PE file missing PDB:
-
-1. Find the closest lower version with PDB as reference
-2. Run IDA disasm on target PE (missing PDB)
-3. Run IDA disasm on reference PE (with PDB)
-4. Call `generate_mapping.py` to create symbol mappings via LLM
-5. Run IDA `symbol_remap` to apply mappings
-
-### Tool Requirements
-
-- IDA Pro with `ida64.exe`
 
 ## Reference workflow in Jenkins (Windows)
 
@@ -396,7 +197,7 @@ copy kphdyn.official.xml kphdyn.xml /y
 ```shell
 @echo Sync unmanaged ntoskrnl to kphdyn.xml
 
-uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -syncfile -fast
+uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -syncfile
 ```
 
 ```shell
@@ -410,45 +211,14 @@ exit 0
 ```
 
 ```shell
+@echo Analyze symbols and dump YAML artifacts
 
-@echo Generate SymbolMapping.yaml for missing-pdb ntoskrnl
-
-set IDA64_PATH=C:\Program Files\IDA Professional 9.0\ida64.exe
-set LLM_PROVIDER=openai
-set LLM_API_BASE=https://api.deepseek.com
-set LLM_MODEL=deepseek-chat
-set LLM_API_KEY=
-
-uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PsSetCreateProcessNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
-
-uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PspSetCreateProcessNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
-
-uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PsSetCreateThreadNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
-
-uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PspSetCreateThreadNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
-
-uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PsSetLoadImageNotifyRoutine -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
-
-uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PsSetLoadImageNotifyRoutineEx -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
-
-uv run python reverse_symbols.py -symboldir="%WORKSPACE%\symbols" -reverse=PgInitContextFillPtr -signature=FB488D05????????4989 -no_procedure -disasm_lines=200 -template="%WORKSPACE%\ida\GenerateMappingDisasmOnly.md" -provider=%LLM_PROVIDER% -api_base="%LLM_API_BASE%" -model="%LLM_MODEL%" -api_key="%LLM_API_KEY%"
-
+uv run python dump_symbols.py -symboldir="%WORKSPACE%\symbols" -arch=amd64 -configyaml="%WORKSPACE%\config.yaml"
+uv run python dump_symbols.py -symboldir="%WORKSPACE%\symbols" -arch=arm64 -configyaml="%WORKSPACE%\config.yaml"
 ```
 
 ```shell
-@echo Generate strut function and variable RVA via ntoskrnl pdb, llvm-pdbutil assumed in PATH
+@echo Export kphdyn.xml from YAML artifacts
 
-uv run python update_symbols.py -xml kphdyn.xml -symboldir "%WORKSPACE%\symbols" -yaml kphdyn.yaml
-```
-
-```shell
-@echo Fix function and variable RVA via SymbolMapping.yaml
-
-uv run python update_symbols.py -xml kphdyn.xml -symboldir "%WORKSPACE%\symbols" -yaml kphdyn.yaml -fixnull
-```
-
-```shell
-@echo Fix struct offset
-
-uv run python update_symbols.py -xml kphdyn.xml -symboldir "%WORKSPACE%\symbols" -yaml kphdyn.yaml -fixstruct
+uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -configyaml="%WORKSPACE%\config.yaml" -syncfile
 ```
