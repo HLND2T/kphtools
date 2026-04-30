@@ -470,7 +470,8 @@ class LazyIdalibSession:
             raise cancel_error
 
     async def close(self) -> None:
-        _debug_log(self.debug, f"closing lazy MCP session for {self.binary_path}")
+        if self.process is not None or self.streams is not None or self.session is not None:
+            _debug_log(self.debug, f"closing lazy MCP session for {self.binary_path}")
         process = self.process
         self.process = None
 
@@ -593,7 +594,13 @@ def main(argv=None):
     skipped = 0
     for module, binary_dir, pdb_path in candidates:
         _progress(f"Processing {binary_dir}")
-        ok, did_work = asyncio.run(_process_module_binary(module, binary_dir, pdb_path, args))
+        try:
+            ok, did_work = asyncio.run(_process_module_binary(module, binary_dir, pdb_path, args))
+        except Exception:
+            failed += 1
+            _progress(f"Processing {binary_dir} failed")
+            _progress(f"Summary: {succeeded} succeeded, {failed} failed, {skipped} skipped")
+            raise
         if not ok:
             failed += 1
             _progress(f"Processing {binary_dir} failed")

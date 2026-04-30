@@ -777,6 +777,25 @@ class TestDumpSymbols(unittest.TestCase):
             printed_messages,
         )
 
+    def test_lazy_idalib_session_close_without_startup_does_not_log_closing(self) -> None:
+        session = dump_symbols.LazyIdalibSession(
+            binary_path=Path("/tmp/ntoskrnl.exe"),
+            debug=True,
+        )
+
+        with patch("builtins.print") as mock_print:
+            asyncio.run(session.close())
+
+        printed_messages = [
+            c.args[0]
+            for c in mock_print.call_args_list
+            if c.args and isinstance(c.args[0], str)
+        ]
+        self.assertNotIn(
+            "[debug] closing lazy MCP session for /tmp/ntoskrnl.exe",
+            printed_messages,
+        )
+
     def test_lazy_idalib_session_cleans_up_after_binary_mismatch(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
@@ -1256,6 +1275,48 @@ class TestDumpSymbols(unittest.TestCase):
                 call(f"Processing {binary_dir}"),
                 call(f"Skipped {binary_dir} (no work required)"),
                 call("Summary: 0 succeeded, 0 failed, 1 skipped"),
+            ]
+        )
+        self.assertEqual(5, mock_print.call_count)
+
+    def test_main_reports_failure_summary_before_reraising_exception(self) -> None:
+        args = SimpleNamespace(
+            symboldir="symbols",
+            arch="amd64",
+            configyaml="config.yaml",
+            agent="codex",
+            debug=False,
+            force=False,
+        )
+        module = SimpleNamespace()
+        binary_dir = Path("symbols/amd64/ntoskrnl.10.0.1/abc123")
+        pdb_path = binary_dir / "ntkrnlmp.pdb"
+
+        with (
+            patch.object(dump_symbols, "parse_args", return_value=args),
+            patch.object(dump_symbols, "load_config", return_value=SimpleNamespace()),
+            patch.object(
+                dump_symbols,
+                "_iter_binary_dirs",
+                return_value=[(module, binary_dir, pdb_path)],
+            ),
+            patch.object(
+                dump_symbols,
+                "_process_module_binary",
+                new=AsyncMock(side_effect=RuntimeError("boom")),
+            ),
+            patch("builtins.print") as mock_print,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "boom"):
+                dump_symbols.main([])
+
+        mock_print.assert_has_calls(
+            [
+                call("Scanning symbols/amd64"),
+                call("Found 1 candidate binary directories"),
+                call(f"Processing {binary_dir}"),
+                call(f"Processing {binary_dir} failed"),
+                call("Summary: 0 succeeded, 1 failed, 0 skipped"),
             ]
         )
         self.assertEqual(5, mock_print.call_count)
