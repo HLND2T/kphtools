@@ -525,6 +525,15 @@ def _resolve_binary_path(module, binary_dir: Path) -> Path:
     raise FileNotFoundError(f"binary file not found in {binary_dir}")
 
 
+def _progress(message: str) -> None:
+    print(message)
+
+
+def _debug_log(debug: bool, message: str) -> None:
+    if debug:
+        print(f"[debug] {message}")
+
+
 async def _process_module_binary(module, binary_dir, pdb_path, args):
     binary_path = _resolve_binary_path(module, Path(binary_dir))
     session = LazyIdalibSession(
@@ -533,7 +542,7 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
         debug=args.debug,
     )
     try:
-        return await process_binary_dir(
+        ok = await process_binary_dir(
             binary_dir=Path(binary_dir),
             pdb_path=Path(pdb_path),
             skills=module.skills,
@@ -544,6 +553,8 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
             llm_config=None,
             session=session,
         )
+        # Task 1 仅先适配 main() 的 did_work 分支，不在这里实现真实追踪逻辑。
+        return ok, ok
     finally:
         await session.close()
 
@@ -551,10 +562,33 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
 def main(argv=None):
     args = parse_args(argv)
     config = load_config(args.configyaml)
-    for module, binary_dir, pdb_path in _iter_binary_dirs(Path(args.symboldir), args.arch, config):
-        ok = asyncio.run(_process_module_binary(module, binary_dir, pdb_path, args))
+    arch_dir = Path(args.symboldir) / args.arch
+    _progress(f"Scanning {arch_dir}")
+
+    candidates = list(_iter_binary_dirs(Path(args.symboldir), args.arch, config))
+    _progress(f"Found {len(candidates)} candidate binary directories")
+    if not candidates:
+        _progress("No processable binary directories found")
+        return 0
+
+    succeeded = 0
+    failed = 0
+    skipped = 0
+    for module, binary_dir, pdb_path in candidates:
+        _progress(f"Processing {binary_dir}")
+        ok, did_work = asyncio.run(_process_module_binary(module, binary_dir, pdb_path, args))
         if not ok:
+            failed += 1
+            _progress(f"Processing {binary_dir} failed")
+            _progress(f"Summary: {succeeded} succeeded, {failed} failed, {skipped} skipped")
             return 1
+        if did_work:
+            succeeded += 1
+            _progress(f"Processed {binary_dir} successfully")
+        else:
+            skipped += 1
+            _progress(f"Skipped {binary_dir} (no work required)")
+    _progress(f"Summary: {succeeded} succeeded, {failed} failed, {skipped} skipped")
     return 0
 
 

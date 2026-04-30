@@ -839,3 +839,73 @@ class TestDumpSymbols(unittest.TestCase):
             13337,
             timeout=dump_symbols.MCP_STARTUP_TIMEOUT,
         )
+
+    def test_main_reports_when_no_binary_dirs_match(self) -> None:
+        args = SimpleNamespace(
+            symboldir="symbols",
+            arch="amd64",
+            configyaml="config.yaml",
+            agent="codex",
+            debug=False,
+            force=False,
+        )
+
+        with (
+            patch.object(dump_symbols, "parse_args", return_value=args),
+            patch.object(dump_symbols, "load_config", return_value=SimpleNamespace()),
+            patch.object(dump_symbols, "_iter_binary_dirs", return_value=[]),
+            patch("builtins.print") as mock_print,
+        ):
+            exit_code = dump_symbols.main([])
+
+        self.assertEqual(0, exit_code)
+        mock_print.assert_has_calls(
+            [
+                call("Scanning symbols/amd64"),
+                call("Found 0 candidate binary directories"),
+                call("No processable binary directories found"),
+            ]
+        )
+        self.assertEqual(3, mock_print.call_count)
+
+    def test_main_reports_single_binary_success_summary(self) -> None:
+        args = SimpleNamespace(
+            symboldir="symbols",
+            arch="amd64",
+            configyaml="config.yaml",
+            agent="codex",
+            debug=False,
+            force=False,
+        )
+        module = SimpleNamespace()
+        binary_dir = Path("symbols/amd64/ntoskrnl.10.0.1/abc123")
+        pdb_path = binary_dir / "ntkrnlmp.pdb"
+
+        with (
+            patch.object(dump_symbols, "parse_args", return_value=args),
+            patch.object(dump_symbols, "load_config", return_value=SimpleNamespace()),
+            patch.object(
+                dump_symbols,
+                "_iter_binary_dirs",
+                return_value=[(module, binary_dir, pdb_path)],
+            ),
+            patch.object(
+                dump_symbols,
+                "_process_module_binary",
+                new=AsyncMock(return_value=(True, True)),
+            ),
+            patch("builtins.print") as mock_print,
+        ):
+            exit_code = dump_symbols.main([])
+
+        self.assertEqual(0, exit_code)
+        mock_print.assert_has_calls(
+            [
+                call("Scanning symbols/amd64"),
+                call("Found 1 candidate binary directories"),
+                call(f"Processing {binary_dir}"),
+                call(f"Processed {binary_dir} successfully"),
+                call("Summary: 1 succeeded, 0 failed, 0 skipped"),
+            ]
+        )
+        self.assertEqual(5, mock_print.call_count)
