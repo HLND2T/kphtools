@@ -293,6 +293,36 @@ class TestDumpSymbols(unittest.TestCase):
         mock_process_binary.assert_awaited_once()
         fake_lazy_session.close.assert_awaited_once()
 
+    def test_process_module_binary_real_empty_pipeline_does_not_eager_start(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            binary_path = binary_dir / "ntoskrnl.exe"
+            binary_path.write_text("", encoding="utf-8")
+            pdb_path = binary_dir / "ntkrnlmp.pdb"
+            pdb_path.write_text("", encoding="utf-8")
+
+            module = SimpleNamespace(path=["ntoskrnl.exe"], skills=[], symbols=[])
+            args = SimpleNamespace(agent="codex", debug=False, force=False)
+
+            with (
+                patch.object(dump_symbols, "start_idalib_mcp") as mock_start,
+                patch.object(dump_symbols, "_open_session", new=AsyncMock()) as mock_open_session,
+                patch.object(
+                    dump_symbols,
+                    "_session_matches_binary",
+                    new=AsyncMock(),
+                    create=True,
+                ) as mock_session_matches_binary,
+            ):
+                ok = asyncio.run(
+                    dump_symbols._process_module_binary(module, binary_dir, pdb_path, args)
+                )
+
+        self.assertTrue(ok)
+        mock_start.assert_not_called()
+        mock_open_session.assert_not_awaited()
+        mock_session_matches_binary.assert_not_awaited()
+
     def test_lazy_idalib_session_starts_on_first_call_and_reuses_session(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
@@ -333,9 +363,13 @@ class TestDumpSymbols(unittest.TestCase):
                 mock_open_session.assert_not_awaited()
                 mock_session_matches_binary.assert_not_awaited()
 
-                call_one = asyncio.run(session.call_tool("py_eval", {"code": "1"}))
-                call_two = asyncio.run(session.call_tool("py_eval", {"code": "2"}))
-                asyncio.run(session.close())
+                async def run_sequence():
+                    call_one = await session.call_tool("py_eval", {"code": "1"})
+                    call_two = await session.call_tool("py_eval", {"code": "2"})
+                    await session.close()
+                    return call_one, call_two
+
+                call_one, call_two = asyncio.run(run_sequence())
 
         self.assertIs(call_one, first_result)
         self.assertIs(call_two, second_result)
