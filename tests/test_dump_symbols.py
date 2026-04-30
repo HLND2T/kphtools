@@ -374,11 +374,12 @@ class TestDumpSymbols(unittest.TestCase):
                     new=AsyncMock(return_value=True),
                 ) as mock_process_binary,
             ):
-                ok = asyncio.run(
+                ok, did_work = asyncio.run(
                     dump_symbols._process_module_binary(module, binary_dir, pdb_path, args)
                 )
 
         self.assertTrue(ok)
+        self.assertFalse(did_work)
         mock_lazy_session_cls.assert_called_once_with(
             binary_path,
             host="127.0.0.1",
@@ -412,14 +413,59 @@ class TestDumpSymbols(unittest.TestCase):
                     create=True,
                 ) as mock_session_matches_binary,
             ):
-                ok = asyncio.run(
+                ok, did_work = asyncio.run(
                     dump_symbols._process_module_binary(module, binary_dir, pdb_path, args)
                 )
 
         self.assertTrue(ok)
+        self.assertFalse(did_work)
         mock_start.assert_not_called()
         mock_open_session.assert_not_awaited()
         mock_session_matches_binary.assert_not_awaited()
+
+    def test_process_binary_dir_marks_activity_when_work_is_required(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            skills = [
+                {
+                    "name": "find-A",
+                    "symbol": "SymbolA",
+                    "expected_output": ["A.yaml"],
+                }
+            ]
+            symbols = [
+                {
+                    "name": "SymbolA",
+                    "category": "struct_offset",
+                    "data_type": "uint16",
+                }
+            ]
+            activity = {"did_work": False}
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS),
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=skills,
+                        symbols=symbols,
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                        activity=activity,
+                    )
+                )
+
+        self.assertTrue(ok)
+        self.assertTrue(activity["did_work"])
+        mock_run_skill.assert_not_called()
 
     def test_lazy_idalib_session_starts_on_first_call_and_reuses_session(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -906,6 +952,68 @@ class TestDumpSymbols(unittest.TestCase):
                 call(f"Processing {binary_dir}"),
                 call(f"Processed {binary_dir} successfully"),
                 call("Summary: 1 succeeded, 0 failed, 0 skipped"),
+            ]
+        )
+        self.assertEqual(5, mock_print.call_count)
+
+    def test_main_reports_single_binary_skip_summary_when_outputs_exist(self) -> None:
+        args = SimpleNamespace(
+            symboldir="symbols",
+            arch="amd64",
+            configyaml="config.yaml",
+            agent="codex",
+            debug=False,
+            force=False,
+        )
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            binary_path = binary_dir / "ntoskrnl.exe"
+            binary_path.write_text("", encoding="utf-8")
+            pdb_path = binary_dir / "ntkrnlmp.pdb"
+            pdb_path.write_text("", encoding="utf-8")
+            output_path = binary_dir / "EpObjectTable.yaml"
+            output_path.write_text("ready", encoding="utf-8")
+
+            module = SimpleNamespace(
+                path=["ntoskrnl.exe"],
+                skills=[
+                    {
+                        "name": "find-EpObjectTable",
+                        "symbol": "EpObjectTable",
+                        "expected_output": ["EpObjectTable.yaml"],
+                    }
+                ],
+                symbols=[
+                    {
+                        "name": "EpObjectTable",
+                        "category": "struct_offset",
+                        "data_type": "uint16",
+                    }
+                ],
+            )
+
+            with (
+                patch.object(dump_symbols, "parse_args", return_value=args),
+                patch.object(dump_symbols, "load_config", return_value=SimpleNamespace()),
+                patch.object(
+                    dump_symbols,
+                    "_iter_binary_dirs",
+                    return_value=[(module, binary_dir, pdb_path)],
+                ),
+                patch.object(dump_symbols, "start_idalib_mcp") as mock_start,
+                patch("builtins.print") as mock_print,
+            ):
+                exit_code = dump_symbols.main([])
+
+        self.assertEqual(0, exit_code)
+        mock_start.assert_not_called()
+        mock_print.assert_has_calls(
+            [
+                call("Scanning symbols/amd64"),
+                call("Found 1 candidate binary directories"),
+                call(f"Processing {binary_dir}"),
+                call(f"Skipped {binary_dir} (no work required)"),
+                call("Summary: 0 succeeded, 0 failed, 1 skipped"),
             ]
         )
         self.assertEqual(5, mock_print.call_count)

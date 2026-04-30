@@ -209,7 +209,11 @@ async def process_binary_dir(
     force,
     llm_config,
     session=None,
+    activity=None,
 ):
+    if activity is not None and "did_work" not in activity:
+        activity["did_work"] = False
+
     skill_map = {_field(skill, "name"): skill for skill in skills}
     symbol_map = {_field(symbol, "name"): symbol for symbol in symbols}
 
@@ -220,6 +224,8 @@ async def process_binary_dir(
         ]
         if not force and expected_outputs and all(Path(path).exists() for path in expected_outputs):
             continue
+        if activity is not None:
+            activity["did_work"] = True
 
         symbol_name = _field(skill, "symbol")
         status = await preprocess_single_skill_via_mcp(
@@ -541,6 +547,7 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
         host="127.0.0.1",
         debug=args.debug,
     )
+    activity = {"did_work": False}
     try:
         ok = await process_binary_dir(
             binary_dir=Path(binary_dir),
@@ -552,9 +559,9 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
             force=args.force,
             llm_config=None,
             session=session,
+            activity=activity,
         )
-        # Task 1 仅先适配 main() 的 did_work 分支，不在这里实现真实追踪逻辑。
-        return ok, ok
+        return ok, bool(activity["did_work"])
     finally:
         await session.close()
 
