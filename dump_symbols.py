@@ -296,12 +296,33 @@ async def _open_session(base_url: str):
     from mcp import ClientSession
     from mcp.client.streamable_http import streamable_http_client
 
-    streams = streamable_http_client(base_url)
-    read_stream, write_stream, _ = await streams.__aenter__()
-    session = ClientSession(read_stream, write_stream)
-    await session.__aenter__()
-    await session.initialize()
-    return streams, session
+    streams = None
+    session = None
+    streams_entered = False
+    session_entered = False
+    try:
+        streams = streamable_http_client(base_url)
+        read_stream, write_stream, _ = await streams.__aenter__()
+        streams_entered = True
+
+        session = ClientSession(read_stream, write_stream)
+        await session.__aenter__()
+        session_entered = True
+
+        await session.initialize()
+        return streams, session
+    except Exception:
+        if session is not None and session_entered:
+            try:
+                await session.__aexit__(None, None, None)
+            except Exception:
+                pass
+        if streams is not None and streams_entered:
+            try:
+                await streams.__aexit__(None, None, None)
+            except Exception:
+                pass
+        raise
 
 
 async def _session_matches_binary(session, binary_path: Path) -> bool:
@@ -373,12 +394,11 @@ class LazyIdalibSession:
             if not await _session_matches_binary(self.session, self.binary_path):
                 raise RuntimeError(f"MCP session target mismatch for {self.binary_path}")
             return self.session
-        except Exception:
+        except Exception as startup_exc:
             session = self.session
             streams = self.streams
             process = self.process
 
-            self.process = None
             self.streams = None
             self.session = None
 
@@ -392,16 +412,25 @@ class LazyIdalibSession:
                     await streams.__aexit__(None, None, None)
                 except Exception:
                     pass
+
+            cleanup_critical_exc = None
             if process is not None and process.poll() is None:
                 try:
                     process.kill()
-                except Exception:
-                    pass
-                try:
-                    await asyncio.to_thread(process.wait, timeout=1)
-                except Exception:
-                    pass
-            raise
+                except Exception as exc:
+                    cleanup_critical_exc = exc
+                else:
+                    try:
+                        await asyncio.to_thread(process.wait, timeout=1)
+                    except Exception as exc:
+                        cleanup_critical_exc = exc
+
+            if cleanup_critical_exc is None:
+                self.process = None
+                raise
+
+            self.process = process
+            raise cleanup_critical_exc from startup_exc
 
     async def call_tool(self, name, arguments):
         session = await self.ensure_started()
