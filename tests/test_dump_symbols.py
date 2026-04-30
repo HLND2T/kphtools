@@ -453,6 +453,70 @@ class TestDumpSymbols(unittest.TestCase):
         fake_process.wait.assert_has_calls([call(timeout=10), call(timeout=1)])
         fake_process.kill.assert_called_once_with()
 
+    def test_lazy_idalib_session_close_without_session_uses_fast_kill_path(self) -> None:
+        session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
+
+        fake_process = MagicMock()
+        fake_process.poll.return_value = None
+        fake_streams = AsyncMock()
+
+        session.process = fake_process
+        session.session = None
+        session.streams = fake_streams
+
+        asyncio.run(session.close())
+
+        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_process.kill.assert_called_once_with()
+        fake_process.wait.assert_called_once_with(timeout=1)
+
+    def test_lazy_idalib_session_close_qexit_timeout_still_runs_cleanup_and_fallback(self) -> None:
+        session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
+
+        fake_process = MagicMock()
+        fake_process.poll.return_value = None
+        fake_process.wait.side_effect = [
+            subprocess.TimeoutExpired(cmd="wait", timeout=10),
+            None,
+        ]
+
+        fake_session = AsyncMock()
+        fake_streams = AsyncMock()
+        session.process = fake_process
+        session.session = fake_session
+        session.streams = fake_streams
+
+        async def fake_wait_for(awaitable, timeout):
+            awaitable.close()
+            raise asyncio.TimeoutError()
+
+        with patch.object(dump_symbols.asyncio, "wait_for", new=AsyncMock(side_effect=fake_wait_for)) as mock_wait_for:
+            asyncio.run(session.close())
+
+        self.assertEqual(1, mock_wait_for.await_count)
+        fake_session.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_process.wait.assert_has_calls([call(timeout=10), call(timeout=1)])
+        fake_process.kill.assert_called_once_with()
+
+    def test_lazy_idalib_session_close_preserves_process_handle_on_wait_error(self) -> None:
+        session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
+
+        fake_process = MagicMock()
+        fake_process.poll.return_value = None
+        fake_process.wait.side_effect = RuntimeError("wait failed")
+        fake_session = AsyncMock()
+        fake_streams = AsyncMock()
+
+        session.process = fake_process
+        session.session = fake_session
+        session.streams = fake_streams
+
+        with self.assertRaises(RuntimeError):
+            asyncio.run(session.close())
+
+        self.assertIs(session.process, fake_process)
+
     def test_start_idalib_mcp_uses_devnull_streams(self) -> None:
         fake_process = MagicMock()
         binary_path = Path("/tmp/ntoskrnl.exe")

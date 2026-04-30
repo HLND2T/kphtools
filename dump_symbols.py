@@ -33,6 +33,7 @@ SURVEY_CURRENT_IDB_PATH_PY_EVAL = (
     "result = json.dumps({'metadata': {'path': path}})\n"
 )
 MCP_STARTUP_TIMEOUT = 1200
+IDALIB_QEXIT_TIMEOUT_SECONDS = 3
 
 
 def _field(item: Any, name: str, default: Any = None) -> Any:
@@ -378,39 +379,59 @@ class LazyIdalibSession:
         return await session.call_tool(name=name, arguments=arguments)
 
     async def _close_handles(self) -> None:
-        if self.session is not None:
-            await self.session.__aexit__(None, None, None)
-            self.session = None
-        if self.streams is not None:
-            await self.streams.__aexit__(None, None, None)
-            self.streams = None
+        session = self.session
+        streams = self.streams
+        self.session = None
+        self.streams = None
+
+        if session is not None:
+            try:
+                await session.__aexit__(None, None, None)
+            except Exception:
+                pass
+        if streams is not None:
+            try:
+                await streams.__aexit__(None, None, None)
+            except Exception:
+                pass
 
     async def close(self) -> None:
         process = self.process
-        self.process = None
 
         if process is None:
             await self._close_handles()
             return
         if process.poll() is not None:
             await self._close_handles()
+            self.process = None
             return
 
-        if self.session is not None:
+        has_session = self.session is not None
+        if has_session:
             try:
-                await self.session.call_tool(
-                    name="py_eval",
-                    arguments={"code": "import idc; idc.qexit(0)"},
+                await asyncio.wait_for(
+                    self.session.call_tool(
+                        name="py_eval",
+                        arguments={"code": "import idc; idc.qexit(0)"},
+                    ),
+                    timeout=IDALIB_QEXIT_TIMEOUT_SECONDS,
                 )
             except Exception:
                 pass
 
         await self._close_handles()
+        if not has_session:
+            process.kill()
+            await asyncio.to_thread(process.wait, timeout=1)
+            self.process = None
+            return
+
         try:
             await asyncio.to_thread(process.wait, timeout=10)
         except subprocess.TimeoutExpired:
             process.kill()
             await asyncio.to_thread(process.wait, timeout=1)
+        self.process = None
 
 
 def _iter_binary_dirs(symboldir: Path, arch: str, config):
