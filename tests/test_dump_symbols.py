@@ -467,6 +467,61 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertTrue(activity["did_work"])
         mock_run_skill.assert_not_called()
 
+    def test_process_module_binary_sets_did_work_true_without_eager_start(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            binary_path = binary_dir / "ntoskrnl.exe"
+            binary_path.write_text("", encoding="utf-8")
+            pdb_path = binary_dir / "ntkrnlmp.pdb"
+            pdb_path.write_text("", encoding="utf-8")
+
+            module = SimpleNamespace(
+                path=["ntoskrnl.exe"],
+                skills=[
+                    {
+                        "name": "find-EpObjectTable",
+                        "symbol": "EpObjectTable",
+                        "expected_output": ["EpObjectTable.yaml"],
+                    }
+                ],
+                symbols=[
+                    {
+                        "name": "EpObjectTable",
+                        "category": "struct_offset",
+                        "data_type": "uint16",
+                    }
+                ],
+            )
+            args = SimpleNamespace(agent="codex", debug=False, force=False)
+
+            with (
+                patch.object(dump_symbols, "start_idalib_mcp") as mock_start,
+                patch.object(dump_symbols, "_open_session", new=AsyncMock()) as mock_open_session,
+                patch.object(
+                    dump_symbols,
+                    "_session_matches_binary",
+                    new=AsyncMock(),
+                    create=True,
+                ) as mock_session_matches_binary,
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS),
+                ) as mock_preprocess,
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok, did_work = asyncio.run(
+                    dump_symbols._process_module_binary(module, binary_dir, pdb_path, args)
+                )
+
+        self.assertTrue(ok)
+        self.assertTrue(did_work)
+        mock_preprocess.assert_awaited_once()
+        mock_run_skill.assert_not_called()
+        mock_start.assert_not_called()
+        mock_open_session.assert_not_awaited()
+        mock_session_matches_binary.assert_not_awaited()
+
     def test_lazy_idalib_session_starts_on_first_call_and_reuses_session(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
