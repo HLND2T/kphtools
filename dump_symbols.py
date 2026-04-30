@@ -358,21 +358,50 @@ class LazyIdalibSession:
 
         if self.port is None:
             self.port = _allocate_local_port(self.host)
-        if self.process is None:
-            self.process = start_idalib_mcp(
-                self.binary_path,
-                host=self.host,
-                port=self.port,
-                debug=self.debug,
-            )
-        if self.streams is None or self.session is None:
-            self.streams, self.session = await _open_session(
-                f"http://{self.host}:{self.port}/mcp"
-            )
-        if not await _session_matches_binary(self.session, self.binary_path):
-            await self.close()
-            raise RuntimeError(f"MCP session target mismatch for {self.binary_path}")
-        return self.session
+        try:
+            if self.process is None:
+                self.process = start_idalib_mcp(
+                    self.binary_path,
+                    host=self.host,
+                    port=self.port,
+                    debug=self.debug,
+                )
+            if self.streams is None or self.session is None:
+                self.streams, self.session = await _open_session(
+                    f"http://{self.host}:{self.port}/mcp"
+                )
+            if not await _session_matches_binary(self.session, self.binary_path):
+                raise RuntimeError(f"MCP session target mismatch for {self.binary_path}")
+            return self.session
+        except Exception:
+            session = self.session
+            streams = self.streams
+            process = self.process
+
+            self.process = None
+            self.streams = None
+            self.session = None
+
+            if session is not None:
+                try:
+                    await session.__aexit__(None, None, None)
+                except Exception:
+                    pass
+            if streams is not None:
+                try:
+                    await streams.__aexit__(None, None, None)
+                except Exception:
+                    pass
+            if process is not None and process.poll() is None:
+                try:
+                    process.kill()
+                except Exception:
+                    pass
+                try:
+                    await asyncio.to_thread(process.wait, timeout=1)
+                except Exception:
+                    pass
+            raise
 
     async def call_tool(self, name, arguments):
         session = await self.ensure_started()

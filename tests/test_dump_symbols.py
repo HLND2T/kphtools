@@ -397,6 +397,62 @@ class TestDumpSymbols(unittest.TestCase):
         fake_process.kill.assert_not_called()
         fake_process.wait.assert_called_once_with(timeout=10)
 
+    def test_lazy_idalib_session_cleans_up_after_binary_mismatch(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            binary_path = binary_dir / "ntoskrnl.exe"
+            binary_path.write_text("", encoding="utf-8")
+
+            fake_process = MagicMock()
+            fake_process.poll.return_value = None
+            fake_streams = AsyncMock()
+            fake_session = AsyncMock()
+
+            with (
+                patch.object(
+                    dump_symbols,
+                    "_allocate_local_port",
+                    return_value=24567,
+                    create=True,
+                ),
+                patch.object(
+                    dump_symbols,
+                    "start_idalib_mcp",
+                    return_value=fake_process,
+                ) as mock_start,
+                patch.object(
+                    dump_symbols,
+                    "_open_session",
+                    new=AsyncMock(return_value=(fake_streams, fake_session)),
+                ) as mock_open_session,
+                patch.object(
+                    dump_symbols,
+                    "_session_matches_binary",
+                    new=AsyncMock(return_value=False),
+                    create=True,
+                ) as mock_session_matches_binary,
+            ):
+                lazy_session = dump_symbols.LazyIdalibSession(binary_path=binary_path)
+
+                with self.assertRaisesRegex(RuntimeError, "MCP session target mismatch"):
+                    asyncio.run(lazy_session.call_tool("py_eval", {"code": "1"}))
+
+        mock_start.assert_called_once_with(
+            binary_path,
+            host="127.0.0.1",
+            port=24567,
+            debug=False,
+        )
+        mock_open_session.assert_awaited_once_with("http://127.0.0.1:24567/mcp")
+        mock_session_matches_binary.assert_awaited_once_with(fake_session, binary_path)
+        fake_session.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_process.kill.assert_called_once_with()
+        fake_process.wait.assert_called_once_with(timeout=1)
+        self.assertIsNone(lazy_session.process)
+        self.assertIsNone(lazy_session.streams)
+        self.assertIsNone(lazy_session.session)
+
     def test_lazy_idalib_session_close_uses_qexit_before_wait(self) -> None:
         session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
         events: list[str] = []
