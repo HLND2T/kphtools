@@ -329,6 +329,7 @@ class TestDumpSymbols(unittest.TestCase):
             binary_path = binary_dir / "ntoskrnl.exe"
             binary_path.write_text("", encoding="utf-8")
             fake_process = MagicMock()
+            fake_process.poll.return_value = None
             fake_streams = AsyncMock()
             fake_session = AsyncMock()
             first_result = object()
@@ -385,12 +386,72 @@ class TestDumpSymbols(unittest.TestCase):
             [
                 call(name="py_eval", arguments={"code": "1"}),
                 call(name="py_eval", arguments={"code": "2"}),
+                call(
+                    name="py_eval",
+                    arguments={"code": "import idc; idc.qexit(0)"},
+                ),
             ]
         )
         fake_session.__aexit__.assert_awaited_once_with(None, None, None)
         fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_process.terminate.assert_called_once_with()
+        fake_process.kill.assert_not_called()
         fake_process.wait.assert_called_once_with(timeout=10)
+
+    def test_lazy_idalib_session_close_uses_qexit_before_wait(self) -> None:
+        session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
+        events: list[str] = []
+
+        fake_process = MagicMock()
+        fake_process.poll.return_value = None
+        fake_process.wait.side_effect = lambda timeout: events.append(f"wait:{timeout}")
+        fake_process.kill.side_effect = lambda: events.append("kill")
+
+        fake_session = AsyncMock()
+        fake_session.call_tool = AsyncMock(
+            side_effect=lambda **kwargs: events.append("qexit")
+        )
+        fake_session.__aexit__ = AsyncMock(side_effect=lambda *_: events.append("session_exit"))
+
+        fake_streams = AsyncMock()
+        fake_streams.__aexit__ = AsyncMock(side_effect=lambda *_: events.append("streams_exit"))
+
+        session.process = fake_process
+        session.session = fake_session
+        session.streams = fake_streams
+
+        asyncio.run(session.close())
+
+        fake_session.call_tool.assert_awaited_once_with(
+            name="py_eval",
+            arguments={"code": "import idc; idc.qexit(0)"},
+        )
+        self.assertEqual(["qexit", "session_exit", "streams_exit", "wait:10"], events)
+        fake_process.kill.assert_not_called()
+
+    def test_lazy_idalib_session_close_kills_after_wait_timeout(self) -> None:
+        session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
+
+        fake_process = MagicMock()
+        fake_process.poll.return_value = None
+        fake_process.wait.side_effect = [
+            subprocess.TimeoutExpired(cmd="wait", timeout=10),
+            None,
+        ]
+
+        fake_session = AsyncMock()
+        fake_streams = AsyncMock()
+        session.process = fake_process
+        session.session = fake_session
+        session.streams = fake_streams
+
+        asyncio.run(session.close())
+
+        fake_session.call_tool.assert_awaited_once_with(
+            name="py_eval",
+            arguments={"code": "import idc; idc.qexit(0)"},
+        )
+        fake_process.wait.assert_has_calls([call(timeout=10), call(timeout=1)])
+        fake_process.kill.assert_called_once_with()
 
     def test_start_idalib_mcp_uses_devnull_streams(self) -> None:
         fake_process = MagicMock()

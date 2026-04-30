@@ -377,21 +377,40 @@ class LazyIdalibSession:
         session = await self.ensure_started()
         return await session.call_tool(name=name, arguments=arguments)
 
-    async def close(self) -> None:
+    async def _close_handles(self) -> None:
         if self.session is not None:
             await self.session.__aexit__(None, None, None)
             self.session = None
         if self.streams is not None:
             await self.streams.__aexit__(None, None, None)
             self.streams = None
-        if self.process is not None:
-            self.process.terminate()
+
+    async def close(self) -> None:
+        process = self.process
+        self.process = None
+
+        if process is None:
+            await self._close_handles()
+            return
+        if process.poll() is not None:
+            await self._close_handles()
+            return
+
+        if self.session is not None:
             try:
-                self.process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait(timeout=1)
-            self.process = None
+                await self.session.call_tool(
+                    name="py_eval",
+                    arguments={"code": "import idc; idc.qexit(0)"},
+                )
+            except Exception:
+                pass
+
+        await self._close_handles()
+        try:
+            await asyncio.to_thread(process.wait, timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            await asyncio.to_thread(process.wait, timeout=1)
 
 
 def _iter_binary_dirs(symboldir: Path, arch: str, config):
