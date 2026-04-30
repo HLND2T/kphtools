@@ -336,6 +336,64 @@ async def _session_matches_binary(session, binary_path: Path) -> bool:
     )
 
 
+class LazyIdalibSession:
+    def __init__(
+        self,
+        binary_path: Path,
+        host: str = "127.0.0.1",
+        debug: bool = False,
+    ) -> None:
+        self.binary_path = Path(binary_path)
+        self.host = host
+        self.debug = debug
+        self.port: int | None = None
+        self.process = None
+        self.streams = None
+        self.session = None
+
+    async def ensure_started(self):
+        if self.session is not None:
+            return self.session
+
+        if self.port is None:
+            self.port = _allocate_local_port(self.host)
+        if self.process is None:
+            self.process = start_idalib_mcp(
+                self.binary_path,
+                host=self.host,
+                port=self.port,
+                debug=self.debug,
+            )
+        if self.streams is None or self.session is None:
+            self.streams, self.session = await _open_session(
+                f"http://{self.host}:{self.port}/mcp"
+            )
+        if not await _session_matches_binary(self.session, self.binary_path):
+            await self.close()
+            raise RuntimeError(f"MCP session target mismatch for {self.binary_path}")
+        return self.session
+
+    async def call_tool(self, name, arguments):
+        session = await self.ensure_started()
+        return await session.call_tool(name=name, arguments=arguments)
+
+    async def close(self) -> None:
+        if self.session is not None:
+            await self.session.__aexit__(None, None, None)
+            self.session = None
+        if self.streams is not None:
+            await self.streams.__aexit__(None, None, None)
+            self.streams = None
+        if self.process is not None:
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait(timeout=1)
+            self.process = None
+
+
 def _iter_binary_dirs(symboldir: Path, arch: str, config):
     arch_dir = Path(symboldir) / arch
     for module in config.modules:
@@ -361,21 +419,13 @@ def _resolve_binary_path(module, binary_dir: Path) -> Path:
 
 
 async def _process_module_binary(module, binary_dir, pdb_path, args):
-    host = "127.0.0.1"
-    port = _allocate_local_port(host)
     binary_path = _resolve_binary_path(module, Path(binary_dir))
-    process = start_idalib_mcp(
+    session = LazyIdalibSession(
         binary_path,
-        host=host,
-        port=port,
+        host="127.0.0.1",
         debug=args.debug,
     )
-    streams = None
-    session = None
     try:
-        streams, session = await _open_session(f"http://{host}:{port}/mcp")
-        if not await _session_matches_binary(session, binary_path):
-            raise RuntimeError(f"MCP session target mismatch for {binary_path}")
         return await process_binary_dir(
             binary_dir=Path(binary_dir),
             pdb_path=Path(pdb_path),
@@ -388,16 +438,7 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
             session=session,
         )
     finally:
-        if session is not None:
-            await session.__aexit__(None, None, None)
-        if streams is not None:
-            await streams.__aexit__(None, None, None)
-        process.terminate()
-        try:
-            process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=1)
+        await session.close()
 
 
 def main(argv=None):

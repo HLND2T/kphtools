@@ -4,7 +4,7 @@ import asyncio
 import subprocess
 from types import SimpleNamespace
 import unittest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import dump_symbols
 
@@ -240,9 +240,7 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertFalse(ok)
         mock_run.assert_called_once()
 
-    def test_process_module_binary_uses_same_dynamic_port_for_mcp_start_and_session(
-        self,
-    ) -> None:
+    def test_process_module_binary_passes_lazy_session_without_eager_start(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             binary_path = binary_dir / "ntoskrnl.exe"
@@ -252,9 +250,60 @@ class TestDumpSymbols(unittest.TestCase):
 
             module = SimpleNamespace(path=["ntoskrnl.exe"], skills=[], symbols=[])
             args = SimpleNamespace(agent="codex", debug=False, force=False)
+            fake_lazy_session = MagicMock()
+            fake_lazy_session.close = AsyncMock()
+
+            with (
+                patch.object(
+                    dump_symbols,
+                    "LazyIdalibSession",
+                    return_value=fake_lazy_session,
+                ) as mock_lazy_session_cls,
+                patch.object(
+                    dump_symbols,
+                    "start_idalib_mcp",
+                ) as mock_start,
+                patch.object(dump_symbols, "_open_session", new=AsyncMock()) as mock_open_session,
+                patch.object(
+                    dump_symbols,
+                    "_session_matches_binary",
+                    new=AsyncMock(),
+                    create=True,
+                ) as mock_session_matches_binary,
+                patch.object(
+                    dump_symbols,
+                    "process_binary_dir",
+                    new=AsyncMock(return_value=True),
+                ) as mock_process_binary,
+            ):
+                ok = asyncio.run(
+                    dump_symbols._process_module_binary(module, binary_dir, pdb_path, args)
+                )
+
+        self.assertTrue(ok)
+        mock_lazy_session_cls.assert_called_once_with(
+            binary_path,
+            host="127.0.0.1",
+            debug=False,
+        )
+        self.assertIs(mock_process_binary.await_args.kwargs["session"], fake_lazy_session)
+        mock_start.assert_not_called()
+        mock_open_session.assert_not_awaited()
+        mock_session_matches_binary.assert_not_awaited()
+        mock_process_binary.assert_awaited_once()
+        fake_lazy_session.close.assert_awaited_once()
+
+    def test_lazy_idalib_session_starts_on_first_call_and_reuses_session(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            binary_path = binary_dir / "ntoskrnl.exe"
+            binary_path.write_text("", encoding="utf-8")
             fake_process = MagicMock()
             fake_streams = AsyncMock()
             fake_session = AsyncMock()
+            first_result = object()
+            second_result = object()
+            fake_session.call_tool = AsyncMock(side_effect=[first_result, second_result])
 
             with (
                 patch.object(
@@ -262,7 +311,7 @@ class TestDumpSymbols(unittest.TestCase):
                     "_allocate_local_port",
                     return_value=24567,
                     create=True,
-                ) as mock_allocate_port,
+                ),
                 patch.object(
                     dump_symbols, "start_idalib_mcp", return_value=fake_process
                 ) as mock_start,
@@ -277,18 +326,16 @@ class TestDumpSymbols(unittest.TestCase):
                     new=AsyncMock(return_value=True),
                     create=True,
                 ) as mock_session_matches_binary,
-                patch.object(
-                    dump_symbols,
-                    "process_binary_dir",
-                    new=AsyncMock(return_value=True),
-                ) as mock_process_binary,
             ):
-                ok = asyncio.run(
-                    dump_symbols._process_module_binary(module, binary_dir, pdb_path, args)
-                )
+                session = dump_symbols.LazyIdalibSession(binary_path=binary_path)
+                self.assertIsNone(session.session)
 
-        self.assertTrue(ok)
-        mock_allocate_port.assert_called_once_with("127.0.0.1")
+                call_one = asyncio.run(session.call_tool("py_eval", {"code": "1"}))
+                call_two = asyncio.run(session.call_tool("py_eval", {"code": "2"}))
+                asyncio.run(session.close())
+
+        self.assertIs(call_one, first_result)
+        self.assertIs(call_two, second_result)
         mock_start.assert_called_once_with(
             binary_path,
             host="127.0.0.1",
@@ -297,58 +344,16 @@ class TestDumpSymbols(unittest.TestCase):
         )
         mock_open_session.assert_awaited_once_with("http://127.0.0.1:24567/mcp")
         mock_session_matches_binary.assert_awaited_once_with(fake_session, binary_path)
-        mock_process_binary.assert_awaited_once()
-
-    def test_process_module_binary_fails_when_session_path_mismatches(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            binary_dir = Path(temp_dir)
-            binary_path = binary_dir / "ntoskrnl.exe"
-            binary_path.write_text("", encoding="utf-8")
-            pdb_path = binary_dir / "ntkrnlmp.pdb"
-            pdb_path.write_text("", encoding="utf-8")
-
-            module = SimpleNamespace(path=["ntoskrnl.exe"], skills=[], symbols=[])
-            args = SimpleNamespace(agent="codex", debug=False, force=False)
-            fake_process = MagicMock()
-            fake_streams = AsyncMock()
-            fake_session = AsyncMock()
-
-            with (
-                patch.object(
-                    dump_symbols,
-                    "_allocate_local_port",
-                    return_value=24567,
-                    create=True,
-                ),
-                patch.object(
-                    dump_symbols, "start_idalib_mcp", return_value=fake_process
-                ),
-                patch.object(
-                    dump_symbols,
-                    "_open_session",
-                    new=AsyncMock(return_value=(fake_streams, fake_session)),
-                ),
-                patch.object(
-                    dump_symbols,
-                    "_session_matches_binary",
-                    new=AsyncMock(return_value=False),
-                    create=True,
-                ) as mock_session_matches_binary,
-                patch.object(
-                    dump_symbols,
-                    "process_binary_dir",
-                    new=AsyncMock(return_value=True),
-                ) as mock_process_binary,
-            ):
-                with self.assertRaisesRegex(RuntimeError, "MCP session target mismatch"):
-                    asyncio.run(
-                        dump_symbols._process_module_binary(
-                            module, binary_dir, pdb_path, args
-                        )
-                    )
-
-        mock_session_matches_binary.assert_awaited_once_with(fake_session, binary_path)
-        mock_process_binary.assert_not_awaited()
+        fake_session.call_tool.assert_has_awaits(
+            [
+                call(name="py_eval", arguments={"code": "1"}),
+                call(name="py_eval", arguments={"code": "2"}),
+            ]
+        )
+        fake_session.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_process.terminate.assert_called_once_with()
+        fake_process.wait.assert_called_once_with(timeout=10)
 
     def test_start_idalib_mcp_uses_devnull_streams(self) -> None:
         fake_process = MagicMock()
