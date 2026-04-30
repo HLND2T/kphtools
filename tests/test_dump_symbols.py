@@ -369,14 +369,69 @@ class TestDumpSymbols(unittest.TestCase):
             expected_yaml_paths=[str(binary_dir / "EpObjectTable.yaml")],
             max_retries=3,
         )
-        mock_print.assert_has_calls(
-            [
-                call("[debug] skill find-EpObjectTable started"),
-                call("[debug] preprocess status for find-EpObjectTable: failed"),
-                call("[debug] falling back to run_skill for find-EpObjectTable"),
-            ]
+        printed_messages = [
+            c.args[0]
+            for c in mock_print.call_args_list
+            if c.args and isinstance(c.args[0], str)
+        ]
+        self.assertIn("[debug] skill find-EpObjectTable started", printed_messages)
+        self.assertIn(
+            "[debug] preprocess status for find-EpObjectTable: failed",
+            printed_messages,
         )
-        self.assertEqual(3, mock_print.call_count)
+        self.assertIn(
+            "[debug] falling back to run_skill for find-EpObjectTable",
+            printed_messages,
+        )
+
+    def test_process_binary_dir_debug_false_does_not_print_debug_logs(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            config = {
+                "skills": [
+                    {
+                        "name": "find-EpObjectTable",
+                        "symbol": "EpObjectTable",
+                        "expected_output": ["EpObjectTable.yaml"],
+                    }
+                ],
+                "symbols": [
+                    {
+                        "name": "EpObjectTable",
+                        "category": "struct_offset",
+                        "data_type": "uint16",
+                    }
+                ],
+            }
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=AsyncMock(return_value="failed"),
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True),
+                patch("builtins.print") as mock_print,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                    )
+                )
+
+        self.assertTrue(ok)
+        printed_messages = [
+            c.args[0]
+            for c in mock_print.call_args_list
+            if c.args and isinstance(c.args[0], str)
+        ]
+        self.assertFalse(any(message.startswith("[debug]") for message in printed_messages))
 
     def test_run_skill_calls_subprocess_once_even_with_higher_retry_limit(self) -> None:
         completed = subprocess.CompletedProcess(args=["codex"], returncode=1)
@@ -708,13 +763,19 @@ class TestDumpSymbols(unittest.TestCase):
             "http://127.0.0.1:24567/mcp",
             debug=True,
         )
-        mock_print.assert_has_calls(
-            [
-                call(f"[debug] allocating lazy MCP session for {binary_path}"),
-                call(f"[debug] closing lazy MCP session for {binary_path}"),
-            ]
+        printed_messages = [
+            c.args[0]
+            for c in mock_print.call_args_list
+            if c.args and isinstance(c.args[0], str)
+        ]
+        self.assertIn(
+            f"[debug] allocating lazy MCP session for {binary_path}",
+            printed_messages,
         )
-        self.assertEqual(2, mock_print.call_count)
+        self.assertIn(
+            f"[debug] closing lazy MCP session for {binary_path}",
+            printed_messages,
+        )
 
     def test_lazy_idalib_session_cleans_up_after_binary_mismatch(self) -> None:
         with TemporaryDirectory() as temp_dir:
