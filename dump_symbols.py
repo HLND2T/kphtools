@@ -397,17 +397,16 @@ class LazyIdalibSession:
 
     async def close(self) -> None:
         process = self.process
+        self.process = None
 
         if process is None:
             await self._close_handles()
             return
         if process.poll() is not None:
             await self._close_handles()
-            self.process = None
             return
 
-        has_session = self.session is not None
-        if has_session:
+        if self.session is not None:
             try:
                 await asyncio.wait_for(
                     self.session.call_tool(
@@ -420,18 +419,11 @@ class LazyIdalibSession:
                 pass
 
         await self._close_handles()
-        if not has_session:
-            process.kill()
-            await asyncio.to_thread(process.wait, timeout=1)
-            self.process = None
-            return
-
         try:
             await asyncio.to_thread(process.wait, timeout=10)
         except subprocess.TimeoutExpired:
             process.kill()
             await asyncio.to_thread(process.wait, timeout=1)
-        self.process = None
 
 
 def _iter_binary_dirs(symboldir: Path, arch: str, config):
