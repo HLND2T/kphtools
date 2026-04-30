@@ -329,6 +329,9 @@ class TestDumpSymbols(unittest.TestCase):
             ):
                 session = dump_symbols.LazyIdalibSession(binary_path=binary_path)
                 self.assertIsNone(session.session)
+                mock_start.assert_not_called()
+                mock_open_session.assert_not_awaited()
+                mock_session_matches_binary.assert_not_awaited()
 
                 call_one = asyncio.run(session.call_tool("py_eval", {"code": "1"}))
                 call_two = asyncio.run(session.call_tool("py_eval", {"code": "2"}))
