@@ -320,6 +320,64 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertEqual(1, mock_run_skill.call_count)
         self.assertEqual(1, preprocess_mock.await_count)
 
+    def test_process_binary_dir_debug_logs_preprocess_failure_and_fallback(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            config = {
+                "skills": [
+                    {
+                        "name": "find-EpObjectTable",
+                        "symbol": "EpObjectTable",
+                        "expected_output": ["EpObjectTable.yaml"],
+                    }
+                ],
+                "symbols": [
+                    {
+                        "name": "EpObjectTable",
+                        "category": "struct_offset",
+                        "data_type": "uint16",
+                    }
+                ],
+            }
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=AsyncMock(return_value="failed"),
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+                patch("builtins.print") as mock_print,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=True,
+                        force=False,
+                        llm_config=None,
+                    )
+                )
+
+        self.assertTrue(ok)
+        mock_run_skill.assert_called_once_with(
+            "find-EpObjectTable",
+            agent="codex",
+            debug=True,
+            expected_yaml_paths=[str(binary_dir / "EpObjectTable.yaml")],
+            max_retries=3,
+        )
+        mock_print.assert_has_calls(
+            [
+                call("[debug] skill find-EpObjectTable started"),
+                call("[debug] preprocess status for find-EpObjectTable: failed"),
+                call("[debug] falling back to run_skill for find-EpObjectTable"),
+            ]
+        )
+        self.assertEqual(3, mock_print.call_count)
+
     def test_run_skill_calls_subprocess_once_even_with_higher_retry_limit(self) -> None:
         completed = subprocess.CompletedProcess(args=["codex"], returncode=1)
         with (
@@ -579,7 +637,10 @@ class TestDumpSymbols(unittest.TestCase):
             port=24567,
             debug=False,
         )
-        mock_open_session.assert_awaited_once_with("http://127.0.0.1:24567/mcp")
+        mock_open_session.assert_awaited_once_with(
+            "http://127.0.0.1:24567/mcp",
+            debug=False,
+        )
         mock_session_matches_binary.assert_awaited_once_with(fake_session, binary_path)
         fake_session.call_tool.assert_has_awaits(
             [
@@ -595,6 +656,65 @@ class TestDumpSymbols(unittest.TestCase):
         fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
         fake_process.kill.assert_not_called()
         fake_process.wait.assert_called_once_with(timeout=10)
+
+    def test_lazy_idalib_session_debug_logs_startup(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            binary_path = binary_dir / "ntoskrnl.exe"
+            binary_path.write_text("", encoding="utf-8")
+            fake_process = MagicMock()
+            fake_process.poll.return_value = None
+            fake_streams = AsyncMock()
+            fake_session = AsyncMock()
+            fake_session.call_tool = AsyncMock()
+
+            with (
+                patch.object(
+                    dump_symbols,
+                    "_allocate_local_port",
+                    return_value=24567,
+                    create=True,
+                ),
+                patch.object(
+                    dump_symbols,
+                    "start_idalib_mcp",
+                    return_value=fake_process,
+                ),
+                patch.object(
+                    dump_symbols,
+                    "_open_session",
+                    new=AsyncMock(return_value=(fake_streams, fake_session)),
+                ) as mock_open_session,
+                patch.object(
+                    dump_symbols,
+                    "_session_matches_binary",
+                    new=AsyncMock(return_value=True),
+                    create=True,
+                ),
+                patch("builtins.print") as mock_print,
+            ):
+                lazy_session = dump_symbols.LazyIdalibSession(
+                    binary_path=binary_path,
+                    debug=True,
+                )
+
+                async def run_sequence():
+                    await lazy_session.ensure_started()
+                    await lazy_session.close()
+
+                asyncio.run(run_sequence())
+
+        mock_open_session.assert_awaited_once_with(
+            "http://127.0.0.1:24567/mcp",
+            debug=True,
+        )
+        mock_print.assert_has_calls(
+            [
+                call(f"[debug] allocating lazy MCP session for {binary_path}"),
+                call(f"[debug] closing lazy MCP session for {binary_path}"),
+            ]
+        )
+        self.assertEqual(2, mock_print.call_count)
 
     def test_lazy_idalib_session_cleans_up_after_binary_mismatch(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -642,7 +762,10 @@ class TestDumpSymbols(unittest.TestCase):
             port=24567,
             debug=False,
         )
-        mock_open_session.assert_awaited_once_with("http://127.0.0.1:24567/mcp")
+        mock_open_session.assert_awaited_once_with(
+            "http://127.0.0.1:24567/mcp",
+            debug=False,
+        )
         mock_session_matches_binary.assert_awaited_once_with(fake_session, binary_path)
         fake_session.__aexit__.assert_awaited_once_with(None, None, None)
         fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
@@ -738,7 +861,10 @@ class TestDumpSymbols(unittest.TestCase):
             port=24567,
             debug=False,
         )
-        mock_open_session.assert_awaited_once_with("http://127.0.0.1:24567/mcp")
+        mock_open_session.assert_awaited_once_with(
+            "http://127.0.0.1:24567/mcp",
+            debug=False,
+        )
         fake_process.kill.assert_called_once_with()
         fake_process.wait.assert_called_once_with(timeout=1)
         self.assertIsNone(lazy_session.process)

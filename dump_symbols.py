@@ -166,6 +166,7 @@ def run_skill(
     expected_yaml_paths,
     max_retries=3,
 ):
+    _debug_log(debug, f"starting fallback skill for {skill_name}")
     skill_md_path = Path(".claude") / "skills" / skill_name / "SKILL.md"
     if not skill_md_path.exists():
         return False
@@ -193,8 +194,7 @@ def run_skill(
     prompt = f"Run SKILL: {skill_md_path}"
     completed = subprocess.run(cmd, input=prompt, text=True, check=False)
     if completed.returncode != 0:
-        if debug:
-            print(f"skill failed: {skill_name}")
+        _debug_log(debug, f"skill failed: {skill_name}")
         return False
     return all(Path(path).exists() for path in expected_yaml_paths)
 
@@ -218,11 +218,13 @@ async def process_binary_dir(
     symbol_map = {_field(symbol, "name"): symbol for symbol in symbols}
 
     for skill_name in topological_sort_skills(skills):
+        _debug_log(debug, f"skill {skill_name} started")
         skill = skill_map[skill_name]
         expected_outputs = [
             str(Path(binary_dir) / name) for name in _string_list(skill, "expected_output")
         ]
         if not force and expected_outputs and all(Path(path).exists() for path in expected_outputs):
+            _debug_log(debug, f"skipping {skill_name}; expected outputs already exist")
             continue
         if activity is not None:
             activity["did_work"] = True
@@ -237,10 +239,12 @@ async def process_binary_dir(
             debug=debug,
             llm_config=llm_config,
         )
+        _debug_log(debug, f"preprocess status for {skill_name}: {status}")
         if status == PREPROCESS_STATUS_SUCCESS:
             continue
 
         skill_max_retries = _field(skill, "max_retries") or 3
+        _debug_log(debug, f"falling back to run_skill for {skill_name}")
         if not run_skill(
             skill_name,
             agent=agent,
@@ -298,7 +302,8 @@ def start_idalib_mcp(
     return process
 
 
-async def _open_session(base_url: str):
+async def _open_session(base_url: str, debug: bool = False):
+    _debug_log(debug, f"opening MCP session at {base_url}")
     from mcp import ClientSession
     from mcp.client.streamable_http import streamable_http_client
 
@@ -383,6 +388,7 @@ class LazyIdalibSession:
         if self.session is not None:
             return self.session
 
+        _debug_log(self.debug, f"allocating lazy MCP session for {self.binary_path}")
         if self.port is None:
             self.port = _allocate_local_port(self.host)
         try:
@@ -395,12 +401,15 @@ class LazyIdalibSession:
                 )
             if self.streams is None or self.session is None:
                 self.streams, self.session = await _open_session(
-                    f"http://{self.host}:{self.port}/mcp"
+                    f"http://{self.host}:{self.port}/mcp",
+                    debug=self.debug,
                 )
             if not await _session_matches_binary(self.session, self.binary_path):
+                _debug_log(self.debug, f"binary mismatch for {self.binary_path}, cleaning up startup state")
                 raise RuntimeError(f"MCP session target mismatch for {self.binary_path}")
             return self.session
         except BaseException:
+            _debug_log(self.debug, f"startup cleanup for {self.binary_path}")
             session = self.session
             streams = self.streams
             process = self.process
@@ -461,6 +470,7 @@ class LazyIdalibSession:
             raise cancel_error
 
     async def close(self) -> None:
+        _debug_log(self.debug, f"closing lazy MCP session for {self.binary_path}")
         process = self.process
         self.process = None
 
