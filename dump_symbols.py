@@ -311,16 +311,16 @@ async def _open_session(base_url: str):
 
         await session.initialize()
         return streams, session
-    except Exception:
+    except BaseException:
         if session is not None and session_entered:
             try:
                 await session.__aexit__(None, None, None)
-            except Exception:
+            except BaseException:
                 pass
         if streams is not None and streams_entered:
             try:
                 await streams.__aexit__(None, None, None)
-            except Exception:
+            except BaseException:
                 pass
         raise
 
@@ -394,7 +394,7 @@ class LazyIdalibSession:
             if not await _session_matches_binary(self.session, self.binary_path):
                 raise RuntimeError(f"MCP session target mismatch for {self.binary_path}")
             return self.session
-        except Exception:
+        except BaseException:
             session = self.session
             streams = self.streams
             process = self.process
@@ -406,12 +406,12 @@ class LazyIdalibSession:
             if session is not None:
                 try:
                     await session.__aexit__(None, None, None)
-                except Exception:
+                except BaseException:
                     pass
             if streams is not None:
                 try:
                     await streams.__aexit__(None, None, None)
-                except Exception:
+                except BaseException:
                     pass
 
             if process is not None and process.poll() is None:
@@ -421,7 +421,7 @@ class LazyIdalibSession:
                     pass
                 try:
                     await asyncio.to_thread(process.wait, timeout=1)
-                except Exception:
+                except BaseException:
                     pass
             raise
 
@@ -434,47 +434,71 @@ class LazyIdalibSession:
         streams = self.streams
         self.session = None
         self.streams = None
+        cancel_error = None
 
         if session is not None:
             try:
                 await session.__aexit__(None, None, None)
+            except asyncio.CancelledError as exc:
+                cancel_error = exc
             except Exception:
                 pass
         if streams is not None:
             try:
                 await streams.__aexit__(None, None, None)
+            except asyncio.CancelledError as exc:
+                if cancel_error is None:
+                    cancel_error = exc
             except Exception:
                 pass
+        if cancel_error is not None:
+            raise cancel_error
 
     async def close(self) -> None:
         process = self.process
         self.process = None
 
-        if process is None:
-            await self._close_handles()
-            return
-        if process.poll() is not None:
-            await self._close_handles()
-            return
-
-        if self.session is not None:
-            try:
-                await asyncio.wait_for(
-                    self.session.call_tool(
-                        name="py_eval",
-                        arguments={"code": "import idc; idc.qexit(0)"},
-                    ),
-                    timeout=IDALIB_QEXIT_TIMEOUT_SECONDS,
-                )
-            except Exception:
-                pass
-
-        await self._close_handles()
         try:
-            await asyncio.to_thread(process.wait, timeout=10)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            await asyncio.to_thread(process.wait, timeout=1)
+            if process is None:
+                await self._close_handles()
+                return
+            if process.poll() is not None:
+                await self._close_handles()
+                return
+
+            if self.session is not None:
+                try:
+                    await asyncio.wait_for(
+                        self.session.call_tool(
+                            name="py_eval",
+                            arguments={"code": "import idc; idc.qexit(0)"},
+                        ),
+                        timeout=IDALIB_QEXIT_TIMEOUT_SECONDS,
+                    )
+                except Exception:
+                    pass
+
+            await self._close_handles()
+            try:
+                await asyncio.to_thread(process.wait, timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                await asyncio.to_thread(process.wait, timeout=1)
+        except asyncio.CancelledError:
+            try:
+                await self._close_handles()
+            except BaseException:
+                pass
+            if process is not None and process.poll() is None:
+                try:
+                    process.kill()
+                except Exception:
+                    pass
+                try:
+                    await asyncio.to_thread(process.wait, timeout=1)
+                except BaseException:
+                    pass
+            raise
 
 
 def _iter_binary_dirs(symboldir: Path, arch: str, config):

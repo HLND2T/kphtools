@@ -76,6 +76,38 @@ class TestDumpSymbols(unittest.TestCase):
         fake_session.__aexit__.assert_awaited_once_with(None, None, None)
         fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
 
+    def test_open_session_cleans_up_session_and_streams_when_initialize_cancelled(self) -> None:
+        fake_streams = AsyncMock()
+        read_stream = object()
+        write_stream = object()
+        fake_streams.__aenter__ = AsyncMock(return_value=(read_stream, write_stream, object()))
+        fake_streams.__aexit__ = AsyncMock()
+
+        fake_session = AsyncMock()
+        fake_session.__aenter__ = AsyncMock(return_value=fake_session)
+        fake_session.__aexit__ = AsyncMock()
+        fake_session.initialize = AsyncMock(side_effect=asyncio.CancelledError())
+
+        fake_mcp_module = types.ModuleType("mcp")
+        fake_mcp_module.ClientSession = MagicMock(return_value=fake_session)
+        fake_mcp_client_module = types.ModuleType("mcp.client")
+        fake_streamable_http_module = types.ModuleType("mcp.client.streamable_http")
+        fake_streamable_http_module.streamable_http_client = MagicMock(return_value=fake_streams)
+
+        with patch.dict(
+            sys.modules,
+            {
+                "mcp": fake_mcp_module,
+                "mcp.client": fake_mcp_client_module,
+                "mcp.client.streamable_http": fake_streamable_http_module,
+            },
+        ):
+            with self.assertRaises(asyncio.CancelledError):
+                asyncio.run(dump_symbols._open_session("http://127.0.0.1:13337/mcp"))
+
+        fake_session.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
+
     def test_topological_sort_uses_expected_input_output(self) -> None:
         skills = [
             {"name": "find-B", "expected_output": ["B.yaml"], "expected_input": ["A.yaml"]},
@@ -567,6 +599,51 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertIsNone(lazy_session.streams)
         self.assertIsNone(lazy_session.session)
 
+    def test_lazy_idalib_session_startup_failure_after_process_start_cleans_up_process(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            binary_path = binary_dir / "ntoskrnl.exe"
+            binary_path.write_text("", encoding="utf-8")
+
+            fake_process = MagicMock()
+            fake_process.poll.return_value = None
+
+            with (
+                patch.object(
+                    dump_symbols,
+                    "_allocate_local_port",
+                    return_value=24567,
+                    create=True,
+                ),
+                patch.object(
+                    dump_symbols,
+                    "start_idalib_mcp",
+                    return_value=fake_process,
+                ) as mock_start,
+                patch.object(
+                    dump_symbols,
+                    "_open_session",
+                    new=AsyncMock(side_effect=RuntimeError("open session failed")),
+                ) as mock_open_session,
+            ):
+                lazy_session = dump_symbols.LazyIdalibSession(binary_path=binary_path)
+
+                with self.assertRaisesRegex(RuntimeError, "open session failed"):
+                    asyncio.run(lazy_session.ensure_started())
+
+        mock_start.assert_called_once_with(
+            binary_path,
+            host="127.0.0.1",
+            port=24567,
+            debug=False,
+        )
+        mock_open_session.assert_awaited_once_with("http://127.0.0.1:24567/mcp")
+        fake_process.kill.assert_called_once_with()
+        fake_process.wait.assert_called_once_with(timeout=1)
+        self.assertIsNone(lazy_session.process)
+        self.assertIsNone(lazy_session.streams)
+        self.assertIsNone(lazy_session.session)
+
     def test_lazy_idalib_session_close_uses_qexit_before_wait(self) -> None:
         session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
         events: list[str] = []
@@ -668,6 +745,31 @@ class TestDumpSymbols(unittest.TestCase):
         fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
         fake_process.wait.assert_has_calls([call(timeout=10), call(timeout=1)])
         fake_process.kill.assert_called_once_with()
+
+    def test_lazy_idalib_session_close_re_raises_cancel_after_cleanup(self) -> None:
+        session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
+
+        fake_process = MagicMock()
+        fake_process.poll.return_value = None
+
+        fake_session = AsyncMock()
+        fake_session.call_tool = AsyncMock(side_effect=asyncio.CancelledError())
+        fake_streams = AsyncMock()
+
+        session.process = fake_process
+        session.session = fake_session
+        session.streams = fake_streams
+
+        with self.assertRaises(asyncio.CancelledError):
+            asyncio.run(session.close())
+
+        fake_session.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_process.kill.assert_called_once_with()
+        fake_process.wait.assert_called_once_with(timeout=1)
+        self.assertIsNone(session.process)
+        self.assertIsNone(session.session)
+        self.assertIsNone(session.streams)
 
     def test_start_idalib_mcp_uses_devnull_streams(self) -> None:
         fake_process = MagicMock()
