@@ -43,7 +43,6 @@ class TestDumpSymbols(unittest.TestCase):
                         "name": "find-EpObjectTable",
                         "symbol": "EpObjectTable",
                         "expected_output": ["EpObjectTable.yaml"],
-                        "agent_skill": "find-kph-struct-offset",
                     }
                 ],
                 "symbols": [
@@ -51,9 +50,6 @@ class TestDumpSymbols(unittest.TestCase):
                         "name": "EpObjectTable",
                         "category": "struct_offset",
                         "data_type": "uint16",
-                        "symbol_expr": "_EPROCESS->ObjectTable",
-                        "struct_name": "_EPROCESS",
-                        "member_name": "ObjectTable",
                     }
                 ],
             }
@@ -85,7 +81,6 @@ class TestDumpSymbols(unittest.TestCase):
             debug=False,
             expected_yaml_paths=[str(binary_dir / "EpObjectTable.yaml")],
             max_retries=3,
-            agent_skill_name="find-kph-struct-offset",
         )
 
     def test_process_binary_absent_ok_still_falls_back_to_agent(self) -> None:
@@ -97,7 +92,6 @@ class TestDumpSymbols(unittest.TestCase):
                         "name": "find-EpObjectTable",
                         "symbol": "EpObjectTable",
                         "expected_output": ["EpObjectTable.yaml"],
-                        "agent_skill": "find-kph-struct-offset",
                     }
                 ],
                 "symbols": [
@@ -105,9 +99,6 @@ class TestDumpSymbols(unittest.TestCase):
                         "name": "EpObjectTable",
                         "category": "struct_offset",
                         "data_type": "uint16",
-                        "symbol_expr": "_EPROCESS->ObjectTable",
-                        "struct_name": "_EPROCESS",
-                        "member_name": "ObjectTable",
                     }
                 ],
             }
@@ -144,7 +135,6 @@ class TestDumpSymbols(unittest.TestCase):
                         "name": "find-EpObjectTable",
                         "symbol": "EpObjectTable",
                         "expected_output": ["EpObjectTable.yaml"],
-                        "agent_skill": "find-kph-struct-offset",
                     }
                 ],
                 "symbols": [
@@ -152,9 +142,6 @@ class TestDumpSymbols(unittest.TestCase):
                         "name": "EpObjectTable",
                         "category": "struct_offset",
                         "data_type": "uint16",
-                        "symbol_expr": "_EPROCESS->ObjectTable",
-                        "struct_name": "_EPROCESS",
-                        "member_name": "ObjectTable",
                     }
                 ],
             }
@@ -190,13 +177,11 @@ class TestDumpSymbols(unittest.TestCase):
                     "name": "find-A",
                     "symbol": "SymbolA",
                     "expected_output": ["A.yaml"],
-                    "agent_skill": "find-kph-struct-offset",
                 },
                 {
                     "name": "find-B",
                     "symbol": "SymbolB",
                     "expected_output": ["B.yaml"],
-                    "agent_skill": "find-kph-struct-offset",
                 },
             ]
             symbols = [
@@ -204,17 +189,11 @@ class TestDumpSymbols(unittest.TestCase):
                     "name": "SymbolA",
                     "category": "struct_offset",
                     "data_type": "uint16",
-                    "symbol_expr": "_EPROCESS->ObjectTable",
-                    "struct_name": "_EPROCESS",
-                    "member_name": "ObjectTable",
                 },
                 {
                     "name": "SymbolB",
                     "category": "struct_offset",
                     "data_type": "uint16",
-                    "symbol_expr": "_EPROCESS->ObjectTable",
-                    "struct_name": "_EPROCESS",
-                    "member_name": "ObjectTable",
                 },
             ]
             preprocess_mock = AsyncMock(return_value="failed")
@@ -256,7 +235,6 @@ class TestDumpSymbols(unittest.TestCase):
                 debug=False,
                 expected_yaml_paths=[],
                 max_retries=5,
-                agent_skill_name="find-kph-struct-offset",
             )
 
         self.assertFalse(ok)
@@ -311,7 +289,12 @@ class TestDumpSymbols(unittest.TestCase):
 
         self.assertTrue(ok)
         mock_allocate_port.assert_called_once_with("127.0.0.1")
-        mock_start.assert_called_once_with(binary_path, host="127.0.0.1", port=24567)
+        mock_start.assert_called_once_with(
+            binary_path,
+            host="127.0.0.1",
+            port=24567,
+            debug=False,
+        )
         mock_open_session.assert_awaited_once_with("http://127.0.0.1:24567/mcp")
         mock_session_matches_binary.assert_awaited_once_with(fake_session, binary_path)
         mock_process_binary.assert_awaited_once()
@@ -410,3 +393,28 @@ class TestDumpSymbols(unittest.TestCase):
 
         fake_process.kill.assert_called_once_with()
         fake_process.wait.assert_called_once_with()
+
+    def test_start_idalib_mcp_uses_reference_startup_timeout(self) -> None:
+        fake_process = MagicMock()
+        binary_path = Path("/tmp/ntoskrnl.exe")
+
+        with (
+            patch.object(
+                dump_symbols.subprocess,
+                "Popen",
+                return_value=fake_process,
+            ),
+            patch.object(dump_symbols, "_wait_for_port", return_value=True) as mock_wait,
+        ):
+            process = dump_symbols.start_idalib_mcp(
+                binary_path,
+                host="127.0.0.1",
+                port=13337,
+            )
+
+        self.assertIs(process, fake_process)
+        mock_wait.assert_called_once_with(
+            "127.0.0.1",
+            13337,
+            timeout=dump_symbols.MCP_STARTUP_TIMEOUT,
+        )

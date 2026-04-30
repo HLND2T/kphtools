@@ -4,150 +4,136 @@ import unittest
 from unittest.mock import AsyncMock, patch
 
 import ida_skill_preprocessor
-from symbol_config import SkillSpec, SymbolSpec
+from symbol_config import SkillSpec, SymbolSpec, load_config
 
 
 class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
-    async def test_generic_struct_preprocessor_writes_yaml_on_pdb_hit(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            output_path = Path(temp_dir) / "EpObjectTable.yaml"
+    def setUp(self) -> None:
+        ida_skill_preprocessor._SCRIPT_ENTRY_CACHE.clear()
 
-            with (
-                patch(
-                    "ida_preprocessor_scripts.generic_struct_offset.resolve_struct_symbol",
-                    return_value={
-                        "struct_name": "_EPROCESS",
-                        "member_name": "ObjectTable",
-                        "offset": 0x570,
-                    },
-                ),
-                patch(
-                    "ida_preprocessor_scripts.generic_struct_offset.resolve_struct_offset_via_llm",
-                    new=AsyncMock(),
-                ),
-            ):
-                status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
-                    session=AsyncMock(),
-                    skill=SkillSpec(
-                        name="find-EpObjectTable",
-                        symbol="EpObjectTable",
-                        expected_output=["EpObjectTable.yaml"],
-                        expected_input=[],
-                        agent_skill="find-kph-struct-offset",
-                    ),
-                    symbol=SymbolSpec(
-                        name="EpObjectTable",
-                        category="struct_offset",
-                        data_type="uint16",
-                        symbol_expr="_EPROCESS->ObjectTable",
-                        struct_name="_EPROCESS",
-                        member_name="ObjectTable",
-                    ),
-                    binary_dir=Path(temp_dir),
-                    pdb_path=Path(temp_dir) / "ntkrnlmp.pdb",
-                    debug=False,
-                    llm_config=None,
+    def test_repository_config_skills_have_matching_script_and_skill_doc(self) -> None:
+        config = load_config("config.yaml")
+
+        for module in config.modules:
+            for skill in module.skills:
+                script_path = (
+                    Path("ida_preprocessor_scripts") / f"{skill.name}.py"
                 )
+                skill_doc_path = Path(".claude") / "skills" / skill.name / "SKILL.md"
+                self.assertTrue(script_path.is_file(), script_path)
+                self.assertTrue(skill_doc_path.is_file(), skill_doc_path)
 
-            self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
-            self.assertTrue(output_path.exists())
+    def test_repository_config_skills_export_loadable_preprocess_entries(self) -> None:
+        config = load_config("config.yaml")
 
-    async def test_generic_struct_preprocessor_returns_failed_for_bitfield_llm_fallback(
+        ida_skill_preprocessor._SCRIPT_ENTRY_CACHE.clear()
+        for module in config.modules:
+            for skill in module.skills:
+                entry = ida_skill_preprocessor._get_preprocess_entry(skill.name)
+                self.assertTrue(callable(entry), skill.name)
+
+    async def test_struct_script_dispatches_through_preprocess_common_skill(self) -> None:
+        with patch(
+            "ida_preprocessor_common.preprocess_common_skill",
+            new=AsyncMock(return_value=ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS),
+        ) as mock_common:
+            status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
+                session=AsyncMock(),
+                skill=SkillSpec(
+                    name="find-EpObjectTable",
+                    symbol="EpObjectTable",
+                    expected_output=["EpObjectTable.yaml"],
+                    expected_input=[],
+                ),
+                symbol=SymbolSpec(
+                    name="EpObjectTable",
+                    category="struct_offset",
+                    data_type="uint16",
+                ),
+                binary_dir=Path("/tmp"),
+                pdb_path=Path("/tmp/ntkrnlmp.pdb"),
+                debug=False,
+                llm_config=None,
+            )
+
+        self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
+        self.assertEqual(
+            ["EpObjectTable"],
+            mock_common.await_args.kwargs["struct_member_names"],
+        )
+        self.assertEqual(
+            {
+                "EpObjectTable": {
+                    "symbol_expr": "_EPROCESS->ObjectTable",
+                    "struct_name": "_EPROCESS",
+                    "member_name": "ObjectTable",
+                    "bits": False,
+                }
+            },
+            mock_common.await_args.kwargs["struct_metadata"],
+        )
+        self.assertEqual(
+            {"EpObjectTable": ["struct_name", "member_name", "offset"]},
+            mock_common.await_args.kwargs["generate_yaml_desired_fields"],
+        )
+
+    async def test_bitfield_struct_script_dispatches_bitfield_metadata(
         self,
     ) -> None:
-        with TemporaryDirectory() as temp_dir:
-            output_path = Path(temp_dir) / "PspPicoProviderRoutines.yaml"
-
-            with (
-                patch(
-                    "ida_preprocessor_scripts.generic_struct_offset.resolve_struct_symbol",
-                    side_effect=KeyError("_PSP_PICO_PROVIDER_ROUTINES->Flags"),
+        with patch(
+            "ida_preprocessor_common.preprocess_common_skill",
+            new=AsyncMock(return_value=ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS),
+        ) as mock_common:
+            status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
+                session=AsyncMock(),
+                skill=SkillSpec(
+                    name="find-ObDecodeShift",
+                    symbol="ObDecodeShift",
+                    expected_output=["ObDecodeShift.yaml"],
+                    expected_input=[],
                 ),
-                patch(
-                    "ida_preprocessor_scripts.generic_struct_offset.resolve_struct_offset_via_llm",
-                    new=AsyncMock(return_value={"offset": 0x18}),
+                symbol=SymbolSpec(
+                    name="ObDecodeShift",
+                    category="struct_offset",
+                    data_type="uint16",
                 ),
-            ):
-                status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
-                    session=AsyncMock(),
-                    skill=SkillSpec(
-                        name="find-PspPicoProviderRoutines",
-                        symbol="PspPicoProviderRoutines",
-                        expected_output=["PspPicoProviderRoutines.yaml"],
-                        expected_input=[],
-                        agent_skill="find-kph-struct-offset",
-                    ),
-                    symbol=SymbolSpec(
-                        name="PspPicoProviderRoutines",
-                        category="struct_offset",
-                        data_type="uint32",
-                        struct_name="_PSP_PICO_PROVIDER_ROUTINES",
-                        member_name="Flags",
-                        bits=True,
-                    ),
-                    binary_dir=Path(temp_dir),
-                    pdb_path=Path(temp_dir) / "ntkrnlmp.pdb",
-                    debug=False,
-                    llm_config={"model": "test-model"},
-                )
+                binary_dir=Path("/tmp"),
+                pdb_path=Path("/tmp/ntkrnlmp.pdb"),
+                debug=False,
+                llm_config={"model": "test-model"},
+            )
 
-            self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_FAILED, status)
-            self.assertFalse(output_path.exists())
+        self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
+        self.assertEqual(
+            {
+                "ObDecodeShift": {
+                    "symbol_expr": "_HANDLE_TABLE_ENTRY->ObjectPointerBits",
+                    "struct_name": "_HANDLE_TABLE_ENTRY",
+                    "member_name": "ObjectPointerBits",
+                    "bits": True,
+                }
+            },
+            mock_common.await_args.kwargs["struct_metadata"],
+        )
+        self.assertEqual(
+            {
+                "ObDecodeShift": [
+                    "struct_name",
+                    "member_name",
+                    "offset",
+                    "bit_offset",
+                ]
+            },
+            mock_common.await_args.kwargs["generate_yaml_desired_fields"],
+        )
 
-    async def test_generic_struct_preprocessor_returns_failed_on_missing_offset_payload(
+    async def test_gv_script_dispatches_alias_metadata(
         self,
     ) -> None:
-        with TemporaryDirectory() as temp_dir:
-            output_path = Path(temp_dir) / "PspHostSiloGlobals.yaml"
-
-            with (
-                patch(
-                    "ida_preprocessor_scripts.generic_struct_offset.resolve_struct_symbol",
-                    side_effect=KeyError("_ESERVERSILO_GLOBALS->PspHostSiloGlobals"),
-                ),
-                patch(
-                    "ida_preprocessor_scripts.generic_struct_offset.resolve_struct_offset_via_llm",
-                    new=AsyncMock(side_effect=KeyError("offset")),
-                ),
-            ):
-                status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
-                    session=AsyncMock(),
-                    skill=SkillSpec(
-                        name="find-PspHostSiloGlobals",
-                        symbol="PspHostSiloGlobals",
-                        expected_output=["PspHostSiloGlobals.yaml"],
-                        expected_input=[],
-                        agent_skill="find-kph-struct-offset",
-                    ),
-                    symbol=SymbolSpec(
-                        name="PspHostSiloGlobals",
-                        category="struct_offset",
-                        data_type="uint64",
-                        struct_name="_ESERVERSILO_GLOBALS",
-                        member_name="PspHostSiloGlobals",
-                    ),
-                    binary_dir=Path(temp_dir),
-                    pdb_path=Path(temp_dir) / "ntkrnlmp.pdb",
-                    debug=False,
-                    llm_config={"model": "test-model"},
-                )
-
-            self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_FAILED, status)
-            self.assertFalse(output_path.exists())
-
-    async def test_generic_gv_preprocessor_returns_failed_when_all_fallbacks_miss(
-        self,
-    ) -> None:
-        with (
-            patch(
-                "ida_preprocessor_scripts.generic_gv.resolve_public_symbol",
-                side_effect=KeyError("PspCreateProcessNotifyRoutine"),
-            ),
-            patch(
-                "ida_preprocessor_scripts.generic_gv.resolve_public_name_via_mcp",
-                new=AsyncMock(side_effect=KeyError("PspCreateProcessNotifyRoutine")),
-            ),
-        ):
+        with patch(
+            "ida_preprocessor_common.preprocess_common_skill",
+            new=AsyncMock(return_value=ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS),
+        ) as mock_common:
             status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
                 session=AsyncMock(),
                 skill=SkillSpec(
@@ -155,13 +141,11 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
                     symbol="PspCreateProcessNotifyRoutine",
                     expected_output=["PspCreateProcessNotifyRoutine.yaml"],
                     expected_input=[],
-                    agent_skill="find-kph-gv",
                 ),
                 symbol=SymbolSpec(
                     name="PspCreateProcessNotifyRoutine",
                     category="gv",
                     data_type="uint32",
-                    alias=["PspCreateProcessNotifyRoutine"],
                 ),
                 binary_dir=Path("/tmp"),
                 pdb_path=Path("/tmp/ntkrnlmp.pdb"),
@@ -169,40 +153,78 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
                 llm_config=None,
             )
 
-        self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_FAILED, status)
+        self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
+        self.assertEqual(
+            ["PspCreateProcessNotifyRoutine"],
+            mock_common.await_args.kwargs["gv_names"],
+        )
+        self.assertEqual(
+            {
+                "PspCreateProcessNotifyRoutine": {
+                    "alias": ["PspCreateProcessNotifyRoutine"]
+                }
+            },
+            mock_common.await_args.kwargs["gv_metadata"],
+        )
 
-    async def test_generic_func_preprocessor_returns_failed_on_invalid_mcp_payload(
+    async def test_func_script_dispatches_alias_metadata(
         self,
     ) -> None:
-        with (
-            patch(
-                "ida_preprocessor_scripts.generic_func.resolve_public_symbol",
-                side_effect=KeyError("PspSetCreateProcessNotifyRoutine"),
-            ),
-            patch(
-                "ida_preprocessor_scripts.generic_func.resolve_public_name_via_mcp",
-                new=AsyncMock(side_effect=ValueError("invalid payload")),
-            ),
-        ):
+        with patch(
+            "ida_preprocessor_common.preprocess_common_skill",
+            new=AsyncMock(return_value=ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS),
+        ) as mock_common:
             status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
                 session=AsyncMock(),
                 skill=SkillSpec(
-                    name="find-PspSetCreateProcessNotifyRoutine",
-                    symbol="PspSetCreateProcessNotifyRoutine",
-                    expected_output=["PspSetCreateProcessNotifyRoutine.yaml"],
+                    name="find-ExReferenceCallBackBlock",
+                    symbol="ExReferenceCallBackBlock",
+                    expected_output=["ExReferenceCallBackBlock.yaml"],
                     expected_input=[],
-                    agent_skill="find-kph-func",
                 ),
                 symbol=SymbolSpec(
-                    name="PspSetCreateProcessNotifyRoutine",
+                    name="ExReferenceCallBackBlock",
                     category="func",
                     data_type="uint32",
-                    alias=["PspSetCreateProcessNotifyRoutine"],
                 ),
                 binary_dir=Path("/tmp"),
                 pdb_path=Path("/tmp/ntkrnlmp.pdb"),
                 debug=False,
                 llm_config=None,
             )
+
+        self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
+        self.assertEqual(
+            ["ExReferenceCallBackBlock"],
+            mock_common.await_args.kwargs["func_names"],
+        )
+        self.assertEqual(
+            {
+                "ExReferenceCallBackBlock": {
+                    "alias": ["ExReferenceCallBackBlock"]
+                }
+            },
+            mock_common.await_args.kwargs["func_metadata"],
+        )
+
+    async def test_missing_script_returns_failed(self) -> None:
+        status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
+            session=AsyncMock(),
+            skill=SkillSpec(
+                name="find-DoesNotExist",
+                symbol="DoesNotExist",
+                expected_output=["DoesNotExist.yaml"],
+                expected_input=[],
+            ),
+            symbol=SymbolSpec(
+                name="DoesNotExist",
+                category="struct_offset",
+                data_type="uint16",
+            ),
+            binary_dir=Path("/tmp"),
+            pdb_path=Path("/tmp/ntkrnlmp.pdb"),
+            debug=False,
+            llm_config=None,
+        )
 
         self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_FAILED, status)

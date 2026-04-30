@@ -32,6 +32,7 @@ SURVEY_CURRENT_IDB_PATH_PY_EVAL = (
     "        pass\n"
     "result = json.dumps({'metadata': {'path': path}})\n"
 )
+MCP_STARTUP_TIMEOUT = 1200
 
 
 def _field(item: Any, name: str, default: Any = None) -> Any:
@@ -163,10 +164,8 @@ def run_skill(
     debug,
     expected_yaml_paths,
     max_retries=3,
-    agent_skill_name=None,
 ):
-    selected_skill = agent_skill_name or skill_name
-    skill_md_path = Path(".claude") / "skills" / selected_skill / "SKILL.md"
+    skill_md_path = Path(".claude") / "skills" / skill_name / "SKILL.md"
     if not skill_md_path.exists():
         return False
 
@@ -194,7 +193,7 @@ def run_skill(
     completed = subprocess.run(cmd, input=prompt, text=True, check=False)
     if completed.returncode != 0:
         if debug:
-            print(f"skill failed: {selected_skill}")
+            print(f"skill failed: {skill_name}")
         return False
     return all(Path(path).exists() for path in expected_yaml_paths)
 
@@ -241,7 +240,6 @@ async def process_binary_dir(
             debug=debug,
             expected_yaml_paths=expected_outputs,
             max_retries=skill_max_retries,
-            agent_skill_name=_field(skill, "agent_skill"),
         ):
             return False
     return True
@@ -264,7 +262,12 @@ def _allocate_local_port(host: str = "127.0.0.1") -> int:
         return int(sock.getsockname()[1])
 
 
-def start_idalib_mcp(binary_path: Path, host: str = "127.0.0.1", port: int = 13337):
+def start_idalib_mcp(
+    binary_path: Path,
+    host: str = "127.0.0.1",
+    port: int = 13337,
+    debug: bool = False,
+):
     cmd = [
         "uv",
         "run",
@@ -276,13 +279,12 @@ def start_idalib_mcp(binary_path: Path, host: str = "127.0.0.1", port: int = 133
         str(port),
         str(binary_path),
     ]
-    process = subprocess.Popen(
-        cmd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        text=True,
-    )
-    if not _wait_for_port(host, port):
+    popen_kwargs: dict[str, Any] = {"text": True}
+    if not debug:
+        popen_kwargs["stdout"] = subprocess.DEVNULL
+        popen_kwargs["stderr"] = subprocess.DEVNULL
+    process = subprocess.Popen(cmd, **popen_kwargs)
+    if not _wait_for_port(host, port, timeout=MCP_STARTUP_TIMEOUT):
         process.kill()
         process.wait()
         raise RuntimeError(f"idalib-mcp failed to start for {binary_path}")
@@ -366,6 +368,7 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
         binary_path,
         host=host,
         port=port,
+        debug=args.debug,
     )
     streams = None
     session = None

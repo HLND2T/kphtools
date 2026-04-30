@@ -5,8 +5,6 @@ from typing import Any
 
 import yaml
 
-from ida_llm_utils import call_llm_text
-
 
 def _parse_py_eval_result(tool_result: Any) -> dict:
     text = tool_result.content[0].text
@@ -45,6 +43,12 @@ def _parse_rva_value(payload: dict[str, Any], symbol_name: str) -> int:
     if not isinstance(value, str):
         raise TypeError("rva must be an int or hex string")
     return int(value, 16)
+
+
+async def call_llm_text(*args, **kwargs):
+    from ida_llm_utils import call_llm_text as _call_llm_text
+
+    return await _call_llm_text(*args, **kwargs)
 
 
 async def resolve_public_name_via_mcp(

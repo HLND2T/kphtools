@@ -61,7 +61,7 @@ class TestUpdateSymbols(unittest.TestCase):
                 "name": "ObDecodeShift",
                 "category": "struct_offset",
                 "data_type": "uint16",
-                "bits": True,
+                "is_bitfield": True,
             },
         ]
         yaml_payloads = {
@@ -71,6 +71,34 @@ class TestUpdateSymbols(unittest.TestCase):
         values = update_symbols.collect_symbol_values(symbol_specs, yaml_payloads)
 
         self.assertEqual(84, values["ObDecodeShift"])
+
+    def test_collect_symbol_values_rejects_missing_bit_offset_for_known_bitfield(
+        self,
+    ) -> None:
+        symbol_specs = [
+            {
+                "name": "ObDecodeShift",
+                "category": "struct_offset",
+                "data_type": "uint16",
+                "is_bitfield": True,
+            },
+        ]
+        yaml_payloads = {
+            "ObDecodeShift": {"offset": 0x8},
+        }
+
+        with self.assertRaisesRegex(ValueError, "bitfield YAML missing bit_offset"):
+            update_symbols.collect_symbol_values(symbol_specs, yaml_payloads)
+
+    def test_load_bitfield_symbol_names_reads_script_metadata(self) -> None:
+        config = update_symbols.load_config("config.yaml")
+
+        bitfield_symbols = update_symbols._load_bitfield_symbol_names(config.modules[0])
+
+        self.assertIn("ObDecodeShift", bitfield_symbols)
+        self.assertIn("ObAttributesShift", bitfield_symbols)
+        self.assertIn("EpBreakOnTermination", bitfield_symbols)
+        self.assertNotIn("EpObjectTable", bitfield_symbols)
 
     def test_export_xml_reuses_existing_fields_id(self) -> None:
         tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring(XML_TEXT))
