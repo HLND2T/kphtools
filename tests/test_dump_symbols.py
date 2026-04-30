@@ -519,7 +519,7 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertIsNone(lazy_session.streams)
         self.assertIsNone(lazy_session.session)
 
-    def test_lazy_idalib_session_startup_cleanup_preserves_process_when_wait_fails(self) -> None:
+    def test_lazy_idalib_session_startup_cleanup_wait_failure_keeps_mismatch_error(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             binary_path = binary_dir / "ntoskrnl.exe"
@@ -556,14 +556,14 @@ class TestDumpSymbols(unittest.TestCase):
                 ),
             ):
                 lazy_session = dump_symbols.LazyIdalibSession(binary_path=binary_path)
-                with self.assertRaises(subprocess.TimeoutExpired):
+                with self.assertRaisesRegex(RuntimeError, "MCP session target mismatch"):
                     asyncio.run(lazy_session.call_tool("py_eval", {"code": "1"}))
 
         fake_session.__aexit__.assert_awaited_once_with(None, None, None)
         fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
         fake_process.kill.assert_called_once_with()
         fake_process.wait.assert_called_once_with(timeout=1)
-        self.assertIs(lazy_session.process, fake_process)
+        self.assertIsNone(lazy_session.process)
         self.assertIsNone(lazy_session.streams)
         self.assertIsNone(lazy_session.session)
 

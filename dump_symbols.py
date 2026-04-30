@@ -394,11 +394,12 @@ class LazyIdalibSession:
             if not await _session_matches_binary(self.session, self.binary_path):
                 raise RuntimeError(f"MCP session target mismatch for {self.binary_path}")
             return self.session
-        except Exception as startup_exc:
+        except Exception:
             session = self.session
             streams = self.streams
             process = self.process
 
+            self.process = None
             self.streams = None
             self.session = None
 
@@ -413,24 +414,16 @@ class LazyIdalibSession:
                 except Exception:
                     pass
 
-            cleanup_critical_exc = None
             if process is not None and process.poll() is None:
                 try:
                     process.kill()
-                except Exception as exc:
-                    cleanup_critical_exc = exc
-                else:
-                    try:
-                        await asyncio.to_thread(process.wait, timeout=1)
-                    except Exception as exc:
-                        cleanup_critical_exc = exc
-
-            if cleanup_critical_exc is None:
-                self.process = None
-                raise
-
-            self.process = process
-            raise cleanup_critical_exc from startup_exc
+                except Exception:
+                    pass
+                try:
+                    await asyncio.to_thread(process.wait, timeout=1)
+                except Exception:
+                    pass
+            raise
 
     async def call_tool(self, name, arguments):
         session = await self.ensure_started()
