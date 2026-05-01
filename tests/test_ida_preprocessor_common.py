@@ -26,7 +26,7 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
             ):
                 status = await ida_preprocessor_common.preprocess_common_skill(
                     session=AsyncMock(),
-                    skill=SimpleNamespace(name="find-EgeGuid", symbol="EgeGuid"),
+                    skill=SimpleNamespace(name="find-EgeGuid"),
                     symbol=SimpleNamespace(
                         name="EgeGuid",
                         category="struct_offset",
@@ -80,7 +80,6 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
                 session=AsyncMock(),
                 skill=SimpleNamespace(
                     name="find-ObDecodeShift",
-                    symbol="ObDecodeShift",
                 ),
                 symbol=SimpleNamespace(
                     name="ObDecodeShift",
@@ -130,7 +129,6 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
                     session=AsyncMock(),
                     skill=SimpleNamespace(
                         name="find-PspCreateProcessNotifyRoutine",
-                        symbol="PspCreateProcessNotifyRoutine",
                     ),
                     symbol=SimpleNamespace(
                         name="PspCreateProcessNotifyRoutine",

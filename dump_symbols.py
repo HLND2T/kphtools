@@ -1,3 +1,20 @@
+"""
+按配置扫描符号目录，并将每个二进制的解析结果导出为 YAML symbol artifacts。
+
+基本用法:
+    uv run python dump_symbols.py
+    uv run python dump_symbols.py -symboldir symbols -arch amd64
+    uv run python dump_symbols.py -symboldir symbols -arch amd64,arm64 -force
+
+可用参数:
+    -symboldir   符号根目录，默认 `symbols`。
+    -configyaml  模块与符号配置文件，默认 `config.yaml`。
+    -arch        要扫描的架构列表，逗号分隔；当前支持 `amd64`、`arm64`。
+    -agent       回退到外部 Agent CLI 时使用的可执行文件名，默认 `codex`。
+    -force       即使预期 YAML 已存在，也强制重新生成。
+    -debug       输出调试日志，并保留更多 MCP/子进程诊断信息。
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -14,7 +31,7 @@ from ida_skill_preprocessor import (
     PREPROCESS_STATUS_SUCCESS,
     preprocess_single_skill_via_mcp,
 )
-from symbol_config import load_config
+from symbol_config import load_config, symbol_name_from_artifact_name
 
 SURVEY_CURRENT_IDB_PATH_PY_EVAL = (
     "import json\n"
@@ -48,6 +65,13 @@ def _field(item: Any, name: str, default: Any = None) -> Any:
 def _string_list(item: Any, name: str) -> list[str]:
     values = _field(item, name, []) or []
     return [str(value) for value in values if value]
+
+
+def _output_symbol_names(skill: Any) -> list[str]:
+    return [
+        symbol_name_from_artifact_name(output_path)
+        for output_path in _string_list(skill, "expected_output")
+    ]
 
 
 def _parse_arches(raw_value: str) -> list[str]:
@@ -275,18 +299,22 @@ async def process_binary_dir(
         if activity is not None:
             activity["did_work"] = True
 
-        symbol_name = _field(skill, "symbol")
-        status = await preprocess_single_skill_via_mcp(
-            session=session,
-            skill=skill,
-            symbol=symbol_map[symbol_name],
-            binary_dir=Path(binary_dir),
-            pdb_path=Path(pdb_path),
-            debug=debug,
-            llm_config=llm_config,
-        )
-        _debug_log(debug, f"preprocess status for {skill_name}: {status}")
-        if status == PREPROCESS_STATUS_SUCCESS:
+        preprocessed_all = bool(expected_outputs)
+        for symbol_name in _output_symbol_names(skill):
+            status = await preprocess_single_skill_via_mcp(
+                session=session,
+                skill=skill,
+                symbol=symbol_map[symbol_name],
+                binary_dir=Path(binary_dir),
+                pdb_path=Path(pdb_path),
+                debug=debug,
+                llm_config=llm_config,
+            )
+            _debug_log(debug, f"preprocess status for {skill_name}/{symbol_name}: {status}")
+            if status != PREPROCESS_STATUS_SUCCESS:
+                preprocessed_all = False
+                break
+        if preprocessed_all:
             continue
 
         skill_max_retries = _field(skill, "max_retries") or 3

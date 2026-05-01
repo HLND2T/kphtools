@@ -10,10 +10,13 @@ import yaml
 @dataclass(frozen=True)
 class SkillSpec:
     name: str
-    symbol: str
     expected_output: list[str]
     expected_input: list[str]
     max_retries: int | None = None
+
+    @property
+    def produced_symbols(self) -> list[str]:
+        return [symbol_name_from_artifact_name(item) for item in self.expected_output]
 
 
 @dataclass(frozen=True)
@@ -36,13 +39,12 @@ class ConfigSpec:
     modules: list[ModuleSpec]
 
 
-_ALLOWED_SKILL_FIELDS = frozenset(
-    {"name", "symbol", "expected_input", "expected_output", "max_retries"}
-)
+_ALLOWED_SKILL_FIELDS = frozenset({"name", "expected_input", "expected_output", "max_retries"})
 _ALLOWED_SYMBOL_FIELDS = frozenset({"name", "category", "data_type"})
 _LEGACY_FIELD_MESSAGES = {
     "skill": {
         "agent_skill": "is not supported; use skill.name",
+        "symbol": "is not supported; derive it from skill.expected_output",
     },
     "symbol": {
         "symbol_expr": "is not supported; move it to the skill script",
@@ -101,6 +103,10 @@ def _validate_expected_output_name(name: str) -> str:
     return name
 
 
+def symbol_name_from_artifact_name(name: str) -> str:
+    return Path(_validate_expected_output_name(name)).stem
+
+
 def _reject_unknown_fields(
     entry: dict[str, Any], allowed_fields: frozenset[str], owner_name: str
 ) -> None:
@@ -116,7 +122,7 @@ def _reject_unknown_fields(
 def _load_skill(entry: dict[str, Any]) -> SkillSpec:
     _reject_unknown_fields(entry, _ALLOWED_SKILL_FIELDS, "skill")
     expected_output = _require_string_list(
-        entry.get("expected_output", []), "expected_output"
+        entry.get("expected_output", []), "expected_output", allow_empty=False
     )
     expected_input = _require_string_list(entry.get("expected_input", []), "expected_input")
     max_retries = entry.get("max_retries")
@@ -124,7 +130,6 @@ def _load_skill(entry: dict[str, Any]) -> SkillSpec:
         raise ValueError("skill.max_retries must be an integer or null")
     return SkillSpec(
         name=_require_non_empty_string(entry, "name", "skill"),
-        symbol=_require_non_empty_string(entry, "symbol", "skill"),
         expected_output=[_validate_expected_output_name(item) for item in expected_output],
         expected_input=expected_input,
         max_retries=max_retries,
@@ -164,8 +169,11 @@ def load_config(path: str | Path) -> ConfigSpec:
         symbol_names = {symbol.name for symbol in symbols}
         skills = [_load_skill(_require_mapping(item, "skill")) for item in skill_items]
         for skill in skills:
-            if skill.symbol not in symbol_names:
-                raise ValueError(f"skill.symbol references unknown symbol: {skill.symbol}")
+            for symbol_name in skill.produced_symbols:
+                if symbol_name not in symbol_names:
+                    raise ValueError(
+                        f"skill expected_output references unknown symbol: {symbol_name}"
+                    )
 
         modules.append(
             ModuleSpec(

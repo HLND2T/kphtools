@@ -5,187 +5,141 @@ modules:
   - ntkrla57.exe
   skills:
   - name: find-EgeGuid
-    symbol: EgeGuid
     expected_output:
     - EgeGuid.yaml
   - name: find-EpObjectTable
-    symbol: EpObjectTable
     expected_output:
     - EpObjectTable.yaml
   - name: find-EreGuidEntry
-    symbol: EreGuidEntry
     expected_output:
     - EreGuidEntry.yaml
   - name: find-HtHandleContentionEvent
-    symbol: HtHandleContentionEvent
     expected_output:
     - HtHandleContentionEvent.yaml
   - name: find-OtName
-    symbol: OtName
     expected_output:
     - OtName.yaml
   - name: find-OtIndex
-    symbol: OtIndex
     expected_output:
     - OtIndex.yaml
   - name: find-ObDecodeShift
-    symbol: ObDecodeShift
     expected_output:
     - ObDecodeShift.yaml
   - name: find-ObAttributesShift
-    symbol: ObAttributesShift
     expected_output:
     - ObAttributesShift.yaml
   - name: find-AlpcCommunicationInfo
-    symbol: AlpcCommunicationInfo
     expected_output:
     - AlpcCommunicationInfo.yaml
   - name: find-AlpcOwnerProcess
-    symbol: AlpcOwnerProcess
     expected_output:
     - AlpcOwnerProcess.yaml
   - name: find-AlpcConnectionPort
-    symbol: AlpcConnectionPort
     expected_output:
     - AlpcConnectionPort.yaml
   - name: find-AlpcServerCommunicationPort
-    symbol: AlpcServerCommunicationPort
     expected_output:
     - AlpcServerCommunicationPort.yaml
   - name: find-AlpcClientCommunicationPort
-    symbol: AlpcClientCommunicationPort
     expected_output:
     - AlpcClientCommunicationPort.yaml
   - name: find-AlpcHandleTable
-    symbol: AlpcHandleTable
     expected_output:
     - AlpcHandleTable.yaml
   - name: find-AlpcHandleTableLock
-    symbol: AlpcHandleTableLock
     expected_output:
     - AlpcHandleTableLock.yaml
   - name: find-AlpcAttributes
-    symbol: AlpcAttributes
     expected_output:
     - AlpcAttributes.yaml
   - name: find-AlpcAttributesFlags
-    symbol: AlpcAttributesFlags
     expected_output:
     - AlpcAttributesFlags.yaml
   - name: find-AlpcPortContext
-    symbol: AlpcPortContext
     expected_output:
     - AlpcPortContext.yaml
   - name: find-AlpcPortObjectLock
-    symbol: AlpcPortObjectLock
     expected_output:
     - AlpcPortObjectLock.yaml
   - name: find-AlpcSequenceNo
-    symbol: AlpcSequenceNo
     expected_output:
     - AlpcSequenceNo.yaml
   - name: find-AlpcState
-    symbol: AlpcState
     expected_output:
     - AlpcState.yaml
   - name: find-KtInitialStack
-    symbol: KtInitialStack
     expected_output:
     - KtInitialStack.yaml
   - name: find-KtStackLimit
-    symbol: KtStackLimit
     expected_output:
     - KtStackLimit.yaml
   - name: find-KtStackBase
-    symbol: KtStackBase
     expected_output:
     - KtStackBase.yaml
   - name: find-KtKernelStack
-    symbol: KtKernelStack
     expected_output:
     - KtKernelStack.yaml
   - name: find-KtReadOperationCount
-    symbol: KtReadOperationCount
     expected_output:
     - KtReadOperationCount.yaml
   - name: find-KtWriteOperationCount
-    symbol: KtWriteOperationCount
     expected_output:
     - KtWriteOperationCount.yaml
   - name: find-KtOtherOperationCount
-    symbol: KtOtherOperationCount
     expected_output:
     - KtOtherOperationCount.yaml
   - name: find-KtReadTransferCount
-    symbol: KtReadTransferCount
     expected_output:
     - KtReadTransferCount.yaml
   - name: find-KtWriteTransferCount
-    symbol: KtWriteTransferCount
     expected_output:
     - KtWriteTransferCount.yaml
   - name: find-KtOtherTransferCount
-    symbol: KtOtherTransferCount
     expected_output:
     - KtOtherTransferCount.yaml
   - name: find-MmSectionControlArea
-    symbol: MmSectionControlArea
     expected_output:
     - MmSectionControlArea.yaml
   - name: find-MmControlAreaListHead
-    symbol: MmControlAreaListHead
     expected_output:
     - MmControlAreaListHead.yaml
   - name: find-MmControlAreaLock
-    symbol: MmControlAreaLock
     expected_output:
     - MmControlAreaLock.yaml
   - name: find-EpSectionObject
-    symbol: EpSectionObject
     expected_output:
     - EpSectionObject.yaml
   - name: find-EpProtection
-    symbol: EpProtection
     expected_output:
     - EpProtection.yaml
   - name: find-EpCookie
-    symbol: EpCookie
     expected_output:
     - EpCookie.yaml
   - name: find-EpBreakOnTermination
-    symbol: EpBreakOnTermination
     expected_output:
     - EpBreakOnTermination.yaml
   - name: find-KpDirectoryTableBase
-    symbol: KpDirectoryTableBase
     expected_output:
     - KpDirectoryTableBase.yaml
   - name: find-PspCreateProcessNotifyRoutine
-    symbol: PspCreateProcessNotifyRoutine
     expected_output:
     - PspCreateProcessNotifyRoutine.yaml
   - name: find-PspLoadImageNotifyRoutine
-    symbol: PspLoadImageNotifyRoutine
     expected_output:
     - PspLoadImageNotifyRoutine.yaml
   - name: find-PspCreateThreadNotifyRoutine
-    symbol: PspCreateThreadNotifyRoutine
     expected_output:
     - PspCreateThreadNotifyRoutine.yaml
   - name: find-ExReferenceCallBackBlock
-    symbol: ExReferenceCallBackBlock
     expected_output:
     - ExReferenceCallBackBlock.yaml
   - name: find-ExDereferenceCallBackBlock
-    symbol: ExDereferenceCallBackBlock
     expected_output:
     - ExDereferenceCallBackBlock.yaml
   - name: find-PspEnumerateCallback
-    symbol: PspEnumerateCallback
     expected_output:
     - PspEnumerateCallback.yaml
   - name: find-CmpEnumerateCallback
-    symbol: CmpEnumerateCallback
     expected_output:
     - CmpEnumerateCallback.yaml
   symbols:

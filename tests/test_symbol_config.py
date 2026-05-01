@@ -26,7 +26,6 @@ class TestSymbolConfig(unittest.TestCase):
                         path: [ntoskrnl.exe]
                         skills:
                           - name: find-EgeGuid
-                            symbol: EgeGuid
                             expected_output: [EgeGuid.yaml]
                         symbols:
                           - name: EgeGuid
@@ -40,9 +39,45 @@ class TestSymbolConfig(unittest.TestCase):
 
             config = symbol_config.load_config(config_path)
 
-        self.assertEqual("EgeGuid", config.modules[0].skills[0].symbol)
+        self.assertEqual(
+            ["EgeGuid"], config.modules[0].skills[0].produced_symbols
+        )
         self.assertEqual("struct_offset", config.modules[0].symbols[0].category)
         self.assertFalse(hasattr(config.modules[0].symbols[0], "symbol_expr"))
+
+    def test_load_config_reads_multiple_symbols_from_expected_output(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-Callbacks
+                            expected_output:
+                              - ExReferenceCallBackBlock.yaml
+                              - ExDereferenceCallBackBlock.yaml
+                        symbols:
+                          - name: ExReferenceCallBackBlock
+                            category: func
+                            data_type: uint32
+                          - name: ExDereferenceCallBackBlock
+                            category: func
+                            data_type: uint32
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            config = symbol_config.load_config(config_path)
+
+        self.assertEqual(
+            ["ExReferenceCallBackBlock", "ExDereferenceCallBackBlock"],
+            config.modules[0].skills[0].produced_symbols,
+        )
 
     def test_load_config_rejects_agent_skill_override(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -55,7 +90,6 @@ class TestSymbolConfig(unittest.TestCase):
                         path: [ntoskrnl.exe]
                         skills:
                           - name: find-EpObjectTable
-                            symbol: EpObjectTable
                             expected_output: [EpObjectTable.yaml]
                             agent_skill: find-kph-struct-offset
                         symbols:
@@ -69,6 +103,32 @@ class TestSymbolConfig(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(ValueError, "skill.agent_skill"):
+                symbol_config.load_config(config_path)
+
+    def test_load_config_rejects_legacy_skill_symbol_field(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-EpObjectTable
+                            symbol: EpObjectTable
+                            expected_output: [EpObjectTable.yaml]
+                        symbols:
+                          - name: EpObjectTable
+                            category: struct_offset
+                            data_type: uint16
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "skill.symbol"):
                 symbol_config.load_config(config_path)
 
     def test_load_config_rejects_symbol_locating_fields(self) -> None:
@@ -92,7 +152,6 @@ class TestSymbolConfig(unittest.TestCase):
                                 path: [ntoskrnl.exe]
                                 skills:
                                   - name: find-EgeGuid
-                                    symbol: EgeGuid
                                     expected_output: [EgeGuid.yaml]
                                 symbols:
                                   - name: EgeGuid
@@ -119,7 +178,6 @@ class TestSymbolConfig(unittest.TestCase):
                         path: [ntoskrnl.exe]
                         skills:
                           - name: find-EgeGuid
-                            symbol: EgeGuid
                             expected_output: [EgeGuid.yaml]
                             unexpected_skill_field: true
                         symbols:
@@ -146,7 +204,6 @@ class TestSymbolConfig(unittest.TestCase):
                         path: [ntoskrnl.exe]
                         skills:
                           - name: find-EgeGuid
-                            symbol: EgeGuid
                             expected_output: [EgeGuid.yaml]
                         symbols:
                           - name: EgeGuid
@@ -173,7 +230,6 @@ class TestSymbolConfig(unittest.TestCase):
                         path: [ntoskrnl.exe]
                         skills:
                           - name: find-EgeGuid
-                            symbol: EgeGuid
                             expected_output: [EgeGuid.yaml]
                             max_retries: not-an-int
                         symbols:
@@ -200,7 +256,6 @@ class TestSymbolConfig(unittest.TestCase):
                         path: [ntoskrnl.exe]
                         skills:
                           - name: find-EpObjectTable
-                            symbol: EpObjectTable
                             expected_output:
                               - EpObjectTable.amd64.yaml
                         symbols:
@@ -229,7 +284,6 @@ class TestSymbolConfig(unittest.TestCase):
                         path: ntoskrnl.exe
                         skills:
                           - name: find-EpObjectTable
-                            symbol: EpObjectTable
                             expected_output: [EpObjectTable.yaml]
                         symbols:
                           - name: EpObjectTable
@@ -255,7 +309,6 @@ class TestSymbolConfig(unittest.TestCase):
                         path: [ntoskrnl.exe]
                         skills:
                           - name: find-EpObjectTable
-                            symbol: EpObjectTable
                             expected_output: EpObjectTable.yaml
                         symbols:
                           - name: EpObjectTable
@@ -270,7 +323,7 @@ class TestSymbolConfig(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "must be a list"):
                 symbol_config.load_config(config_path)
 
-    def test_load_config_rejects_unknown_skill_symbol(self) -> None:
+    def test_load_config_rejects_unknown_skill_output_symbol(self) -> None:
         with TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "config.yaml"
             config_path.write_text(
@@ -281,8 +334,7 @@ class TestSymbolConfig(unittest.TestCase):
                         path: [ntoskrnl.exe]
                         skills:
                           - name: find-EpObjectTable
-                            symbol: MissingSymbol
-                            expected_output: [EpObjectTable.yaml]
+                            expected_output: [MissingSymbol.yaml]
                         symbols:
                           - name: EpObjectTable
                             category: struct_offset
@@ -325,7 +377,6 @@ class TestSymbolConfig(unittest.TestCase):
                   - path: [ntoskrnl.exe]
                     skills:
                       - name: find-EpObjectTable
-                        symbol: EpObjectTable
                         expected_output: [EpObjectTable.yaml]
                     symbols:
                       - name: EpObjectTable
@@ -340,8 +391,7 @@ class TestSymbolConfig(unittest.TestCase):
                   - name: ntoskrnl
                     path: [ntoskrnl.exe]
                     skills:
-                      - symbol: EpObjectTable
-                        expected_output: [EpObjectTable.yaml]
+                      - expected_output: [EpObjectTable.yaml]
                     symbols:
                       - name: EpObjectTable
                         category: struct_offset
@@ -349,14 +399,13 @@ class TestSymbolConfig(unittest.TestCase):
                 """,
             ),
             (
-                "skill.symbol",
+                "expected_output must be a non-empty list",
                 """
                 modules:
                   - name: ntoskrnl
                     path: [ntoskrnl.exe]
                     skills:
                       - name: find-EpObjectTable
-                        expected_output: [EpObjectTable.yaml]
                     symbols:
                       - name: EpObjectTable
                         category: struct_offset
@@ -371,7 +420,6 @@ class TestSymbolConfig(unittest.TestCase):
                     path: [ntoskrnl.exe]
                     skills:
                       - name: find-EpObjectTable
-                        symbol: EpObjectTable
                         expected_output: [EpObjectTable.yaml]
                     symbols:
                       - category: struct_offset
@@ -386,7 +434,6 @@ class TestSymbolConfig(unittest.TestCase):
                     path: [ntoskrnl.exe]
                     skills:
                       - name: find-EpObjectTable
-                        symbol: EpObjectTable
                         expected_output: [EpObjectTable.yaml]
                     symbols:
                       - name: EpObjectTable
@@ -401,7 +448,6 @@ class TestSymbolConfig(unittest.TestCase):
                     path: [ntoskrnl.exe]
                     skills:
                       - name: find-EpObjectTable
-                        symbol: EpObjectTable
                         expected_output: [EpObjectTable.yaml]
                     symbols:
                       - name: EpObjectTable
@@ -432,7 +478,6 @@ class TestSymbolConfig(unittest.TestCase):
                     path: [ntoskrnl.exe]
                     skills:
                       - name: find-EpObjectTable
-                        symbol: EpObjectTable
                         expected_output: [EpObjectTable.yaml]
                     symbols:
                       - name: EpObjectTable
@@ -448,7 +493,6 @@ class TestSymbolConfig(unittest.TestCase):
                     path: [ntoskrnl.exe]
                     skills:
                       - name: find-EpObjectTable
-                        symbol: EpObjectTable
                         expected_output: [EpObjectTable.yaml]
                     symbols:
                       - name: EpObjectTable
@@ -481,7 +525,6 @@ class TestSymbolConfig(unittest.TestCase):
                         path: [ntoskrnl.exe]
                         skills:
                           - name: 123
-                            symbol: EpObjectTable
                             expected_output: [EpObjectTable.yaml]
                         symbols:
                           - name: EpObjectTable
@@ -501,5 +544,8 @@ class TestSymbolConfig(unittest.TestCase):
 
         self.assertEqual(1, len(config.modules))
         self.assertEqual("ntoskrnl", config.modules[0].name)
-        self.assertEqual(len(config.modules[0].symbols), len(config.modules[0].skills))
         self.assertGreater(len(config.modules[0].symbols), 0)
+        symbol_names = {symbol.name for symbol in config.modules[0].symbols}
+        for skill in config.modules[0].skills:
+            self.assertTrue(skill.produced_symbols)
+            self.assertTrue(set(skill.produced_symbols).issubset(symbol_names))

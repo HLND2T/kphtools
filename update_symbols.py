@@ -1,9 +1,24 @@
+"""
+从 YAML 符号产物生成或更新 `kphdyn.xml` 中的 `<data>/<fields>` 映射。
+
+基本用法:
+    uv run python update_symbols.py -xml kphdyn.xml -symboldir symbols
+    uv run python update_symbols.py -xml kphdyn.xml -symboldir symbols \
+        -configyaml config.yaml -outxml output.xml
+
+可用参数:
+    -xml         输入 XML 路径，必填。
+    -symboldir   符号产物根目录，必填。脚本会扫描
+                 `{symboldir}/{arch}/{binary}.{version}/{sha256}/`。
+    -configyaml  符号配置文件路径，默认 `config.yaml`。
+    -syncfile    预留兼容参数；当前版本会解析该参数，但主流程未使用。
+    -outxml      输出 XML 路径；省略时直接覆盖 `-xml`。
+"""
+
 from __future__ import annotations
 
 import argparse
-import importlib.util
 from pathlib import Path
-import re
 from typing import Any
 import xml.etree.ElementTree as ET
 
@@ -11,10 +26,6 @@ import pefile
 
 from symbol_artifacts import load_artifact
 from symbol_config import load_config
-
-
-_SCRIPT_DIR = Path(__file__).resolve().parent / "ida_preprocessor_scripts"
-_STRUCT_METADATA_CACHE: dict[str, dict[str, dict[str, Any]] | None] = {}
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -47,15 +58,7 @@ def collect_symbol_values(
             values[spec["name"]] = fallback_value(spec["data_type"])
             continue
         if spec["category"] == "struct_offset":
-            if spec.get("is_bitfield"):
-                if "bit_offset" not in payload:
-                    raise ValueError(
-                        f"bitfield YAML missing bit_offset for symbol: {spec['name']}"
-                    )
-                values[spec["name"]] = int(payload["offset"]) * 8 + int(
-                    payload["bit_offset"]
-                )
-            elif "bit_offset" in payload:
+            if "bit_offset" in payload:
                 values[spec["name"]] = int(payload["offset"]) * 8 + int(
                     payload["bit_offset"]
                 )
@@ -68,49 +71,6 @@ def collect_symbol_values(
         else:
             raise ValueError(f"unsupported category: {spec['category']}")
     return values
-
-
-def _load_struct_metadata(skill_name: str) -> dict[str, dict[str, Any]]:
-    cached = _STRUCT_METADATA_CACHE.get(skill_name)
-    if cached is not None:
-        return cached
-
-    script_path = _SCRIPT_DIR / f"{skill_name}.py"
-    if not script_path.is_file():
-        raise ValueError(f"preprocessor script not found: {script_path}")
-
-    module_name = "update_symbols_preprocessor_" + re.sub(r"[^0-9a-zA-Z_]", "_", skill_name)
-    spec = importlib.util.spec_from_file_location(module_name, script_path)
-    if spec is None or spec.loader is None:
-        raise ValueError(f"failed to load preprocessor script spec: {script_path}")
-
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    struct_metadata = getattr(module, "STRUCT_METADATA", {})
-    if not isinstance(struct_metadata, dict):
-        struct_metadata = {}
-
-    _STRUCT_METADATA_CACHE[skill_name] = struct_metadata
-    return struct_metadata
-
-
-def _load_bitfield_symbol_names(module: Any) -> set[str]:
-    skills = getattr(module, "skills", []) or []
-    skill_name_by_symbol = {skill.symbol: skill.name for skill in skills}
-    bitfield_symbols: set[str] = set()
-
-    for symbol in module.symbols:
-        if symbol.category != "struct_offset":
-            continue
-        skill_name = skill_name_by_symbol.get(symbol.name)
-        if not skill_name:
-            continue
-        metadata = _load_struct_metadata(skill_name).get(symbol.name)
-        if isinstance(metadata, dict) and bool(metadata.get("bits")):
-            bitfield_symbols.add(symbol.name)
-
-    return bitfield_symbols
 
 
 def _load_module_yaml(
@@ -203,11 +163,7 @@ def _ensure_data_entry(
 def export_xml(tree: ET.ElementTree, config: Any, symboldir: Path) -> ET.ElementTree:
     root = tree.getroot()
     for module in config.modules:
-        bitfield_symbols = _load_bitfield_symbol_names(module)
-        symbol_specs = [
-            {**vars(symbol), "is_bitfield": symbol.name in bitfield_symbols}
-            for symbol in module.symbols
-        ]
+        symbol_specs = [vars(symbol) for symbol in module.symbols]
         for arch in ("amd64", "arm64"):
             arch_dir = symboldir / arch
             for module_path in module.path:

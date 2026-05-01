@@ -41,7 +41,6 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
                 session=AsyncMock(),
                 skill=SkillSpec(
                     name="find-EpObjectTable",
-                    symbol="EpObjectTable",
                     expected_output=["EpObjectTable.yaml"],
                     expected_input=[],
                 ),
@@ -88,7 +87,6 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
                 session=AsyncMock(),
                 skill=SkillSpec(
                     name="find-ObDecodeShift",
-                    symbol="ObDecodeShift",
                     expected_output=["ObDecodeShift.yaml"],
                     expected_input=[],
                 ),
@@ -138,7 +136,6 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
                 session=AsyncMock(),
                 skill=SkillSpec(
                     name="find-PspCreateProcessNotifyRoutine",
-                    symbol="PspCreateProcessNotifyRoutine",
                     expected_output=["PspCreateProcessNotifyRoutine.yaml"],
                     expected_input=[],
                 ),
@@ -178,7 +175,6 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
                 session=AsyncMock(),
                 skill=SkillSpec(
                     name="find-ExReferenceCallBackBlock",
-                    symbol="ExReferenceCallBackBlock",
                     expected_output=["ExReferenceCallBackBlock.yaml"],
                     expected_input=[],
                 ),
@@ -212,7 +208,6 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
             session=AsyncMock(),
             skill=SkillSpec(
                 name="find-DoesNotExist",
-                symbol="DoesNotExist",
                 expected_output=["DoesNotExist.yaml"],
                 expected_input=[],
             ),

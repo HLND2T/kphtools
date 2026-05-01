@@ -1,9 +1,11 @@
+from contextlib import asynccontextmanager
+from io import StringIO
 import json
 from pathlib import Path
 import tempfile
 import textwrap
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import generate_reference_yaml
 from ida_reference_export import ReferenceGenerationError
@@ -88,9 +90,8 @@ class TestGenerateReferenceYamlContext(unittest.TestCase):
                       - ntkrla57.exe
                     skills:
                       - name: sample-skill
-                        symbol: ExReferenceCallBackBlock
                         expected_output:
-                          - summary.yaml
+                          - ExReferenceCallBackBlock.yaml
                         expected_input:
                           - context
                     symbols:
@@ -306,3 +307,115 @@ class TestGenerateReferenceYamlResolution(unittest.IsolatedAsyncioTestCase):
                     binary_dir=Path(temp_dir),
                     func_name="ExReferenceCallBackBlock",
                 )
+
+    async def test_resolve_func_va_rejects_missing_matches(self) -> None:
+        session = AsyncMock()
+        session.call_tool.return_value = _make_py_eval_result({"matches": {}})
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(
+                ReferenceGenerationError,
+                r"unable to resolve function address",
+            ):
+                await generate_reference_yaml.resolve_func_va(
+                    session=session,
+                    binary_dir=Path(temp_dir),
+                    func_name="ExReferenceCallBackBlock",
+                )
+
+
+class TestGenerateReferenceYamlWorkflow(unittest.IsolatedAsyncioTestCase):
+    async def test_run_reference_generation_attach_mode_exports_yaml(self) -> None:
+        fake_session = AsyncMock()
+
+        @asynccontextmanager
+        async def fake_attach_existing_mcp_session(host: str, port: int, debug: bool):
+            self.assertEqual("127.0.0.1", host)
+            self.assertEqual(13337, port)
+            self.assertFalse(debug)
+            yield fake_session
+
+        args = generate_reference_yaml.parse_args(
+            ["-func_name", "ExReferenceCallBackBlock"]
+        )
+
+        with (
+            patch.object(
+                generate_reference_yaml,
+                "attach_existing_mcp_session",
+                fake_attach_existing_mcp_session,
+            ),
+            patch.object(
+                generate_reference_yaml,
+                "survey_current_binary_path",
+                AsyncMock(
+                    return_value=Path(
+                        "/repo/symbols/amd64/ntoskrnl.exe.10.0.1/hash/ntoskrnl.exe.i64"
+                    )
+                ),
+            ),
+            patch.object(
+                generate_reference_yaml,
+                "infer_context_from_binary_path",
+                return_value={
+                    "module": "ntoskrnl",
+                    "arch": "amd64",
+                    "binary_dir": Path("/repo/symbols/amd64/ntoskrnl.exe.10.0.1/hash"),
+                    "binary_path": Path(
+                        "/repo/symbols/amd64/ntoskrnl.exe.10.0.1/hash/ntoskrnl.exe"
+                    ),
+                    "module_spec": object(),
+                },
+            ),
+            patch.object(
+                generate_reference_yaml,
+                "resolve_func_va",
+                AsyncMock(return_value="0x140001234"),
+            ),
+            patch.object(
+                generate_reference_yaml,
+                "export_reference_yaml_via_mcp",
+                AsyncMock(
+                    return_value=Path(
+                        "/repo/ida_preprocessor_scripts/references/ntoskrnl/ExReferenceCallBackBlock.amd64.yaml"
+                    )
+                ),
+            ) as mock_export,
+        ):
+            output_path = await generate_reference_yaml.run_reference_generation(
+                args,
+                repo_root="/repo",
+            )
+
+        self.assertEqual(
+            Path(
+                "/repo/ida_preprocessor_scripts/references/ntoskrnl/ExReferenceCallBackBlock.amd64.yaml"
+            ),
+            output_path,
+        )
+        mock_export.assert_awaited_once_with(
+            fake_session,
+            func_name="ExReferenceCallBackBlock",
+            func_va="0x140001234",
+            output_path=Path(
+                "/repo/ida_preprocessor_scripts/references/ntoskrnl/ExReferenceCallBackBlock.amd64.yaml"
+            ),
+            debug=False,
+        )
+
+    def test_main_prints_generated_path(self) -> None:
+        stdout = StringIO()
+        with (
+            patch.object(
+                generate_reference_yaml,
+                "run_reference_generation",
+                AsyncMock(return_value=Path("/repo/out.yaml")),
+            ),
+            patch("sys.stdout", stdout),
+        ):
+            exit_code = generate_reference_yaml.main(
+                ["-func_name", "ExReferenceCallBackBlock"]
+            )
+
+        self.assertEqual(0, exit_code)
+        self.assertIn("/repo/out.yaml", stdout.getvalue())

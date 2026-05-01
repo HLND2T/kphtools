@@ -84,6 +84,34 @@ By default it uses `./symbols`, `config.yaml`, and scans both `amd64,arm64`. Use
 
 The script scans `symboldir/<arch>/<file>.<version>/<sha256>/`, resolves symbols into `{symbol}.yaml`, and writes them next to the corresponding PE/PDB files.
 
+## Generate reference YAML for LLM_DECOMPILE
+
+`generate_reference_yaml.py` creates a single reference YAML at:
+
+`ida_preprocessor_scripts/references/<module>/<func_name>.<arch>.yaml`
+
+Attach to an existing MCP session:
+
+```bash
+uv run python generate_reference_yaml.py -func_name="ExReferenceCallBackBlock"
+```
+
+Auto-start `idalib-mcp` for a specific binary:
+
+```bash
+uv run python generate_reference_yaml.py \
+  -func_name="ExReferenceCallBackBlock" \
+  -auto_start_mcp \
+  -binary="symbols/amd64/ntoskrnl.exe.10.0.26100.1/deadbeef/ntoskrnl.exe"
+```
+
+Check the generated YAML:
+
+- `func_va` is credible
+- `disasm_code` is non-empty and includes any available comments
+- `disasm_code` includes discontinuous function chunks when IDA associates them with the same function
+- `procedure` is present; it may be an empty string if Hex-Rays is unavailable
+
 ## Export kphdyn.xml
 
 `update_symbols.py` is now a YAML-to-XML exporter.

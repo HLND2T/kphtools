@@ -147,7 +147,6 @@ class TestDumpSymbols(unittest.TestCase):
                 "skills": [
                     {
                         "name": "find-EpObjectTable",
-                        "symbol": "EpObjectTable",
                         "expected_output": ["EpObjectTable.yaml"],
                     }
                 ],
@@ -196,7 +195,6 @@ class TestDumpSymbols(unittest.TestCase):
                 "skills": [
                     {
                         "name": "find-EpObjectTable",
-                        "symbol": "EpObjectTable",
                         "expected_output": ["EpObjectTable.yaml"],
                     }
                 ],
@@ -239,7 +237,6 @@ class TestDumpSymbols(unittest.TestCase):
                 "skills": [
                     {
                         "name": "find-EpObjectTable",
-                        "symbol": "EpObjectTable",
                         "expected_output": ["EpObjectTable.yaml"],
                     }
                 ],
@@ -275,29 +272,88 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertTrue(ok)
         mock_run_skill.assert_not_called()
 
+    def test_process_binary_preprocesses_each_symbol_derived_from_outputs(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            config = {
+                "skills": [
+                    {
+                        "name": "find-Callbacks",
+                        "expected_output": [
+                            "ExReferenceCallBackBlock.yaml",
+                            "ExDereferenceCallBackBlock.yaml",
+                        ],
+                    }
+                ],
+                "symbols": [
+                    {
+                        "name": "ExReferenceCallBackBlock",
+                        "category": "func",
+                        "data_type": "uint32",
+                    },
+                    {
+                        "name": "ExDereferenceCallBackBlock",
+                        "category": "func",
+                        "data_type": "uint32",
+                    },
+                ],
+            }
+            preprocess_mock = AsyncMock(
+                return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS
+            )
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                    )
+                )
+
+        self.assertTrue(ok)
+        self.assertEqual(2, preprocess_mock.await_count)
+        self.assertEqual(
+            ["ExReferenceCallBackBlock", "ExDereferenceCallBackBlock"],
+            [
+                invocation.kwargs["symbol"]["name"]
+                for invocation in preprocess_mock.await_args_list
+            ],
+        )
+        mock_run_skill.assert_not_called()
+
     def test_process_binary_returns_false_immediately_when_run_skill_fails(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             skills = [
                 {
                     "name": "find-A",
-                    "symbol": "SymbolA",
                     "expected_output": ["A.yaml"],
                 },
                 {
                     "name": "find-B",
-                    "symbol": "SymbolB",
                     "expected_output": ["B.yaml"],
                 },
             ]
             symbols = [
                 {
-                    "name": "SymbolA",
+                    "name": "A",
                     "category": "struct_offset",
                     "data_type": "uint16",
                 },
                 {
-                    "name": "SymbolB",
+                    "name": "B",
                     "category": "struct_offset",
                     "data_type": "uint16",
                 },
@@ -335,7 +391,6 @@ class TestDumpSymbols(unittest.TestCase):
                 "skills": [
                     {
                         "name": "find-EpObjectTable",
-                        "symbol": "EpObjectTable",
                         "expected_output": ["EpObjectTable.yaml"],
                     }
                 ],
@@ -384,7 +439,7 @@ class TestDumpSymbols(unittest.TestCase):
         ]
         self.assertIn("[debug] skill find-EpObjectTable started", printed_messages)
         self.assertIn(
-            "[debug] preprocess status for find-EpObjectTable: failed",
+            "[debug] preprocess status for find-EpObjectTable/EpObjectTable: failed",
             printed_messages,
         )
         self.assertIn(
@@ -399,7 +454,6 @@ class TestDumpSymbols(unittest.TestCase):
                 "skills": [
                     {
                         "name": "find-EpObjectTable",
-                        "symbol": "EpObjectTable",
                         "expected_output": ["EpObjectTable.yaml"],
                     }
                 ],
@@ -573,13 +627,12 @@ class TestDumpSymbols(unittest.TestCase):
             skills = [
                 {
                     "name": "find-A",
-                    "symbol": "SymbolA",
                     "expected_output": ["A.yaml"],
                 }
             ]
             symbols = [
                 {
-                    "name": "SymbolA",
+                    "name": "A",
                     "category": "struct_offset",
                     "data_type": "uint16",
                 }
@@ -624,7 +677,6 @@ class TestDumpSymbols(unittest.TestCase):
                 skills=[
                     {
                         "name": "find-EpObjectTable",
-                        "symbol": "EpObjectTable",
                         "expected_output": ["EpObjectTable.yaml"],
                     }
                 ],
@@ -1271,7 +1323,6 @@ class TestDumpSymbols(unittest.TestCase):
                 skills=[
                     {
                         "name": "find-EpObjectTable",
-                        "symbol": "EpObjectTable",
                         "expected_output": ["EpObjectTable.yaml"],
                     }
                 ],

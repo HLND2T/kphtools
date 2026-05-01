@@ -79,26 +79,25 @@ async def preprocess_common_skill(
     func_metadata: dict[str, dict[str, Any]] | None = None,
     generate_yaml_desired_fields=None,
 ):
-    if skill.symbol != symbol.name:
-        return PREPROCESS_STATUS_FAILED
+    target_symbol_name = symbol.name
 
     desired_fields_by_symbol = _normalize_desired_fields(generate_yaml_desired_fields)
     if desired_fields_by_symbol is None:
         return PREPROCESS_STATUS_FAILED
 
-    desired_fields = desired_fields_by_symbol.get(skill.symbol)
+    desired_fields = desired_fields_by_symbol.get(target_symbol_name)
     if not desired_fields:
         return PREPROCESS_STATUS_FAILED
 
     if symbol.category == "struct_offset":
-        if struct_member_names is not None and skill.symbol not in struct_member_names:
+        if struct_member_names is not None and target_symbol_name not in struct_member_names:
             return PREPROCESS_STATUS_FAILED
-        metadata = (struct_metadata or {}).get(skill.symbol)
+        metadata = (struct_metadata or {}).get(target_symbol_name)
         if not isinstance(metadata, dict):
             return PREPROCESS_STATUS_FAILED
         payload = await preprocess_struct_symbol(
             session=session,
-            symbol_name=skill.symbol,
+            symbol_name=target_symbol_name,
             metadata=metadata,
             pdb_path=pdb_path,
             debug=debug,
@@ -106,14 +105,14 @@ async def preprocess_common_skill(
         )
         writer = write_struct_yaml
     elif symbol.category == "gv":
-        if gv_names is not None and skill.symbol not in gv_names:
+        if gv_names is not None and target_symbol_name not in gv_names:
             return PREPROCESS_STATUS_FAILED
-        metadata = (gv_metadata or {}).get(skill.symbol, {})
+        metadata = (gv_metadata or {}).get(target_symbol_name, {})
         if not isinstance(metadata, dict):
             return PREPROCESS_STATUS_FAILED
         payload = await preprocess_gv_symbol(
             session=session,
-            symbol_name=skill.symbol,
+            symbol_name=target_symbol_name,
             metadata=metadata,
             pdb_path=pdb_path,
             debug=debug,
@@ -121,14 +120,14 @@ async def preprocess_common_skill(
         )
         writer = write_gv_yaml
     elif symbol.category == "func":
-        if func_names is not None and skill.symbol not in func_names:
+        if func_names is not None and target_symbol_name not in func_names:
             return PREPROCESS_STATUS_FAILED
-        metadata = (func_metadata or {}).get(skill.symbol, {})
+        metadata = (func_metadata or {}).get(target_symbol_name, {})
         if not isinstance(metadata, dict):
             return PREPROCESS_STATUS_FAILED
         payload = await preprocess_func_symbol(
             session=session,
-            symbol_name=skill.symbol,
+            symbol_name=target_symbol_name,
             metadata=metadata,
             pdb_path=pdb_path,
             debug=debug,
@@ -149,5 +148,5 @@ async def preprocess_common_skill(
     if filtered_payload is None:
         return PREPROCESS_STATUS_FAILED
 
-    writer(artifact_path(binary_dir, skill.symbol), filtered_payload)
+    writer(artifact_path(binary_dir, target_symbol_name), filtered_payload)
     return PREPROCESS_STATUS_SUCCESS
