@@ -2,6 +2,7 @@ from pathlib import Path
 import unittest
 
 import generate_reference_yaml
+from ida_reference_export import ReferenceGenerationError
 
 
 class TestGenerateReferenceYaml(unittest.TestCase):
@@ -41,3 +42,15 @@ class TestGenerateReferenceYaml(unittest.TestCase):
             / "ExReferenceCallBackBlock.amd64.yaml",
             output_path,
         )
+
+    def test_build_reference_output_path_rejects_invalid_target(self) -> None:
+        with self.assertRaisesRegex(
+            ReferenceGenerationError,
+            r"^invalid reference output target$",
+        ):
+            generate_reference_yaml.build_reference_output_path(
+                Path("/repo"),
+                module='nto:skrnl',
+                func_name="ExReferenceCallBackBlock",
+                arch="amd64",
+            )

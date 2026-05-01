@@ -6,9 +6,14 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-from ida_reference_export import ReferenceGenerationError
-
 SUPPORTED_ARCHES = ("amd64", "arm64")
+_INVALID_FILENAME_CHARS = frozenset(':?*<>|"')
+
+
+def _invalid_reference_output_target_error() -> Exception:
+    from ida_reference_export import ReferenceGenerationError
+
+    return ReferenceGenerationError("invalid reference output target")
 
 
 def _normalize_component(value: Any) -> str | None:
@@ -17,7 +22,12 @@ def _normalize_component(value: Any) -> str | None:
     text = value.strip()
     if not text or text in {".", ".."}:
         return None
-    if "/" in text or "\\" in text or Path(text).name != text:
+    if (
+        "/" in text
+        or "\\" in text
+        or Path(text).name != text
+        or any(ch in _INVALID_FILENAME_CHARS for ch in text)
+    ):
         return None
     return text
 
@@ -58,7 +68,7 @@ def build_reference_output_path(
         or function_name is None
         or normalized_arch not in SUPPORTED_ARCHES
     ):
-        raise ReferenceGenerationError("invalid reference output target")
+        raise _invalid_reference_output_target_error()
     return (
         Path(repo_root)
         / "ida_preprocessor_scripts"
