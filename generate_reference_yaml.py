@@ -6,16 +6,30 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-from dump_symbols import _resolve_binary_path
-from ida_reference_export import ReferenceGenerationError
-from symbol_config import load_config
-
 SUPPORTED_ARCHES = ("amd64", "arm64")
 _INVALID_FILENAME_CHARS = frozenset(':?*<>|"')
 
 
-def _invalid_reference_output_target_error() -> ReferenceGenerationError:
-    return ReferenceGenerationError("invalid reference output target")
+def _reference_generation_error(message: str) -> Exception:
+    from ida_reference_export import ReferenceGenerationError
+
+    return ReferenceGenerationError(message)
+
+
+def _invalid_reference_output_target_error() -> Exception:
+    return _reference_generation_error("invalid reference output target")
+
+
+def _load_reference_config(config_path: str | Path):
+    from symbol_config import load_config
+
+    return load_config(config_path)
+
+
+def _resolve_binary_path_for_module(module_spec: Any, binary_dir: Path) -> Path:
+    from dump_symbols import _resolve_binary_path
+
+    return _resolve_binary_path(module_spec, binary_dir)
 
 
 def _normalize_component(value: Any) -> str | None:
@@ -80,12 +94,23 @@ def build_reference_output_path(
     )
 
 
+def _normalize_arch_override(arch: str | None) -> str | None:
+    normalized_arch = _normalize_component(arch)
+    if normalized_arch is None:
+        return None
+    return normalized_arch.lower()
+
+
+def _normalize_module_override(module: str | None) -> str | None:
+    return _normalize_component(module)
+
+
 def _find_arch_from_path(binary_path: Path) -> str:
     for part in reversed(binary_path.parts):
         normalized_part = part.lower()
         if normalized_part in SUPPORTED_ARCHES:
             return normalized_part
-    raise ReferenceGenerationError("unable to infer arch from binary path")
+    raise _reference_generation_error("unable to infer arch from binary path")
 
 
 def _match_module_spec(config, binary_dir: Path, version_dir_name: str):
@@ -103,7 +128,7 @@ def _match_module_spec(config, binary_dir: Path, version_dir_name: str):
             matched_modules.append(module_spec)
 
     if len(matched_modules) != 1:
-        raise ReferenceGenerationError("unable to infer module from binary path")
+        raise _reference_generation_error("unable to infer module from binary path")
     return matched_modules[0]
 
 
@@ -117,18 +142,20 @@ def infer_context_from_binary_path(
     resolved_hint = Path(binary_hint_path).expanduser().resolve(strict=False)
     binary_dir = resolved_hint.parent
     version_dir = binary_dir.parent
-    resolved_arch = arch if arch is not None else _find_arch_from_path(resolved_hint)
+    normalized_module = _normalize_module_override(module) if module is not None else None
+    normalized_arch = _normalize_arch_override(arch) if arch is not None else None
+    resolved_arch = normalized_arch if arch is not None else _find_arch_from_path(resolved_hint)
     if resolved_arch not in SUPPORTED_ARCHES:
-        raise ReferenceGenerationError("unable to infer arch from binary path")
+        raise _reference_generation_error("unable to infer arch from binary path")
 
-    config = load_config(config_path)
+    config = _load_reference_config(config_path)
     module_spec = _match_module_spec(config, binary_dir, version_dir.name)
-    if module is not None and module != module_spec.name:
-        raise ReferenceGenerationError(
+    if module is not None and normalized_module != module_spec.name:
+        raise _reference_generation_error(
             "module override does not match current binary directory"
         )
 
-    resolved_binary_path = _resolve_binary_path(module_spec, binary_dir)
+    resolved_binary_path = _resolve_binary_path_for_module(module_spec, binary_dir)
     return {
         "arch": resolved_arch,
         "module": module_spec.name,
