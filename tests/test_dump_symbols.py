@@ -459,6 +459,29 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertFalse(ok)
         mock_run.assert_called_once()
 
+    def test_run_skill_reports_missing_agent_cli_without_raising(self) -> None:
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.read_text", return_value="developer prompt"),
+            patch.object(
+                dump_symbols.subprocess,
+                "run",
+                side_effect=FileNotFoundError(2, "No such file or directory", "codex"),
+            ),
+            patch("builtins.print") as mock_print,
+        ):
+            ok = dump_symbols.run_skill(
+                "find-test",
+                agent="codex",
+                debug=False,
+                expected_yaml_paths=[],
+            )
+
+        self.assertFalse(ok)
+        mock_print.assert_any_call(
+            "Agent CLI not found: codex. Install it or pass -agent with a valid executable path."
+        )
+
     def test_process_module_binary_passes_lazy_session_without_eager_start(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)

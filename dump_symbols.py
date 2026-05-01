@@ -230,7 +230,15 @@ def run_skill(
         "-",
     ]
     prompt = f"Run SKILL: {skill_md_path}"
-    completed = subprocess.run(cmd, input=prompt, text=True, check=False)
+    try:
+        completed = subprocess.run(cmd, input=prompt, text=True, check=False)
+    except FileNotFoundError as exc:
+        missing_executable = exc.filename or agent
+        _progress(
+            f"Agent CLI not found: {missing_executable}. "
+            "Install it or pass -agent with a valid executable path."
+        )
+        return False
     if completed.returncode != 0:
         _debug_log(debug, f"skill failed: {skill_name}")
         return False
