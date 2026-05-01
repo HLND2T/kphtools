@@ -1,0 +1,60 @@
+func_name: AlpcpOpenPort
+func_va: '0x1406df5c0'
+disasm_code: |-
+  PAGE:00000001406DF5C0                 push    rbx
+  PAGE:00000001406DF5C2                 sub     rsp, 20h
+  PAGE:00000001406DF5C6                 mov     rax, gs:188h
+  PAGE:00000001406DF5CF                 dec     word ptr [rax+1E4h]
+  PAGE:00000001406DF5D6                 xor     ebx, ebx
+  PAGE:00000001406DF5D8                 test    ecx, ecx
+  PAGE:00000001406DF5DA                 jnz     short loc_1406DF5F3
+  PAGE:00000001406DF5DC                 mov     rcx, gs:188h
+  PAGE:00000001406DF5E5                 call    KeLeaveCriticalRegionThread
+  PAGE:00000001406DF5EA                 mov     eax, ebx
+  PAGE:00000001406DF5EC                 add     rsp, 20h
+  PAGE:00000001406DF5F0                 pop     rbx
+  PAGE:00000001406DF5F1                 retn
+  PAGE:00000001406DF5F3                 cmp     ecx, 2
+  PAGE:00000001406DF5F6                 jnz     short loc_1406DF61D
+  PAGE:00000001406DF5F8                 test    dword ptr [r9+100h], 100000h ; 0x100 = _ALPC_PORT->PortAttributes
+  PAGE:00000001406DF603                 jnz     short loc_1406DF61D
+  PAGE:00000001406DF605                 mov     rcx, [r9+18h] ; 0x18 = _ALPC_PORT->OwnerProcess
+  PAGE:00000001406DF609                 mov     rax, rbx
+  PAGE:00000001406DF60C                 test    cl, 1
+  PAGE:00000001406DF60F                 cmovz   rax, rcx
+  PAGE:00000001406DF613                 cmp     rax, r8
+  PAGE:00000001406DF616                 jz      short loc_1406DF5DC
+  PAGE:00000001406DF618                 jmp     loc_140825456
+  PAGE:00000001406DF61D                 mov     ebx, 0C00000BBh
+  PAGE:00000001406DF622                 jmp     short loc_1406DF5DC
+  PAGE:0000000140825456                 mov     rax, [rsp+28h+arg_20]
+  PAGE:000000014082545B                 and     dword ptr [rax], 0FFFFFFFEh
+  PAGE:000000014082545E                 jmp     loc_1406DF5DC
+procedure: |-
+  __int64 __fastcall AlpcpOpenPort(int a1, __int64 a2, _EPROCESS *a3, _ALPC_PORT *a4, _DWORD *a5)
+  {
+    struct _KTHREAD *CurrentThread; // rax
+    unsigned int v6; // ebx
+    _EPROCESS *OwnerProcess; // rax
+
+    CurrentThread = KeGetCurrentThread();
+    --CurrentThread->KernelApcDisable;
+    v6 = 0;
+    if ( a1 )
+    {
+      if ( a1 != 2 || (a4->PortAttributes.Flags & 0x100000) != 0 ) // 0x100 = _ALPC_PORT->PortAttributes
+      {
+        v6 = -1073741637;
+      }
+      else
+      {
+        OwnerProcess = nullptr;
+        if ( ((__int64)a4->OwnerProcess & 1) == 0 ) // 0x18 = _ALPC_PORT->OwnerProcess
+          OwnerProcess = a4->OwnerProcess;
+        if ( OwnerProcess != a3 )
+          *a5 &= ~1u;
+      }
+    }
+    KeLeaveCriticalRegionThread(KeGetCurrentThread());
+    return v6;
+  }
