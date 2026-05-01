@@ -77,8 +77,10 @@ Where `{sha256}` is the lowercase SHA256 hash of the PE file (e.g., `68d5867b5e6
 `dump_symbols.py` is the primary analysis entry point.
 
 ```bash
-uv run python dump_symbols.py -symboldir="C:/Symbols" -arch=amd64 -configyaml="config.yaml"
+uv run python dump_symbols.py
 ```
+
+By default it uses `./symbols`, `config.yaml`, and scans both `amd64,arm64`. Use `-symboldir`, `-configyaml`, or `-arch=amd64` to override.
 
 The script scans `symboldir/<arch>/<file>.<version>/<sha256>/`, resolves symbols into `{symbol}.yaml`, and writes them next to the corresponding PE/PDB files.
 
@@ -175,7 +177,7 @@ curl "http://localhost:8000/"
 Use the migrated workflow:
 
 ```bash
-uv run python dump_symbols.py -symboldir="C:/Symbols" -arch=amd64 -configyaml="config.yaml"
+uv run python dump_symbols.py
 uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -configyaml="config.yaml" -syncfile
 ```
 
@@ -213,8 +215,7 @@ exit 0
 ```shell
 @echo Analyze symbols and dump YAML artifacts
 
-uv run python dump_symbols.py -symboldir="%WORKSPACE%\symbols" -arch=amd64 -configyaml="%WORKSPACE%\config.yaml"
-uv run python dump_symbols.py -symboldir="%WORKSPACE%\symbols" -arch=arm64 -configyaml="%WORKSPACE%\config.yaml"
+uv run python dump_symbols.py -symboldir="%WORKSPACE%\symbols" -configyaml="%WORKSPACE%\config.yaml"
 ```
 
 ```shell

@@ -34,6 +34,9 @@ SURVEY_CURRENT_IDB_PATH_PY_EVAL = (
 )
 MCP_STARTUP_TIMEOUT = 1200
 IDALIB_QEXIT_TIMEOUT_SECONDS = 3
+SUPPORTED_ARCHES = ("amd64", "arm64")
+DEFAULT_ARCH = ",".join(SUPPORTED_ARCHES)
+DEFAULT_SYMBOL_DIR = "symbols"
 
 
 def _field(item: Any, name: str, default: Any = None) -> Any:
@@ -45,6 +48,29 @@ def _field(item: Any, name: str, default: Any = None) -> Any:
 def _string_list(item: Any, name: str) -> list[str]:
     values = _field(item, name, []) or []
     return [str(value) for value in values if value]
+
+
+def _parse_arches(raw_value: str) -> list[str]:
+    arches: list[str] = []
+    seen: set[str] = set()
+    for item in str(raw_value).split(","):
+        arch = item.strip().lower()
+        if not arch:
+            continue
+        if arch not in SUPPORTED_ARCHES:
+            supported = ", ".join(SUPPORTED_ARCHES)
+            raise argparse.ArgumentTypeError(
+                f"invalid arch '{item.strip()}'; expected comma-separated values from: {supported}"
+            )
+        if arch not in seen:
+            seen.add(arch)
+            arches.append(arch)
+    if not arches:
+        supported = ", ".join(SUPPORTED_ARCHES)
+        raise argparse.ArgumentTypeError(
+            f"arch must include at least one value from: {supported}"
+        )
+    return arches
 
 
 def _strip_frontmatter(text: str) -> str:
@@ -90,14 +116,26 @@ def _parse_py_eval_result_json(result) -> dict[str, Any] | None:
 
 
 def parse_args(argv=None):
-    parser = argparse.ArgumentParser(description="Dump kphtools symbols into YAML artifacts")
-    parser.add_argument("-symboldir", required=True)
+    parser = argparse.ArgumentParser(
+        description="Dump kphtools symbols into YAML artifacts",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument("-symboldir", default=DEFAULT_SYMBOL_DIR, help="Symbol artifact root directory")
     parser.add_argument("-configyaml", default="config.yaml")
-    parser.add_argument("-arch", choices=["amd64", "arm64"], required=True)
+    parser.add_argument(
+        "-arch",
+        default=DEFAULT_ARCH,
+        help="Comma-separated architectures to scan",
+    )
     parser.add_argument("-agent", default="codex")
     parser.add_argument("-force", action="store_true")
     parser.add_argument("-debug", action="store_true")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    try:
+        args.arches = _parse_arches(args.arch)
+    except argparse.ArgumentTypeError as exc:
+        parser.error(str(exc))
+    return args
 
 
 def topological_sort_skills(skills):
@@ -579,39 +617,42 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
 
 def main(argv=None):
     args = parse_args(argv)
+    arches = getattr(args, "arches", _parse_arches(args.arch))
     config = load_config(args.configyaml)
-    arch_dir = Path(args.symboldir) / args.arch
-    _progress(f"Scanning {arch_dir}")
-
-    candidates = list(_iter_binary_dirs(Path(args.symboldir), args.arch, config))
-    _progress(f"Found {len(candidates)} candidate binary directories")
-    if not candidates:
-        _progress("No processable binary directories found")
-        return 0
-
     succeeded = 0
     failed = 0
     skipped = 0
-    for module, binary_dir, pdb_path in candidates:
-        _progress(f"Processing {binary_dir}")
-        try:
-            ok, did_work = asyncio.run(_process_module_binary(module, binary_dir, pdb_path, args))
-        except Exception:
-            failed += 1
-            _progress(f"Processing {binary_dir} failed")
-            _progress(f"Summary: {succeeded} succeeded, {failed} failed, {skipped} skipped")
-            raise
-        if not ok:
-            failed += 1
-            _progress(f"Processing {binary_dir} failed")
-            _progress(f"Summary: {succeeded} succeeded, {failed} failed, {skipped} skipped")
-            return 1
-        if did_work:
-            succeeded += 1
-            _progress(f"Processed {binary_dir} successfully")
-        else:
-            skipped += 1
-            _progress(f"Skipped {binary_dir} (no work required)")
+    total_candidates = 0
+    for arch in arches:
+        arch_dir = Path(args.symboldir) / arch
+        _progress(f"Scanning {arch_dir}")
+
+        candidates = list(_iter_binary_dirs(Path(args.symboldir), arch, config))
+        total_candidates += len(candidates)
+        _progress(f"Found {len(candidates)} candidate binary directories")
+        for module, binary_dir, pdb_path in candidates:
+            _progress(f"Processing {binary_dir}")
+            try:
+                ok, did_work = asyncio.run(_process_module_binary(module, binary_dir, pdb_path, args))
+            except Exception:
+                failed += 1
+                _progress(f"Processing {binary_dir} failed")
+                _progress(f"Summary: {succeeded} succeeded, {failed} failed, {skipped} skipped")
+                raise
+            if not ok:
+                failed += 1
+                _progress(f"Processing {binary_dir} failed")
+                _progress(f"Summary: {succeeded} succeeded, {failed} failed, {skipped} skipped")
+                return 1
+            if did_work:
+                succeeded += 1
+                _progress(f"Processed {binary_dir} successfully")
+            else:
+                skipped += 1
+                _progress(f"Skipped {binary_dir} (no work required)")
+    if not total_candidates:
+        _progress("No processable binary directories found")
+        return 0
     _progress(f"Summary: {succeeded} succeeded, {failed} failed, {skipped} skipped")
     return 0
 

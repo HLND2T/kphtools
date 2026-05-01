@@ -130,7 +130,15 @@ class TestDumpSymbols(unittest.TestCase):
         )
 
         self.assertEqual("amd64", args.arch)
+        self.assertEqual(["amd64"], args.arches)
         self.assertTrue(args.force)
+
+    def test_parse_args_uses_default_arches_and_symboldir(self) -> None:
+        args = dump_symbols.parse_args([])
+
+        self.assertEqual("symbols", args.symboldir)
+        self.assertEqual("amd64,arm64", args.arch)
+        self.assertEqual(["amd64", "arm64"], args.arches)
 
     def test_process_binary_falls_back_to_agent_after_preprocess_failure(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -1320,3 +1328,51 @@ class TestDumpSymbols(unittest.TestCase):
             ]
         )
         self.assertEqual(5, mock_print.call_count)
+
+    def test_main_scans_multiple_arches_from_comma_separated_arch_argument(self) -> None:
+        args = SimpleNamespace(
+            symboldir="symbols",
+            arch="amd64,arm64",
+            configyaml="config.yaml",
+            agent="codex",
+            debug=False,
+            force=False,
+        )
+        amd64_dir = Path("symbols/amd64/ntoskrnl.10.0.1/abc123")
+        arm64_dir = Path("symbols/arm64/ntoskrnl.10.0.1/def456")
+        candidates_by_arch = {
+            "amd64": [(SimpleNamespace(), amd64_dir, amd64_dir / "ntkrnlmp.pdb")],
+            "arm64": [(SimpleNamespace(), arm64_dir, arm64_dir / "ntkrnlmp.pdb")],
+        }
+
+        def iter_binary_dirs(symboldir, arch, config):
+            return candidates_by_arch[arch]
+
+        with (
+            patch.object(dump_symbols, "parse_args", return_value=args),
+            patch.object(dump_symbols, "load_config", return_value=SimpleNamespace()),
+            patch.object(dump_symbols, "_iter_binary_dirs", side_effect=iter_binary_dirs),
+            patch.object(
+                dump_symbols,
+                "_process_module_binary",
+                new=AsyncMock(side_effect=[(True, True), (True, False)]),
+            ),
+            patch("builtins.print") as mock_print,
+        ):
+            exit_code = dump_symbols.main([])
+
+        self.assertEqual(0, exit_code)
+        mock_print.assert_has_calls(
+            [
+                call("Scanning symbols/amd64"),
+                call("Found 1 candidate binary directories"),
+                call(f"Processing {amd64_dir}"),
+                call(f"Processed {amd64_dir} successfully"),
+                call("Scanning symbols/arm64"),
+                call("Found 1 candidate binary directories"),
+                call(f"Processing {arm64_dir}"),
+                call(f"Skipped {arm64_dir} (no work required)"),
+                call("Summary: 1 succeeded, 0 failed, 1 skipped"),
+            ]
+        )
+        self.assertEqual(9, mock_print.call_count)
