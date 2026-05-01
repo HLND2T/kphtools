@@ -21,6 +21,12 @@ reference YAML 与当前版本普通 `{symbol}.yaml` 工件职责分离：
 
 首版仅支持单函数生成，不支持批量扫描，不自动改写 `find-*.py`，不自动修改 `config.yaml`，也不直接触发 LLM。
 
+在导出语义上，本设计要求严格对齐 `D:\CS2_VibeSignatures\generate_reference_yaml.py` 当前实现，尤其是：
+
+- `procedure` 继续沿用 CS2 的伪代码导出逻辑
+- `disasm_code` 必须沿用 CS2 的注释行导出逻辑
+- `disasm_code` 必须正确处理离散 function chunk，而不是只导出入口连续块
+
 ## 2. 目标
 
 1. 提供一个独立 CLI，为 `kphtools` 生成单函数 reference YAML
@@ -28,6 +34,7 @@ reference YAML 与当前版本普通 `{symbol}.yaml` 工件职责分离：
 3. 优先复用当前版本普通 `{symbol}.yaml` 工件中的地址信息
 4. 统一通过 IDA MCP 导出反汇编和伪代码，供后续 `LLM_DECOMPILE` 使用
 5. 保持 reference YAML schema 最小化，便于人工审阅与后续复用
+6. 严格复用或等价移植 CS2 当前 `procedure` / `disasm_code` 导出实现语义，避免在 `kphtools` 里另造一套导出算法
 
 ## 3. 非目标
 
@@ -36,6 +43,7 @@ reference YAML 与当前版本普通 `{symbol}.yaml` 工件职责分离：
 3. 本次不修改 `config.yaml` 公共 schema 去新增 alias 字段
 4. 本次不把该工具并入 `dump_symbols.py` 主流程
 5. 本次不在生成完成后直接执行真实 LLM fallback 验证
+6. 本次不重新设计一套不同于 CS2 的 `procedure` / `disasm_code` 导出格式
 
 ## 4. 方案比较与结论
 
@@ -146,6 +154,11 @@ procedure: |
 4. `procedure` 允许为空字符串
 5. `func_name` 保持用户输入的规范名，不强制替换为 IDA 中的真实名字
 
+说明：
+
+- `procedure` 与 `disasm_code` 的具体文本组织方式，以 CS2 当前 `build_function_detail_export_py_eval(...)` 的真实行为为准
+- `kphtools` 不定义与 CS2 不一致的独立导出方言
+
 ## 7. 执行流程
 
 脚本执行流程固定为 5 步：
@@ -208,9 +221,31 @@ procedure: |
 
 要求：
 
-1. `disasm_code` 必须非空
-2. `procedure` 尽量导出 Hex-Rays 伪代码
-3. 如果 Hex-Rays 不可用或反编译失败，`procedure` 允许为空字符串
+1. 导出实现应严格对齐 CS2 当前 `build_function_detail_export_py_eval(...)` 的行为
+2. `disasm_code` 必须非空
+3. `procedure` 尽量导出 Hex-Rays 伪代码
+4. 如果 Hex-Rays 不可用或反编译失败，`procedure` 允许为空字符串
+5. `disasm_code` 中应在可稳定读取时，于对应指令行前插入注释行
+6. `disasm_code` 必须覆盖当前函数全部已归属的 function chunk，包括离散 chunk，而不是只覆盖入口连续块
+
+具体对齐要求：
+
+1. 优先复用或等价移植 CS2 的共享 `py_eval` 代码生成器，而不是在 `kphtools` 中重新发明一版导出脚本
+2. `procedure` 继续沿用 CS2 当前 `get_pseudocode(...)` 逻辑，不在 `kphtools` 侧自定义额外变体
+3. `disasm_code` 继续沿用 CS2 当前“chunk 归属 + 控制流遍历 + code-head 缺口补齐”的收集策略
+4. 注释读取继续沿用 CS2 当前逻辑：普通注释、repeatable 注释、以及可稳定读取的 extra comment 去重后插入到对应指令行之前
+5. `procedure` 若按 CS2 当前 `cfunc.get_pseudocode()` 输出包含 Hex-Rays 注释文本，则原样保留，不在 `kphtools` 侧额外裁剪或重写
+
+### 7.5 function chunk 处理要求
+
+为避免遗漏离散 tail chunk，`disasm_code` 的导出必须遵守与 CS2 当前实现一致的策略：
+
+1. 优先使用 `idautils.Chunks(func.start_ea)` 收集 chunk 范围
+2. 若失败或为空，回退到 `ida_funcs.func_tail_iterator_t`
+3. 若仍失败，最后回退到 `(func.start_ea, func.end_ea)` 单区间
+4. 所有控制流遍历与补齐扫描都必须限制在当前函数 chunk 范围内
+5. 从函数入口做控制流遍历后，再扫描全部 chunk 内 code heads，把未收集到的指令地址补齐
+6. 最终按地址升序输出，确保离散 chunk 稳定纳入 `disasm_code`
 
 ## 8. 内部结构
 
@@ -240,6 +275,12 @@ procedure: |
 - 通过 MCP `py_eval` 导出函数反汇编与伪代码
 - 在 Python 侧校验导出 payload 是否满足最小 schema
 
+实现约束：
+
+- 不重新设计独立于 CS2 的 `procedure` / `disasm_code` 导出器
+- 优先直接移植或抽取 CS2 当前 `build_function_detail_export_py_eval(...)` 语义
+- 若因仓库结构差异无法直接复用代码，也必须在行为上保持等价，包括注释导出和离散 chunk 收集
+
 ### 8.4 ReferenceYamlWriter
 
 职责：
@@ -254,6 +295,7 @@ procedure: |
 1. `dump_symbols.py` 中现有的 MCP 启动/关闭模式
 2. `dump_symbols.py` 中对 binary 与 MCP 会话匹配的校验思路
 3. `symbol_artifacts.load_artifact()` 对普通工件 YAML 的读取与十六进制字段解析能力
+4. CS2 当前 `build_function_detail_export_py_eval(...)` 的导出语义与回退顺序
 
 ### 9.2 不建议复用
 
@@ -265,6 +307,7 @@ procedure: |
 
 - 普通工件与 reference YAML schema 不同
 - reference YAML 属于独立职责，不应伪装成普通 `{symbol}.yaml` 工件
+- `procedure` / `disasm_code` 的 IDA 导出逻辑已有成熟实现，重复设计只会制造行为偏差
 
 ## 10. 错误处理
 
@@ -290,6 +333,11 @@ procedure: |
 
 此时仍允许写出一个有效 reference YAML，但 `procedure` 必须写成空字符串。
 
+注释读取失败不应导致整体失败：
+
+- 普通注释、repeatable 注释或 extra comment 读取异常时，只跳过对应注释
+- function chunk 枚举失败时必须按 CS2 现有顺序回退，而不是直接退化为入口连续块导出
+
 ## 11. 成功判定
 
 生成成功要求以下条件同时满足：
@@ -299,6 +347,8 @@ procedure: |
 3. `func_va` 是可解析的十六进制字符串
 4. `disasm_code` 非空
 5. `procedure` 是字符串，可为空
+6. `disasm_code` 在有注释可读时包含对应注释行
+7. `disasm_code` 不因离散 function chunk 而截断为仅入口连续块
 
 ## 12. 验收条件
 
@@ -316,6 +366,7 @@ procedure: |
 4. 地址歧义时返回明确错误
 5. `procedure` 失败时允许降级输出
 6. `disasm_code` 失败时必须整体失败
+7. `disasm_code` 导出逻辑严格对齐 CS2 的注释与 chunk 处理语义
 
 ## 13. 建议测试范围
 
@@ -329,6 +380,8 @@ procedure: |
 6. IDA 名字查找歧义分支
 7. `procedure` 为空但仍成功写出
 8. `disasm_code` 为空时失败
+9. 导出脚本包含注释读取逻辑
+10. 导出脚本包含离散 chunk 收集与补齐逻辑
 
 ## 14. 后续扩展
 
