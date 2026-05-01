@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-import base64
 import json
 import os
 import textwrap
-import zlib
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+from ida_reference_export_template import FUNCTION_DETAIL_EXPORT_TEMPLATE
 
 
 class ReferenceGenerationError(RuntimeError):
@@ -45,7 +45,6 @@ def _normalize_address_text(value: Any, *, require_string: bool = False) -> str 
         except (TypeError, ValueError):
             return None
         return text
-
     if isinstance(value, str):
         text = value.strip()
         if not text:
@@ -55,7 +54,6 @@ def _normalize_address_text(value: Any, *, require_string: bool = False) -> str 
         except (TypeError, ValueError):
             return None
         return text
-
     if isinstance(value, int):
         return hex(value)
     return None
@@ -137,21 +135,8 @@ def build_remote_text_export_py_eval(
     )
 
 
-_FUNCTION_DETAIL_EXPORT_TEMPLATE_B85 = """
-c-qxjOLN;c5We$Qu)2tBRE?dqIjHd=P2!nea>%5a%%m9(EJ89J3S>dhu}9<o-rWU20wgHObq_5M5+93wKR%FAv8yYo;v#3+)xF})f=)NBSew(b5cY1vw>vHrU9_qw>GpaN-!zqol)PU>F&qxZYknu$eG~D!HLq3tj{b^D7{Z<+zKGvff=3Yw&NzeXEW7;U{hRF5>+JXUAG0iqa=wW(R@YqQ+4{N_-!jR>mM6|RDAXt>6>wO@NXJ>KWp&!&VQD~0Ayi^7(~dwdHIEG+dKfkY56M+4g|=(cOL%2?^@OgvOKnb)jI>UTz3Zwh`C7RKHwik)*yY{_eZPDiTU&@i6|Bs{q<Cy9Ir1AU>%zQzgG;sCW#_G40v@5rgd_(d6m$(af4uxi6l&HqHU^?n9><<avEq<BJnsc>bW94xB~#$Oi@t1@l*8WROzD_;Os1{)ha%Du1LFmcaM^J5{=r~QDL^$k5a81k4M{}8n2CHKdQ->-^c)NOeqEG2{wP}>R)m5D3i#~kZourRd<+r>6Jjw*y5))~C3V+X#B=Mx`GSm2PhY9C|M0r7ZNab#eiwADJ+35Y-=fo!??{2zsE4a-%KKv{$6gMa%VARpG=>qU<0U^dCc)0`m%t+K?%5`+P1dbFZeXhMJc07@Mo!nNH$`VK_H;DJqtnVv_1du7-YB_<g9F7;Q9p8()>D=AE1Ikj{vesq(X2gckz4K736<P2m9adRyg>nmB|rz$zzm33LOH-`VnYq*nP59UrlNCt2EN~><P+e=%ZA7ExvTJIwzq5^R(tT#+4;-Q4>Pkuv!`W1*gdu0fjWX|yF;lO^SH`$0eWHN(=LdT*PJPK1$_&`mz*u)bEo=7Bg3#J^VVe6dZ);xJ)`u*^6Yte4cQieemYztR3X})SV6lmz9wszifuE=chxN*D$OB<+K@%<G*~QrTt}T9Pf#9Mj}G$X;hiO9L4ss{G2a)w)XSsD^u-J=BtwsYO14iDw48fSZL_rX?k|OG#HS-n)`bkxnctzlx*`2^jzK#yYMv;H8*w{5WCQ>I4};~@33Y*Wm2&{_EN_x0H@X90Tw?<u_(9jsZ?E6Je*5+V*)`b^gOF`gvTbAhNSht1L%N#`N6v9{<_}ck@t!rbTXaxD>;rRId)9R8gKFbsH`@^~pRUmBNeDteLG@0I?`8<2eL@rH6mF!fS!MD@f~Jr;dC{<D*ELw{7`pC32Ih{=79a^EiEFVLHJPcAzy$L4IkuvK_racT4_$9&p9XWo756X#S--}6!|!3%%XN&Ns$xA91Y$YvI*EdOmSPm<^I(lT#81(D@9?p@o3T3oQ_Pn)RUr~$*=s?O#S+qMlfiBRp_I34p=yJ(L6L(IL^{#Gama`Ex(D{gT0ASuE4Bvg!jRm7ZzhGDG&`lOrKt-uUG9?_d*zIAD8$yN^JNS`dw_jgG@wv!HRtZ$&R9M9)F=;Tv^2O%E)rMSo_5FXvPSV5xeV9+82=nUi=Y4U(s^m3DbJ!oXLjwvo~#L9_3T&U-hjqC>y~u|`Q&%8Lt8=<gGWHx<2~!K1H#ec^rk;88d&L6bYg#K{pgXij%ImCUoUqisdNCJUBu^ODLcV;;2`Q(wS+K202-0uZ7M0#r^@O(mw}zR<Qq!<@U|9`0tmu;UJbc7{%a|4^#|a1DXSd?{*nQ@pWHKt(#6UgB+ZD$*C_Z(0{2BUbdKzl9yQZDKD5{A<+$%wXdB~<=_r&?6fE4F%%Lv<cE&$p{x|qvnEUvj+mpZOM5q_|e_awmn?IjFHl1~<T*UL6T|HkN3##O|TsF|4F+~o%#sJ2+!eH5>#S&<~b|g-w+ChtSyKcT0>N=U<OgZJhY1mUh-eKo>jookx>oD5e{9DR}6&ouR9;C~*&H;K&OiKGgBm`m&uJE{}r+qC5GxSyHFjn30Hm_*93~-j&cGyoT2Vm6r+dx0S%<?6^b+;E;UA9}meQEG*lVM1{bg-UflyiW>H4O0q+&k(O!`JSRk@XbK2%!eSHQrd_kA{4N!*M4{@N3{(e4V!~t1Fl!NoupAtk!g$>JL<5P-{M2rBM*iN>)I}{=~|bzmu|(fXFX_2pypDB*3nG74N}&9Vf)$`imHO&}6a?8Y95;ZHdqDE8H?~cXgv*bniQ#&4>rS{+g`<n(KFKy&Rh2n_1IdW&8f_>hr^FF<^PifMKVxUhL4Av_`)IowHF0lh?9Z^SqUo*on$$!9$cre*=?nNO=
-"""
-
-
 def build_function_detail_export_py_eval(func_va_int: int) -> str:
-    return (
-        zlib.decompress(
-            base64.b85decode(_FUNCTION_DETAIL_EXPORT_TEMPLATE_B85.replace("\n", ""))
-        )
-        .decode("utf-8")
-        .replace("__FUNC_VA_INT__", str(func_va_int), 1)
-        .strip()
-        + "\n"
-    )
+    return FUNCTION_DETAIL_EXPORT_TEMPLATE.replace("__FUNC_VA_INT__", str(func_va_int), 1).strip() + "\n"
 
 
 def build_reference_yaml_export_py_eval(
@@ -188,7 +173,7 @@ def build_reference_yaml_export_py_eval(
     )
 
 
-def _parse_py_eval_json_result(result: Any) -> dict[str, Any] | None:
+def _parse_py_eval_result_json(result: Any) -> dict[str, Any] | None:
     content = getattr(result, "content", None)
     if not content:
         return None
@@ -198,8 +183,15 @@ def _parse_py_eval_json_result(result: Any) -> dict[str, Any] | None:
         raw = str(item)
     try:
         payload = json.loads(raw)
-        result_text = payload.get("result", "") if isinstance(payload, dict) else ""
-        parsed = json.loads(result_text) if isinstance(result_text, str) and result_text else None
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    result_text = payload.get("result", "")
+    if not isinstance(result_text, str) or not result_text:
+        return None
+    try:
+        parsed = json.loads(result_text)
     except (json.JSONDecodeError, TypeError):
         return None
     return parsed if isinstance(parsed, dict) else None
@@ -248,7 +240,7 @@ async def export_reference_yaml_via_mcp(
                 )
             },
         )
-        export_ack = _parse_py_eval_json_result(eval_result)
+        export_ack = _parse_py_eval_result_json(eval_result)
         if not _is_valid_remote_export_ack(
             export_ack,
             output_path=resolved_output_path,
