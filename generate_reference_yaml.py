@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,89 @@ def _resolve_binary_path_for_module(module_spec: Any, binary_dir: Path) -> Path:
     from dump_symbols import _resolve_binary_path
 
     return _resolve_binary_path(module_spec, binary_dir)
+
+
+def _load_function_artifact(binary_dir: Path, func_name: str) -> dict[str, Any] | None:
+    from symbol_artifacts import load_artifact
+
+    artifact_path = binary_dir / f"{func_name}.yaml"
+    if not artifact_path.is_file():
+        return None
+    return load_artifact(artifact_path)
+
+
+def _parse_py_eval_result_json(result: Any) -> dict[str, Any] | None:
+    content = getattr(result, "content", None)
+    if not content:
+        return None
+    item = content[0]
+    raw = getattr(item, "text", None)
+    if not isinstance(raw, str):
+        raw = str(item)
+    try:
+        payload = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    result_text = payload.get("result")
+    if not isinstance(result_text, str) or not result_text:
+        return None
+    try:
+        parsed = json.loads(result_text)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+async def _query_image_base_via_ida(session: Any) -> int:
+    py_code = (
+        "import json\n"
+        "import idaapi\n"
+        "result = json.dumps({'image_base': hex(idaapi.get_imagebase())})\n"
+    )
+    try:
+        eval_result = await session.call_tool(
+            name="py_eval",
+            arguments={"code": py_code},
+        )
+        payload = _parse_py_eval_result_json(eval_result)
+        image_base = payload.get("image_base") if isinstance(payload, dict) else None
+        if isinstance(image_base, int):
+            return image_base
+        if isinstance(image_base, str):
+            return int(image_base, 0)
+    except Exception as exc:
+        raise _reference_generation_error("unable to resolve function address") from exc
+    raise _reference_generation_error("unable to resolve function address")
+
+
+async def _lookup_function_start_addresses_by_exact_name(
+    session: Any,
+    func_name: str,
+) -> set[int]:
+    py_code = (
+        "import json\n"
+        "import idautils\n"
+        f"exact_names = [{func_name!r}]\n"
+        "matches = {}\n"
+        "for ea, name in idautils.Names():\n"
+        "    if name in exact_names:\n"
+        "        matches.setdefault(hex(ea), []).append(name)\n"
+        "result = json.dumps({'matches': matches}, sort_keys=True)\n"
+    )
+    try:
+        eval_result = await session.call_tool(
+            name="py_eval",
+            arguments={"code": py_code},
+        )
+        payload = _parse_py_eval_result_json(eval_result)
+        raw_matches = payload.get("matches") if isinstance(payload, dict) else None
+        if not isinstance(raw_matches, dict):
+            return set()
+        return {int(address_text, 0) for address_text in raw_matches}
+    except Exception as exc:
+        raise _reference_generation_error("unable to resolve function address") from exc
 
 
 def _normalize_component(value: Any) -> str | None:
@@ -163,3 +247,25 @@ def infer_context_from_binary_path(
         "binary_path": resolved_binary_path,
         "module_spec": module_spec,
     }
+
+
+async def resolve_func_va(*, session: Any, binary_dir: Path, func_name: str) -> str:
+    artifact = _load_function_artifact(binary_dir, func_name)
+    if artifact is not None:
+        func_va = artifact.get("func_va")
+        if isinstance(func_va, int):
+            return hex(func_va)
+        func_rva = artifact.get("func_rva")
+        if isinstance(func_rva, int):
+            image_base = await _query_image_base_via_ida(session)
+            return hex(image_base + func_rva)
+
+    matched_addresses = await _lookup_function_start_addresses_by_exact_name(
+        session,
+        func_name,
+    )
+    if not matched_addresses:
+        raise _reference_generation_error("unable to resolve function address")
+    if len(matched_addresses) != 1:
+        raise _reference_generation_error("multiple function addresses")
+    return hex(next(iter(matched_addresses)))

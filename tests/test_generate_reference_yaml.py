@@ -1,10 +1,28 @@
+import json
 from pathlib import Path
 import tempfile
 import textwrap
 import unittest
+from unittest.mock import AsyncMock
 
 import generate_reference_yaml
 from ida_reference_export import ReferenceGenerationError
+
+
+def _make_py_eval_result(payload: dict) -> object:
+    return type(
+        "ToolResult",
+        (),
+        {
+            "content": [
+                type(
+                    "Text",
+                    (),
+                    {"text": json.dumps({"result": json.dumps(payload)})},
+                )()
+            ]
+        },
+    )()
 
 
 class TestGenerateReferenceYaml(unittest.TestCase):
@@ -208,4 +226,83 @@ class TestGenerateReferenceYamlContext(unittest.TestCase):
                 generate_reference_yaml.infer_context_from_binary_path(
                     binary_dir / "ntoskrnl.exe.i64",
                     config_path=config_path,
+                )
+
+
+class TestGenerateReferenceYamlResolution(unittest.IsolatedAsyncioTestCase):
+    async def test_resolve_func_va_prefers_existing_func_va(self) -> None:
+        session = AsyncMock()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            (binary_dir / "ExReferenceCallBackBlock.yaml").write_text(
+                "func_va: '0x140001234'\n",
+                encoding="utf-8",
+            )
+
+            func_va = await generate_reference_yaml.resolve_func_va(
+                session=session,
+                binary_dir=binary_dir,
+                func_name="ExReferenceCallBackBlock",
+            )
+
+        self.assertEqual("0x140001234", func_va)
+        session.call_tool.assert_not_awaited()
+
+    async def test_resolve_func_va_builds_from_func_rva_and_image_base(self) -> None:
+        session = AsyncMock()
+        session.call_tool.return_value = _make_py_eval_result(
+            {"image_base": "0x140000000"}
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            (binary_dir / "ExReferenceCallBackBlock.yaml").write_text(
+                "func_rva: '0x1234'\n",
+                encoding="utf-8",
+            )
+
+            func_va = await generate_reference_yaml.resolve_func_va(
+                session=session,
+                binary_dir=binary_dir,
+                func_name="ExReferenceCallBackBlock",
+            )
+
+        self.assertEqual("0x140001234", func_va)
+        session.call_tool.assert_awaited_once()
+
+    async def test_resolve_func_va_falls_back_to_exact_name_lookup(self) -> None:
+        session = AsyncMock()
+        session.call_tool.return_value = _make_py_eval_result(
+            {"matches": {"0x140004321": ["ExReferenceCallBackBlock"]}}
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            func_va = await generate_reference_yaml.resolve_func_va(
+                session=session,
+                binary_dir=Path(temp_dir),
+                func_name="ExReferenceCallBackBlock",
+            )
+
+        self.assertEqual("0x140004321", func_va)
+        session.call_tool.assert_awaited_once()
+
+    async def test_resolve_func_va_rejects_multiple_unique_matches(self) -> None:
+        session = AsyncMock()
+        session.call_tool.return_value = _make_py_eval_result(
+            {
+                "matches": {
+                    "0x140004321": ["ExReferenceCallBackBlock"],
+                    "0x140004555": ["ExReferenceCallBackBlock"],
+                }
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(
+                ReferenceGenerationError,
+                r"multiple function addresses",
+            ):
+                await generate_reference_yaml.resolve_func_va(
+                    session=session,
+                    binary_dir=Path(temp_dir),
+                    func_name="ExReferenceCallBackBlock",
                 )
