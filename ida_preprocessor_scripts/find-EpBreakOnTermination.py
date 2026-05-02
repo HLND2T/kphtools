@@ -4,6 +4,15 @@ import ida_preprocessor_common as preprocessor_common
 
 TARGET_STRUCT_MEMBER_NAMES = ["EpBreakOnTermination"]
 
+LLM_DECOMPILE = [
+    (
+        "EpBreakOnTermination",
+        "_EPROCESS->BreakOnTermination",
+        "prompt/call_llm_decompile.md",
+        "references/ntoskrnl/PspTerminateAllThreads.{arch}.yaml",
+    ),
+]
+
 STRUCT_METADATA = {
     "EpBreakOnTermination": {
         "symbol_expr": "_EPROCESS->BreakOnTermination",
@@ -29,5 +38,6 @@ async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, 
         llm_config=llm_config,
         struct_member_names=TARGET_STRUCT_MEMBER_NAMES,
         struct_metadata=STRUCT_METADATA,
+        llm_decompile_specs=LLM_DECOMPILE,
         generate_yaml_desired_fields=GENERATE_YAML_DESIRED_FIELDS,
     )

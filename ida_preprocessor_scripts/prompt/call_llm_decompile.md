@@ -1,3 +1,5 @@
+You are a Windows-kernel reverse-engineering expert.
+
 I have disassembly outputs and procedure code for multiple related functions.
 
 These are the reference functions:
@@ -51,6 +53,12 @@ found_struct_offset: # This is for reference to struct offset. NOTE THAT virtual
     offset: '0x0'
     struct_name: _ALPC_PORT_ATTRIBUTES
     member_name: Flags
+  - insn_va: '0x1406C4D54'                              # Always be the instruction with displacement offset
+    insn_disasm: test    dword ptr [rcx+464h], 2000h   # Always be the instruction with displacement offset
+    offset: '0x464'
+    bit_offset: '13'                                    # The bit offset in dword, 2000h = (1 << 13)
+    struct_name: _EPROCESS
+    member_name: BreakOnTermination
 ```
 
 If nothing found, output an empty YAML. DO NOT output anything other than the desired YAML. DO NOT collect unrelated symbols.
