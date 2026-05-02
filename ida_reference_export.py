@@ -59,12 +59,35 @@ def _normalize_address_text(value: Any, *, require_string: bool = False) -> str 
     return None
 
 
-def validate_reference_yaml_payload(payload: Mapping[str, Any]) -> dict[str, str]:
+def _normalize_optional_func_names(value: Any) -> list[str] | None:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        return None
+
+    names: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            return None
+        name = item.strip()
+        if not name:
+            return None
+        names.append(name)
+    return names
+
+
+def validate_reference_yaml_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     func_name = _normalize_non_empty_text(payload.get("func_name"))
     func_va = _normalize_address_text(payload.get("func_va"))
     disasm_code = _normalize_non_empty_text(payload.get("disasm_code"))
     procedure_raw = payload.get("procedure", "")
-    if func_name is None or func_va is None or disasm_code is None:
+    optional_funcs = _normalize_optional_func_names(payload.get("optional_funcs"))
+    if (
+        func_name is None
+        or func_va is None
+        or disasm_code is None
+        or optional_funcs is None
+    ):
         raise ReferenceGenerationError("invalid reference YAML payload")
     if procedure_raw is None:
         procedure = ""
@@ -72,12 +95,16 @@ def validate_reference_yaml_payload(payload: Mapping[str, Any]) -> dict[str, str
         procedure = procedure_raw
     else:
         raise ReferenceGenerationError("invalid reference YAML payload")
-    return {
+
+    result: dict[str, Any] = {
         "func_name": func_name,
         "func_va": func_va,
         "disasm_code": disasm_code,
         "procedure": procedure,
     }
+    if optional_funcs:
+        result["optional_funcs"] = optional_funcs
+    return result
 
 
 def build_remote_text_export_py_eval(

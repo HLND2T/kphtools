@@ -70,6 +70,58 @@ class TestIdaReferenceExport(unittest.IsolatedAsyncioTestCase):
                 }
             )
 
+    def test_validate_reference_yaml_payload_preserves_optional_funcs(self) -> None:
+        payload = ida_reference_export.validate_reference_yaml_payload(
+            {
+                "func_name": "ObpEnumFindHandleProcedure",
+                "func_va": "0x1406c6cd0",
+                "disasm_code": "mov rax, rcx",
+                "procedure": "",
+                "optional_funcs": ["ExGetHandlePointer"],
+            }
+        )
+
+        self.assertEqual("ObpEnumFindHandleProcedure", payload["func_name"])
+        self.assertEqual(["ExGetHandlePointer"], payload["optional_funcs"])
+
+    def test_validate_reference_yaml_payload_omits_empty_optional_funcs(self) -> None:
+        payload = ida_reference_export.validate_reference_yaml_payload(
+            {
+                "func_name": "ObpEnumFindHandleProcedure",
+                "func_va": "0x1406c6cd0",
+                "disasm_code": "mov rax, rcx",
+                "procedure": "",
+                "optional_funcs": [],
+            }
+        )
+
+        self.assertEqual("ObpEnumFindHandleProcedure", payload["func_name"])
+        self.assertNotIn("optional_funcs", payload)
+
+    def test_validate_reference_yaml_payload_rejects_invalid_optional_funcs(self) -> None:
+        invalid_values = [
+            "ExGetHandlePointer",
+            ["ExGetHandlePointer", ""],
+            ["ExGetHandlePointer", 123],
+            [""],
+        ]
+
+        for optional_funcs in invalid_values:
+            with self.subTest(optional_funcs=optional_funcs):
+                with self.assertRaisesRegex(
+                    ida_reference_export.ReferenceGenerationError,
+                    "invalid reference YAML payload",
+                ):
+                    ida_reference_export.validate_reference_yaml_payload(
+                        {
+                            "func_name": "ObpEnumFindHandleProcedure",
+                            "func_va": "0x1406c6cd0",
+                            "disasm_code": "mov rax, rcx",
+                            "procedure": "",
+                            "optional_funcs": optional_funcs,
+                        }
+                    )
+
     async def test_export_reference_yaml_via_mcp_validates_ack_and_written_yaml(self) -> None:
         session = AsyncMock()
         with TemporaryDirectory() as temp_dir:
