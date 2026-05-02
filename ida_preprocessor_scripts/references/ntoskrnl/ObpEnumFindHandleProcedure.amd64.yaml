@@ -1,0 +1,115 @@
+func_name: ObpEnumFindHandleProcedure
+func_va: '0x1406c6cd0'
+disasm_code: |-
+  PAGE:00000001406C6CD0                 push    rbx
+  PAGE:00000001406C6CD2                 sub     rsp, 20h
+  PAGE:00000001406C6CD6                 mov     r11, [rdx]
+  PAGE:00000001406C6CD9                 mov     r10, rcx
+  PAGE:00000001406C6CDC                 mov     rax, [r9]
+  PAGE:00000001406C6CDF                 mov     r8, r11
+  PAGE:00000001406C6CE2                 sar     r8, 10h
+  PAGE:00000001406C6CE6                 and     r8, 0FFFFFFFFFFFFFFF0h
+  PAGE:00000001406C6CEA                 test    rax, rax
+  PAGE:00000001406C6CED                 jz      short loc_1406C6D19
+  PAGE:00000001406C6CEF                 cmp     rax, r8
+  PAGE:00000001406C6CF2                 jz      short loc_1406C6D19
+  PAGE:00000001406C6CF4                 xor     bl, bl
+  PAGE:00000001406C6CF6                 mov     ecx, 1
+  PAGE:00000001406C6CFB                 lock xadd [rdx], rcx
+  PAGE:00000001406C6D00                 lea     rcx, [r10+30h]; 0x30 = 48 = _HANDLE_TABLE->HandleContentionEvent
+  PAGE:00000001406C6D04                 lock or [rsp+28h+var_28], 0
+  PAGE:00000001406C6D09                 cmp     qword ptr [rcx], 0
+  PAGE:00000001406C6D0D                 jnz     short loc_1406C6D8D
+  PAGE:00000001406C6D0F                 movzx   eax, bl
+  PAGE:00000001406C6D12                 add     rsp, 20h
+  PAGE:00000001406C6D16                 pop     rbx
+  PAGE:00000001406C6D17                 retn
+  PAGE:00000001406C6D19                 mov     rbx, [r9+8]
+  PAGE:00000001406C6D1D                 test    rbx, rbx
+  PAGE:00000001406C6D20                 jz      short loc_1406C6D4F
+  PAGE:00000001406C6D22                 mov     rax, r8
+  PAGE:00000001406C6D25                 shr     rax, 8
+  PAGE:00000001406C6D29                 movzx   ecx, al
+  PAGE:00000001406C6D2C                 movzx   eax, byte ptr [r8+18h]
+  PAGE:00000001406C6D31                 xor     rcx, rax
+  PAGE:00000001406C6D34                 movzx   eax, byte ptr cs:ObHeaderCookie
+  PAGE:00000001406C6D3B                 xor     rcx, rax
+  PAGE:00000001406C6D3E                 lea     rax, ObTypeIndexTable
+  PAGE:00000001406C6D45                 cmp     rbx, [rax+rcx*8]
+  PAGE:00000001406C6D49                 jz      short loc_1406C6D4F
+  PAGE:00000001406C6D4B                 xor     bl, bl
+  PAGE:00000001406C6D4D                 jmp     short loc_1406C6CF6
+  PAGE:00000001406C6D4F                 mov     rcx, [r9+10h]
+  PAGE:00000001406C6D53                 test    rcx, rcx
+  PAGE:00000001406C6D56                 jnz     short loc_1406C6D5C
+  PAGE:00000001406C6D58                 mov     bl, 1
+  PAGE:00000001406C6D5A                 jmp     short loc_1406C6CF6
+  PAGE:00000001406C6D5C                 mov     eax, [rdx+8]
+  PAGE:00000001406C6D5F                 mov     r8d, eax
+  PAGE:00000001406C6D62                 sar     r11, 11h
+  PAGE:00000001406C6D66                 and     r8d, 1FFFFFFh
+  PAGE:00000001406C6D6D                 and     r11d, 7
+  PAGE:00000001406C6D71                 bt      eax, 19h
+  PAGE:00000001406C6D75                 jb      short loc_1406C6D99
+  PAGE:00000001406C6D77                 and     r11d, 7
+  PAGE:00000001406C6D7B                 cmp     [rcx], r11d
+  PAGE:00000001406C6D7E                 jnz     short loc_1406C6D86
+  PAGE:00000001406C6D80                 cmp     [rcx+4], r8d
+  PAGE:00000001406C6D84                 jz      short loc_1406C6D58
+  PAGE:00000001406C6D86                 xor     bl, bl
+  PAGE:00000001406C6D88                 jmp     loc_1406C6CF6
+  PAGE:00000001406C6D8D                 xor     edx, edx
+  PAGE:00000001406C6D8F                 call    ExfUnblockPushLock
+  PAGE:00000001406C6D94                 jmp     loc_1406C6D0F
+  PAGE:00000001406C6D99                 or      r11d, 8
+  PAGE:00000001406C6D9D                 jmp     short loc_1406C6D77
+procedure: |-
+  __int64 __fastcall ObpEnumFindHandleProcedure(
+          _HANDLE_TABLE *HandleTable,
+          _HANDLE_TABLE_ENTRY *HandleTableEntry,
+          __int64 Handle,
+          _QWORD *EnumParameter)
+  {
+    unsigned __int8 v5; // bl
+    __int64 v7; // rbx
+    _DWORD *v8; // rcx
+    __int64 v9; // r11
+    signed __int32 v10[10]; // [rsp+0h] [rbp-28h] BYREF
+
+    if ( !*EnumParameter || *EnumParameter == ((HandleTableEntry->VolatileLowValue >> 16) & 0xFFFFFFFFFFFFFFF0uLL) )
+    {
+      v7 = EnumParameter[1];
+      if ( !v7
+        || v7 == ObTypeIndexTable[(unsigned __int8)ObHeaderCookie
+                                ^ *(unsigned __int8 *)(((HandleTableEntry->VolatileLowValue >> 16) & 0xFFFFFFFFFFFFFFF0uLL)
+                                                     + 0x18)
+                                ^ (unsigned __int64)(unsigned __int8)((unsigned __int16)(WORD1(HandleTableEntry->VolatileLowValue)
+                                                                                       & 0xFFF0) >> 8)] )
+      {
+        v8 = (_DWORD *)EnumParameter[2];
+        if ( !v8 )
+          goto LABEL_11;
+        v9 = (HandleTableEntry->LowValue >> 17) & 7;
+        if ( (*(_DWORD *)(&HandleTableEntry->__s4 + 1) & 0x2000000) != 0 )
+          LOBYTE(v9) = v9 | 8;
+        if ( *v8 == (v9 & 7) && v8[1] == (*(_DWORD *)(&HandleTableEntry->__s4 + 1) & 0x1FFFFFF) )
+  LABEL_11:
+          v5 = 1;
+        else
+          v5 = 0;
+      }
+      else
+      {
+        v5 = 0;
+      }
+    }
+    else
+    {
+      v5 = 0;
+    }
+    _InterlockedExchangeAdd64(&HandleTableEntry->VolatileLowValue, 1u);
+    _InterlockedOr(v10, 0);
+    if ( HandleTable->HandleContentionEvent.Value ) // 0x30 = 48 = _HANDLE_TABLE->HandleContentionEvent
+      ExfUnblockPushLock(&HandleTable->HandleContentionEvent, 0); // 0x30 = 48 = _HANDLE_TABLE->HandleContentionEvent
+    return v5;
+  }
