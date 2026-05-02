@@ -110,6 +110,15 @@ Output path:
 ida_preprocessor_scripts/references/<module>/<FuncName>.<arch>.yaml
 ```
 
+**Looking up struct member offsets via IDA MCP**: use only the `idc` module — `ida_struct` is not available. Example:
+
+```python
+import idc
+tid = idc.get_struc_id("_EPROCESS")
+off = idc.get_member_offset(tid, "SectionObject")
+print(f"offset: {hex(off)} = {off}")
+```
+
 Rules:
 
 - Generate reference YAML sequentially. Do not parallelize IDA/MCP reference generation.
@@ -132,13 +141,13 @@ uv run dump_symbols.py -debug > /tmp/dump_symbols_out.txt 2>&1
 Then check the output for the skill name:
 
 ```bash
-grep "find-<SkillName>" /tmp/dump_symbols_out.txt | head -5
+grep -E "find-[^:]+: (success|failed|absent_ok)" /tmp/dump_symbols_out.txt
 ```
 
 Expected results (either is a pass):
 
-- `[debug] preprocess status for find-<SkillName>: success` — skill ran and produced output.
-- `[debug] skipping find-<SkillName>; expected outputs already exist` — skill is recognized; outputs were cached from a prior run.
+- `find-<SkillName>: success` — skill ran and produced output.
+- `find-<SkillName>: absent_ok` — skill is recognized; outputs were cached from a prior run.
 
 Any other status (e.g., `failed`, skill name absent from output) indicates a misconfiguration.
 
