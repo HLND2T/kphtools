@@ -1,0 +1,295 @@
+func_name: AlpcpCreateConnectionPort
+func_va: '0x1406e7208'
+disasm_code: |-
+  PAGE:00000001406E7208                 push    rbx
+  PAGE:00000001406E720A                 push    rsi
+  PAGE:00000001406E720B                 push    rdi
+  PAGE:00000001406E720C                 push    r12
+  PAGE:00000001406E720E                 push    r13
+  PAGE:00000001406E7210                 push    r14
+  PAGE:00000001406E7212                 push    r15
+  PAGE:00000001406E7214                 sub     rsp, 0B0h
+  PAGE:00000001406E721B                 mov     rax, cs:__security_cookie
+  PAGE:00000001406E7222                 xor     rax, rsp
+  PAGE:00000001406E7225                 mov     [rsp+0E8h+var_48], rax
+  PAGE:00000001406E722D                 mov     r13d, r9d
+  PAGE:00000001406E7230                 mov     rdi, r8
+  PAGE:00000001406E7233                 mov     rbx, rdx
+  PAGE:00000001406E7236                 mov     r12, rcx
+  PAGE:00000001406E7239                 ; Val
+  PAGE:00000001406E7239                 xor     edx, edx; Val
+  PAGE:00000001406E723B                 ; Size
+  PAGE:00000001406E723B                 lea     r8d, [rdx+48h]; Size
+  PAGE:00000001406E723F                 ; void *
+  PAGE:00000001406E723F                 lea     rcx, [rsp+0E8h+var_98]; void *
+  PAGE:00000001406E7244                 call    memset
+  PAGE:00000001406E7249                 and     [rsp+0E8h+Port], 0
+  PAGE:00000001406E724F                 and     [rsp+0E8h+Handle], 0
+  PAGE:00000001406E7255                 mov     rax, gs:188h
+  PAGE:00000001406E725E                 mov     r9b, [rax+232h]
+  PAGE:00000001406E7265                 test    r9b, r9b
+  PAGE:00000001406E7268                 jz      loc_1406E7467
+  PAGE:00000001406E726E                 mov     rcx, r12
+  PAGE:00000001406E7271                 mov     rdx, 7FFFFFFF0000h
+  PAGE:00000001406E727B                 cmp     r12, rdx
+  PAGE:00000001406E727E                 cmovnb  rcx, rdx
+  PAGE:00000001406E7282                 mov     rax, [rcx]
+  PAGE:00000001406E7285                 mov     [rcx], rax
+  PAGE:00000001406E7288                 test    rdi, rdi
+  PAGE:00000001406E728B                 jz      short loc_1406E72CB
+  PAGE:00000001406E728D                 mov     rax, rdi
+  PAGE:00000001406E7290                 cmp     rdi, rdx
+  PAGE:00000001406E7293                 cmovnb  rax, rdx
+  PAGE:00000001406E7297                 movups  xmm0, xmmword ptr [rax]
+  PAGE:00000001406E729A                 movaps  [rsp+0E8h+var_98], xmm0
+  PAGE:00000001406E729F                 movups  xmm1, xmmword ptr [rax+10h]
+  PAGE:00000001406E72A3                 movaps  [rsp+0E8h+var_88], xmm1
+  PAGE:00000001406E72A8                 movups  xmm0, xmmword ptr [rax+20h]
+  PAGE:00000001406E72AC                 movaps  [rsp+0E8h+var_78], xmm0
+  PAGE:00000001406E72B1                 movups  xmm1, xmmword ptr [rax+30h]
+  PAGE:00000001406E72B5                 movaps  [rsp+0E8h+var_68], xmm1
+  PAGE:00000001406E72BD                 movsd   xmm0, qword ptr [rax+40h]
+  PAGE:00000001406E72C2                 movsd   [rsp+0E8h+var_58], xmm0
+  PAGE:00000001406E72CB                 jmp     short loc_1406E72D2
+  PAGE:00000001406E72CD                 jmp     loc_1406E7434
+  PAGE:00000001406E72D2                 lea     r8, [rsp+0E8h+Port]
+  PAGE:00000001406E72D7                 mov     rdx, rbx
+  PAGE:00000001406E72DA                 mov     cl, r9b
+  PAGE:00000001406E72DD                 call    AlpcpCreatePort
+  PAGE:00000001406E72E2                 test    eax, eax
+  PAGE:00000001406E72E4                 js      loc_1406E7434
+  PAGE:00000001406E72EA                 mov     esi, 1
+  PAGE:00000001406E72EF                 test    rdi, rdi
+  PAGE:00000001406E72F2                 jz      short loc_1406E730E
+  PAGE:00000001406E72F4                 test    dword ptr [rsp+0E8h+var_98], 40000h
+  PAGE:00000001406E72FC                 movzx   eax, [rsp+0E8h+arg_20]
+  PAGE:00000001406E7304                 cmovnz  eax, esi
+  PAGE:00000001406E7307                 mov     [rsp+0E8h+arg_20], al
+  PAGE:00000001406E730E                 mov     r8b, [rsp+0E8h+arg_20]
+  PAGE:00000001406E7316                 mov     edx, esi
+  PAGE:00000001406E7318                 mov     rbx, [rsp+0E8h+Port]
+  PAGE:00000001406E731D                 mov     rcx, rbx
+  PAGE:00000001406E7320                 call    AlpcpInitializePort
+  PAGE:00000001406E7325                 mov     r14d, eax
+  PAGE:00000001406E7328                 ; DmaAdapter
+  PAGE:00000001406E7328                 mov     rcx, rbx; DmaAdapter
+  PAGE:00000001406E732B                 test    eax, eax
+  PAGE:00000001406E732D                 js      loc_1408273E4
+  PAGE:00000001406E7333                 neg     rdi
+  PAGE:00000001406E7336                 sbb     r14, r14
+  PAGE:00000001406E7339                 lea     rax, [rsp+0E8h+var_98]
+  PAGE:00000001406E733E                 and     r14, rax
+  PAGE:00000001406E7341                 mov     r15b, [rsp+0E8h+arg_28]
+  PAGE:00000001406E7349                 mov     byte ptr [rsp+0E8h+var_B8], r15b
+  PAGE:00000001406E734E                 mov     al, [rsp+0E8h+arg_20]
+  PAGE:00000001406E7355                 mov     byte ptr [rsp+0E8h+var_C0], al
+  PAGE:00000001406E7359                 mov     [rsp+0E8h+var_C8], r13d
+  PAGE:00000001406E735E                 xor     r9d, r9d
+  PAGE:00000001406E7361                 mov     r8, rbx
+  PAGE:00000001406E7364                 mov     rdx, r14
+  PAGE:00000001406E7367                 call    AlpcpValidateAndSetPortAttributes
+  PAGE:00000001406E736C                 mov     edi, eax
+  PAGE:00000001406E736E                 xor     r13d, r13d
+  PAGE:00000001406E7371                 test    eax, eax
+  PAGE:00000001406E7373                 js      loc_1408273FA
+  PAGE:00000001406E7379                 test    r15b, r15b
+  PAGE:00000001406E737C                 jnz     loc_1406E7458
+  PAGE:00000001406E7382                 mov     rdx, r14
+  PAGE:00000001406E7385                 mov     rcx, rbx
+  PAGE:00000001406E7388                 call    AlpcpSetOwnerProcessPort
+  PAGE:00000001406E738D                 mov     r8d, esi
+  PAGE:00000001406E7390                 mov     edx, 50h ; 'P'
+  PAGE:00000001406E7395                 lea     rcx, AlpcConnectionType
+  PAGE:00000001406E739C                 call    AlpcpAllocateBlob
+  PAGE:00000001406E73A1                 mov     [rbx+10h], rax
+  PAGE:00000001406E73A5                 test    rax, rax
+  PAGE:00000001406E73A8                 jz      loc_1408273F1
+  PAGE:00000001406E73AE                 mov     [rax+10h], r13
+  PAGE:00000001406E73B2                 mov     rax, [rbx+10h]
+  PAGE:00000001406E73B6                 mov     [rax], rbx
+  PAGE:00000001406E73B9                 mov     rax, [rbx+10h]
+  PAGE:00000001406E73BD                 mov     [rax+8], r13
+  PAGE:00000001406E73C1                 mov     rax, [rbx+10h]
+  PAGE:00000001406E73C5                 mov     [rax+48h], r13
+  PAGE:00000001406E73C9                 mov     rax, [rbx+10h]
+  PAGE:00000001406E73CD                 add     rax, 18h
+  PAGE:00000001406E73D1                 mov     [rax+8], rax
+  PAGE:00000001406E73D5                 mov     [rax], rax
+  PAGE:00000001406E73D8                 mov     rcx, [rbx+10h]
+  PAGE:00000001406E73DC                 add     rcx, 28h ; '('
+  PAGE:00000001406E73E0                 call    AlpcInitializeHandleTable
+  PAGE:00000001406E73E5                 test    eax, eax
+  PAGE:00000001406E73E7                 js      loc_1408273F8
+  PAGE:00000001406E73ED                 lea     rax, [rsp+0E8h+Handle]
+  PAGE:00000001406E73F2                 ; __int64
+  PAGE:00000001406E73F2                 mov     [rsp+0E8h+var_B8], rax; __int64
+  PAGE:00000001406E73F7                 ; __int64
+  PAGE:00000001406E73F7                 mov     [rsp+0E8h+var_C0], r13; __int64
+  PAGE:00000001406E73FC                 ; int
+  PAGE:00000001406E73FC                 mov     [rsp+0E8h+var_C8], r13d; int
+  PAGE:00000001406E7401                 xor     r9d, r9d
+  PAGE:00000001406E7404                 ; AccessState
+  PAGE:00000001406E7404                 xor     edx, edx; AccessState
+  PAGE:00000001406E7406                 mov     r8d, 1F0001h
+  PAGE:00000001406E740C                 ; DmaAdapter
+  PAGE:00000001406E740C                 mov     rcx, rbx; DmaAdapter
+  PAGE:00000001406E740F                 call    ObInsertObjectEx
+  PAGE:00000001406E7414                 mov     ebx, eax
+  PAGE:00000001406E7416                 test    eax, eax
+  PAGE:00000001406E7418                 js      short loc_1406E7432
+  PAGE:00000001406E741A                 mov     rcx, [rsp+0E8h+Handle]
+  PAGE:00000001406E741F                 mov     [r12], rcx
+  PAGE:00000001406E7423                 jmp     short loc_1406E7432
+  PAGE:00000001406E7425                 mov     ebx, eax
+  PAGE:00000001406E7427                 ; Handle
+  PAGE:00000001406E7427                 mov     rcx, [rsp+0E8h+Handle]; Handle
+  PAGE:00000001406E742C                 call    NtClose
+  PAGE:00000001406E7431                 nop
+  PAGE:00000001406E7432                 mov     eax, ebx
+  PAGE:00000001406E7434                 mov     rcx, [rsp+0E8h+var_48]
+  PAGE:00000001406E743C                 ; StackCookie
+  PAGE:00000001406E743C                 xor     rcx, rsp; StackCookie
+  PAGE:00000001406E743F                 call    __security_check_cookie
+  PAGE:00000001406E7444                 add     rsp, 0B0h
+  PAGE:00000001406E744B                 pop     r15
+  PAGE:00000001406E744D                 pop     r14
+  PAGE:00000001406E744F                 pop     r13
+  PAGE:00000001406E7451                 pop     r12
+  PAGE:00000001406E7453                 pop     rdi
+  PAGE:00000001406E7454                 pop     rsi
+  PAGE:00000001406E7455                 pop     rbx
+  PAGE:00000001406E7456                 retn
+  PAGE:00000001406E7458                 or      dword ptr [rbx+1A0h], 3000h
+  PAGE:00000001406E7462                 jmp     loc_1406E7382
+  PAGE:00000001406E7467                 test    rdi, rdi
+  PAGE:00000001406E746A                 jz      loc_1406E72D2
+  PAGE:00000001406E7470                 movups  xmm0, xmmword ptr [rdi]
+  PAGE:00000001406E7473                 movaps  [rsp+0E8h+var_98], xmm0
+  PAGE:00000001406E7478                 movups  xmm1, xmmword ptr [rdi+10h]
+  PAGE:00000001406E747C                 movaps  [rsp+0E8h+var_88], xmm1
+  PAGE:00000001406E7481                 movups  xmm0, xmmword ptr [rdi+20h]
+  PAGE:00000001406E7485                 movaps  [rsp+0E8h+var_78], xmm0
+  PAGE:00000001406E748A                 movups  xmm1, xmmword ptr [rdi+30h]
+  PAGE:00000001406E748E                 movaps  [rsp+0E8h+var_68], xmm1
+  PAGE:00000001406E7496                 movsd   xmm0, qword ptr [rdi+40h]
+  PAGE:00000001406E749B                 movsd   [rsp+0E8h+var_58], xmm0
+  PAGE:00000001406E74A4                 jmp     loc_1406E72D2
+  PAGE:00000001408273E4                 call    ObDereferenceObjectWithTag
+  PAGE:00000001408273E9                 mov     eax, r14d
+  PAGE:00000001408273EC                 jmp     loc_1406E7434
+  PAGE:00000001408273F1                 mov     edi, 0C0000017h
+  PAGE:00000001408273F6                 jmp     short loc_1408273FA
+  PAGE:00000001408273F8                 mov     edi, eax
+  PAGE:00000001408273FA                 ; DmaAdapter
+  PAGE:00000001408273FA                 mov     rcx, rbx; DmaAdapter
+  PAGE:00000001408273FD                 call    ObDereferenceObjectWithTag
+  PAGE:0000000140827402                 mov     eax, edi
+  PAGE:0000000140827404                 jmp     loc_1406E7434
+procedure: |-
+  __int64 __fastcall AlpcpCreateConnectionPort(HANDLE *a1, __int64 a2, unsigned __int64 a3, int a4, char a5, char a6)
+  {
+    __int64 v10; // rcx
+    char PreviousMode; // r9
+    unsigned __int64 v12; // rax
+    __int64 result; // rax
+    __int64 v14; // r8
+    char v15; // al
+    _ALPC_PORT *v16; // rbx
+    int v17; // r14d
+    unsigned __int64 v18; // r14
+    int v19; // edi
+    _ALPC_COMMUNICATION_INFO *Blob; // rax
+    _LIST_ENTRY *p_CommunicationList; // rax
+    int v22; // eax
+    int inserted; // ebx
+    HANDLE Handle; // [rsp+40h] [rbp-A8h] BYREF
+    _ALPC_PORT *Port; // [rsp+48h] [rbp-A0h] BYREF
+    _OWORD v26[5]; // [rsp+50h] [rbp-98h] BYREF
+
+    memset(v26, 0, 0x48u);
+    Port = nullptr;
+    Handle = nullptr;
+    PreviousMode = KeGetCurrentThread()->PreviousMode;
+    if ( PreviousMode )
+    {
+      v10 = (__int64)a1;
+      if ( (unsigned __int64)a1 >= 0x7FFFFFFF0000LL )
+        v10 = 0x7FFFFFFF0000LL;
+      *(_QWORD *)v10 = *(_QWORD *)v10;
+      if ( a3 )
+      {
+        v12 = a3;
+        if ( a3 >= 0x7FFFFFFF0000LL )
+          v12 = 0x7FFFFFFF0000LL;
+        v26[0] = *(_OWORD *)v12;
+        v26[1] = *(_OWORD *)(v12 + 16);
+        v26[2] = *(_OWORD *)(v12 + 32);
+        v26[3] = *(_OWORD *)(v12 + 48);
+        *(_QWORD *)&v26[4] = *(_QWORD *)(v12 + 64);
+      }
+    }
+    else if ( a3 )
+    {
+      v26[0] = *(_OWORD *)a3;
+      v26[1] = *(_OWORD *)(a3 + 16);
+      v26[2] = *(_OWORD *)(a3 + 32);
+      v26[3] = *(_OWORD *)(a3 + 48);
+      *(_QWORD *)&v26[4] = *(_QWORD *)(a3 + 64);
+    }
+    LOBYTE(v10) = PreviousMode;
+    result = AlpcpCreatePort(v10, a2, &Port);
+    if ( (int)result >= 0 )
+    {
+      if ( a3 )
+      {
+        v15 = a5;
+        if ( (v26[0] & 0x40000) != 0 )
+          v15 = 1;
+        a5 = v15;
+      }
+      LOBYTE(v14) = a5;
+      v16 = Port;
+      v17 = AlpcpInitializePort(Port, 1, v14);
+      if ( v17 < 0 )
+      {
+        ObDereferenceObjectWithTag((PADAPTER_OBJECT)v16);
+        return (unsigned int)v17;
+      }
+      v18 = (unsigned __int64)v26 & -(__int64)(a3 != 0);
+      v19 = AlpcpValidateAndSetPortAttributes((_DWORD)v16, v18, (_DWORD)v16, 0, a4, a5, a6);
+      if ( v19 >= 0 )
+      {
+        if ( a6 )
+          v16->u1.State |= 0x3000u;
+        AlpcpSetOwnerProcessPort(v16, v18);
+        Blob = (_ALPC_COMMUNICATION_INFO *)AlpcpAllocateBlob(AlpcConnectionType, 80, 1);
+        v16->CommunicationInfo = Blob;
+        if ( Blob )
+        {
+          Blob->ClientCommunicationPort = nullptr;
+          v16->CommunicationInfo->ConnectionPort = v16;
+          v16->CommunicationInfo->ServerCommunicationPort = nullptr;
+          v16->CommunicationInfo->CloseMessage = nullptr;
+          p_CommunicationList = &v16->CommunicationInfo->CommunicationList;
+          p_CommunicationList->Blink = p_CommunicationList;
+          p_CommunicationList->Flink = p_CommunicationList;
+          v22 = AlpcInitializeHandleTable(&v16->CommunicationInfo->HandleTable);
+          if ( v22 >= 0 )
+          {
+            inserted = ObInsertObjectEx((PADAPTER_OBJECT)v16, nullptr, 0, 0, (__int64)&Handle);
+            if ( inserted >= 0 )
+              *a1 = Handle;
+            return (unsigned int)inserted;
+          }
+          v19 = v22;
+        }
+        else
+        {
+          v19 = -1073741801;
+        }
+      }
+      ObDereferenceObjectWithTag((PADAPTER_OBJECT)v16);
+      return (unsigned int)v19;
+    }
+    return result;
+  }

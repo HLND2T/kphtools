@@ -28,9 +28,10 @@ modules:
   - name: find-ObAttributesShift
     expected_output:
     - ObAttributesShift.yaml
-  - name: find-AlpcHandleTable
+  - name: find-AlpcHandleTable-AND-AlpcPortContext
     expected_output:
     - AlpcHandleTable.yaml
+    - AlpcPortContext.yaml
   - name: find-AlpcHandleTableLock
     expected_output:
     - AlpcHandleTableLock.yaml
@@ -43,9 +44,6 @@ modules:
     - AlpcConnectionPort.yaml
     - AlpcServerCommunicationPort.yaml
     - AlpcClientCommunicationPort.yaml
-  - name: find-AlpcPortContext
-    expected_output:
-    - AlpcPortContext.yaml
   - name: find-AlpcPortObjectLock
     expected_output:
     - AlpcPortObjectLock.yaml
