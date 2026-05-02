@@ -1,0 +1,77 @@
+func_name: EtwGetProviderIdFromHandle
+func_va: '0x14039e508'
+disasm_code: |-
+  .text:000000014039E508                 mov     [rsp+arg_0], rbx
+  .text:000000014039E50D                 mov     [rsp+arg_8], rsi
+  .text:000000014039E512                 push    rdi
+  .text:000000014039E513                 sub     rsp, 30h
+  .text:000000014039E517                 xor     edi, edi
+  .text:000000014039E519                 mov     rsi, r8
+  .text:000000014039E51C                 mov     rbx, rcx
+  .text:000000014039E51F                 test    dl, dl
+  .text:000000014039E521                 jnz     short loc_14039E561
+  .text:000000014039E523                 test    rcx, rcx
+  .text:000000014039E526                 jz      loc_14039E5AC
+  .text:000000014039E52C                 mov     rcx, [rcx+20h] ; 0x20 = 32 = _ETW_REG_ENTRY->GuidEntry
+  .text:000000014039E530                 call    EtwpReferenceGuidEntry
+  .text:000000014039E535                 test    al, al
+  .text:000000014039E537                 jz      short loc_14039E5AC
+  .text:000000014039E539                 mov     rcx, [rbx+20h] ; 0x20 = 32 = _ETW_REG_ENTRY->GuidEntry
+  .text:000000014039E53D                 movups  xmm0, xmmword ptr [rcx+28h] ; 0x28 = 40 = _ETW_GUID_ENTRY->Guid
+  .text:000000014039E541                 movdqu  xmmword ptr [rsi], xmm0
+  .text:000000014039E545                 mov     rcx, [rbx+20h] ; 0x20 = 32 = _ETW_REG_ENTRY->GuidEntry
+  .text:000000014039E549                 call    EtwpUnreferenceGuidEntry
+  .text:000000014039E54E                 mov     eax, edi
+  .text:000000014039E550                 mov     rbx, [rsp+38h+arg_0]
+  .text:000000014039E555                 mov     rsi, [rsp+38h+arg_8]
+  .text:000000014039E55A                 add     rsp, 30h
+  .text:000000014039E55E                 pop     rdi
+  .text:000000014039E55F                 retn
+  .text:000000014039E561                 mov     r8, cs:EtwpRegistrationObjectType
+  .text:000000014039E568                 lea     rax, [rsp+38h+arg_18]
+  .text:000000014039E56D                 and     [rsp+38h+var_10], rdi
+  .text:000000014039E572                 mov     r9b, 1
+  .text:000000014039E575                 and     [rsp+38h+arg_18], rdi
+  .text:000000014039E57A                 mov     edx, 800h
+  .text:000000014039E57F                 mov     [rsp+38h+Object], rax
+  .text:000000014039E584                 call    ObReferenceObjectByHandle
+  .text:000000014039E589                 mov     edi, eax
+  .text:000000014039E58B                 test    eax, eax
+  .text:000000014039E58D                 js      short loc_14039E54E
+  .text:000000014039E58F                 mov     rcx, [rsp+38h+arg_18]
+  .text:000000014039E594                 mov     edx, 746C6644h
+  .text:000000014039E599                 mov     rax, [rcx+20h] ; 0x20 = 32 = _ETW_REG_ENTRY->GuidEntry
+  .text:000000014039E59D                 movups  xmm0, xmmword ptr [rax+28h] ; 0x28 = 40 = _ETW_GUID_ENTRY->Guid
+  .text:000000014039E5A1                 movdqu  xmmword ptr [rsi], xmm0
+  .text:000000014039E5A5                 call    ObfDereferenceObjectWithTag
+  .text:000000014039E5AA                 jmp     short loc_14039E54E
+  .text:000000014039E5AC                 mov     eax, 0C0000008h
+  .text:000000014039E5B1                 jmp     short loc_14039E550
+procedure: |-
+  __int64 __fastcall EtwGetProviderIdFromHandle(_ETW_REG_ENTRY *a1, char a2, _GUID *pOutGUID)
+  {
+    NTSTATUS v3; // edi
+    PVOID v7; // rcx
+    PVOID Object; // [rsp+58h] [rbp+20h] BYREF
+
+    v3 = 0;
+    if ( a2 )
+    {
+      Object = nullptr;
+      v3 = ObReferenceObjectByHandle(a1, 0x800u, EtwpRegistrationObjectType, 1, &Object, nullptr);
+      if ( v3 >= 0 )
+      {
+        v7 = Object;
+        *pOutGUID = *(_GUID *)(*((_QWORD *)Object + 4) + 40LL); // 0x20 = 32 = _ETW_REG_ENTRY->GuidEntry; 0x28 = 40 = _ETW_GUID_ENTRY->Guid
+        ObfDereferenceObjectWithTag(v7, 'tlfD');
+      }
+      return (unsigned int)v3;
+    }
+    if ( a1 && EtwpReferenceGuidEntry(a1->GuidEntry) ) // 0x20 = 32 = _ETW_REG_ENTRY->GuidEntry
+    {
+      *pOutGUID = a1->GuidEntry->Guid; // 0x20 = 32 = _ETW_REG_ENTRY->GuidEntry; 0x28 = 40 = _ETW_GUID_ENTRY->Guid
+      EtwpUnreferenceGuidEntry((ULONG_PTR)a1->GuidEntry); // 0x20 = 32 = _ETW_REG_ENTRY->GuidEntry
+      return (unsigned int)v3;
+    }
+    return 0xC0000008LL;
+  }

@@ -4,15 +4,13 @@ modules:
   - ntoskrnl.exe
   - ntkrla57.exe
   skills:
-  - name: find-EgeGuid
+  - name: find-EgeGuid-AND-EreGuidEntry
     expected_output:
     - EgeGuid.yaml
+    - EreGuidEntry.yaml
   - name: find-EpObjectTable
     expected_output:
     - EpObjectTable.yaml
-  - name: find-EreGuidEntry
-    expected_output:
-    - EreGuidEntry.yaml
   - name: find-HtHandleContentionEvent
     expected_output:
     - HtHandleContentionEvent.yaml
