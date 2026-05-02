@@ -141,7 +141,7 @@ uv run dump_symbols.py -debug > /tmp/dump_symbols_out.txt 2>&1
 Then check the output for the skill name:
 
 ```bash
-grep -E "find-[^:]+: (success|failed|absent_ok)" /tmp/dump_symbols_out.txt
+grep -E "preprocess status for find-<SKILL_NAME>" /tmp/dump_symbols_out.txt
 ```
 
 Expected results (either is a pass):
