@@ -7,6 +7,7 @@ from typing import Any
 from ida_preprocessor_scripts.generic_func import preprocess_func_symbol
 from ida_preprocessor_scripts.generic_gv import preprocess_gv_symbol
 from ida_preprocessor_scripts.generic_struct_offset import preprocess_struct_symbol
+from ida_mcp_resolver import resolve_symbol_via_llm_decompile
 from symbol_artifacts import artifact_path, write_func_yaml, write_gv_yaml, write_struct_yaml
 
 
@@ -15,8 +16,8 @@ PREPROCESS_STATUS_FAILED = "failed"
 
 _ALLOWED_FIELDS_BY_CATEGORY = {
     "struct_offset": frozenset({"struct_name", "member_name", "offset", "bit_offset"}),
-    "gv": frozenset({"gv_name", "gv_rva"}),
-    "func": frozenset({"func_name", "func_rva"}),
+    "gv": frozenset({"gv_name", "gv_rva", "gv_va"}),
+    "func": frozenset({"func_name", "func_rva", "func_va", "func_size"}),
 }
 
 
@@ -77,6 +78,7 @@ async def preprocess_common_skill(
     gv_metadata: dict[str, dict[str, Any]] | None = None,
     func_names: list[str] | None = None,
     func_metadata: dict[str, dict[str, Any]] | None = None,
+    llm_decompile_specs=None,
     generate_yaml_desired_fields=None,
 ):
     target_symbol_name = symbol.name
@@ -89,6 +91,7 @@ async def preprocess_common_skill(
     if not desired_fields:
         return PREPROCESS_STATUS_FAILED
 
+    metadata: dict[str, Any] | None = None
     if symbol.category == "struct_offset":
         if struct_member_names is not None and target_symbol_name not in struct_member_names:
             return PREPROCESS_STATUS_FAILED
@@ -99,9 +102,11 @@ async def preprocess_common_skill(
             session=session,
             symbol_name=target_symbol_name,
             metadata=metadata,
+            binary_dir=binary_dir,
             pdb_path=pdb_path,
             debug=debug,
             llm_config=llm_config,
+            llm_decompile_specs=llm_decompile_specs,
         )
         writer = write_struct_yaml
     elif symbol.category == "gv":
@@ -137,6 +142,18 @@ async def preprocess_common_skill(
     else:
         return PREPROCESS_STATUS_FAILED
 
+    if payload is None:
+        payload = await resolve_symbol_via_llm_decompile(
+            session=session,
+            symbol_name=target_symbol_name,
+            category=symbol.category,
+            binary_dir=binary_dir,
+            image_base=0x140000000,
+            llm_decompile_specs=llm_decompile_specs,
+            llm_config=llm_config,
+            struct_metadata=metadata if symbol.category == "struct_offset" else None,
+            debug=debug,
+        )
     if payload is None:
         return PREPROCESS_STATUS_FAILED
 

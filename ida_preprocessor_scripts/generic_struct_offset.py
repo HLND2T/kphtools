@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from ida_mcp_resolver import resolve_struct_offset_via_llm
 from pdb_resolver import resolve_struct_symbol
 
 
@@ -12,10 +11,11 @@ async def preprocess_struct_symbol(
     pdb_path,
     debug: bool,
     llm_config,
+    binary_dir=None,
+    image_base: int = 0x140000000,
+    llm_decompile_specs=None,
 ):
     symbol_expr = metadata["symbol_expr"]
-    struct_name = metadata["struct_name"]
-    member_name = metadata["member_name"]
     bits = bool(metadata.get("bits", False))
 
     try:
@@ -25,23 +25,4 @@ async def preprocess_struct_symbol(
             bits=bits,
         )
     except KeyError:
-        if not llm_config:
-            return None
-
-    try:
-        payload = await resolve_struct_offset_via_llm(
-            llm_config=llm_config,
-            reference_blocks=[struct_name],
-            target_blocks=[member_name],
-        )
-    except (KeyError, ValueError, TypeError):
         return None
-
-    if bits and "bit_offset" not in payload:
-        return None
-
-    return {
-        "struct_name": struct_name,
-        "member_name": member_name,
-        **payload,
-    }

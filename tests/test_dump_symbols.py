@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import asyncio
@@ -139,6 +140,59 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertEqual("symbols", args.symboldir)
         self.assertEqual("amd64,arm64", args.arch)
         self.assertEqual(["amd64", "arm64"], args.arches)
+
+    def test_parse_args_uses_kptools_llm_env_fallbacks(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "KPHTOOLS_LLM_MODEL": "env-model",
+                "KPHTOOLS_LLM_APIKEY": "env-key",
+                "KPHTOOLS_LLM_BASEURL": "https://example.invalid/v1",
+                "KPHTOOLS_LLM_TEMPERATURE": "0.3",
+                "KPHTOOLS_LLM_EFFORT": "high",
+                "KPHTOOLS_LLM_FAKE_AS": "codex",
+            },
+            clear=True,
+        ):
+            args = dump_symbols.parse_args([])
+
+        self.assertEqual("env-model", args.llm_model)
+        self.assertEqual("env-key", args.llm_apikey)
+        self.assertEqual("https://example.invalid/v1", args.llm_baseurl)
+        self.assertEqual(0.3, args.llm_temperature)
+        self.assertEqual("high", args.llm_effort)
+        self.assertEqual("codex", args.llm_fake_as)
+
+    def test_parse_args_uses_dotenv_file_when_present(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            cwd = os.getcwd()
+            try:
+                os.chdir(temp_dir)
+                Path(".env").write_text(
+                    "\n".join(
+                        [
+                            "KPHTOOLS_LLM_MODEL=dotenv-model",
+                            "KPHTOOLS_LLM_APIKEY=dotenv-key",
+                            "KPHTOOLS_LLM_BASEURL=https://dotenv.invalid/v1",
+                            "KPHTOOLS_LLM_TEMPERATURE=0.7",
+                            "KPHTOOLS_LLM_EFFORT=medium",
+                            "KPHTOOLS_LLM_FAKE_AS=codex",
+                            "",
+                        ]
+                    ),
+                    encoding="utf-8",
+                )
+                with patch.dict(os.environ, {}, clear=True):
+                    args = dump_symbols.parse_args([])
+            finally:
+                os.chdir(cwd)
+
+        self.assertEqual("dotenv-model", args.llm_model)
+        self.assertEqual("dotenv-key", args.llm_apikey)
+        self.assertEqual("https://dotenv.invalid/v1", args.llm_baseurl)
+        self.assertEqual(0.7, args.llm_temperature)
+        self.assertEqual("medium", args.llm_effort)
+        self.assertEqual("codex", args.llm_fake_as)
 
     def test_process_binary_falls_back_to_agent_after_preprocess_failure(self) -> None:
         with TemporaryDirectory() as temp_dir:

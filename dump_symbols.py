@@ -54,6 +54,7 @@ IDALIB_QEXIT_TIMEOUT_SECONDS = 3
 SUPPORTED_ARCHES = ("amd64", "arm64")
 DEFAULT_ARCH = ",".join(SUPPORTED_ARCHES)
 DEFAULT_SYMBOL_DIR = "symbols"
+DEFAULT_LLM_MODEL = "gpt-4o"
 
 
 def _field(item: Any, name: str, default: Any = None) -> Any:
@@ -124,6 +125,83 @@ def _parse_tool_json_content(result) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _load_dotenv_file(path: str | Path = ".env") -> None:
+    env_path = Path(path)
+    if not env_path.is_file():
+        return
+
+    try:
+        lines = env_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key or key in os.environ:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1]
+        os.environ[key] = value
+
+
+def _parse_optional_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return float(text)
+
+
+def _parse_optional_llm_fake_as(raw_value: Any) -> str | None:
+    text = str(raw_value or "").strip().lower()
+    if not text:
+        return None
+    if text != "codex":
+        raise argparse.ArgumentTypeError("invalid llm_fake_as; expected codex")
+    return text
+
+
+def _parse_optional_llm_effort(raw_value: Any) -> str | None:
+    text = str(raw_value or "").strip().lower()
+    if not text:
+        return None
+    valid_efforts = {"none", "minimal", "low", "medium", "high", "xhigh"}
+    if text not in valid_efforts:
+        valid = ", ".join(sorted(valid_efforts))
+        raise argparse.ArgumentTypeError(f"invalid llm_effort; expected one of: {valid}")
+    return text
+
+
+def _build_llm_config(args: Any) -> dict[str, Any] | None:
+    api_key = _field(args, "llm_apikey")
+    if not api_key:
+        return None
+
+    config: dict[str, Any] = {
+        "model": _field(args, "llm_model") or DEFAULT_LLM_MODEL,
+        "api_key": api_key,
+    }
+    base_url = _field(args, "llm_baseurl")
+    if base_url:
+        config["base_url"] = base_url
+    temperature = _field(args, "llm_temperature")
+    if temperature is not None:
+        config["temperature"] = temperature
+    effort = _field(args, "llm_effort")
+    if effort:
+        config["effort"] = effort
+    fake_as = _field(args, "llm_fake_as")
+    if fake_as:
+        config["fake_as"] = fake_as
+    return config
+
+
 def _parse_py_eval_result_json(result) -> dict[str, Any] | None:
     payload = _parse_tool_json_content(result)
     if not isinstance(payload, dict):
@@ -140,6 +218,7 @@ def _parse_py_eval_result_json(result) -> dict[str, Any] | None:
 
 
 def parse_args(argv=None):
+    _load_dotenv_file()
     parser = argparse.ArgumentParser(
         description="Dump kphtools symbols into YAML artifacts",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -154,6 +233,39 @@ def parse_args(argv=None):
     parser.add_argument("-agent", default="codex")
     parser.add_argument("-force", action="store_true")
     parser.add_argument("-debug", action="store_true")
+    parser.add_argument(
+        "-llm_model",
+        default=os.environ.get("KPHTOOLS_LLM_MODEL", DEFAULT_LLM_MODEL),
+        help="OpenAI-compatible model for LLM_DECOMPILE, or KPHTOOLS_LLM_MODEL",
+    )
+    parser.add_argument(
+        "-llm_apikey",
+        default=os.environ.get("KPHTOOLS_LLM_APIKEY"),
+        help="OpenAI-compatible API key for LLM_DECOMPILE, or KPHTOOLS_LLM_APIKEY",
+    )
+    parser.add_argument(
+        "-llm_baseurl",
+        default=os.environ.get("KPHTOOLS_LLM_BASEURL"),
+        help="Optional OpenAI-compatible base URL, or KPHTOOLS_LLM_BASEURL",
+    )
+    parser.add_argument(
+        "-llm_temperature",
+        type=_parse_optional_float,
+        default=_parse_optional_float(os.environ.get("KPHTOOLS_LLM_TEMPERATURE")),
+        help="Optional LLM temperature, or KPHTOOLS_LLM_TEMPERATURE",
+    )
+    parser.add_argument(
+        "-llm_effort",
+        type=_parse_optional_llm_effort,
+        default=_parse_optional_llm_effort(os.environ.get("KPHTOOLS_LLM_EFFORT")),
+        help="Optional reasoning effort, or KPHTOOLS_LLM_EFFORT",
+    )
+    parser.add_argument(
+        "-llm_fake_as",
+        type=_parse_optional_llm_fake_as,
+        default=_parse_optional_llm_fake_as(os.environ.get("KPHTOOLS_LLM_FAKE_AS")),
+        help="Optional transport profile; currently only 'codex', or KPHTOOLS_LLM_FAKE_AS",
+    )
     args = parser.parse_args(argv)
     try:
         args.arches = _parse_arches(args.arch)
@@ -642,7 +754,7 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
             agent=args.agent,
             debug=args.debug,
             force=args.force,
-            llm_config=None,
+            llm_config=_build_llm_config(args),
             session=session,
             activity=activity,
         )

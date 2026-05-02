@@ -76,6 +76,188 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
             mock_common.await_args.kwargs["generate_yaml_desired_fields"],
         )
 
+    async def test_struct_script_dispatches_llm_decompile_specs(self) -> None:
+        with patch(
+            "ida_preprocessor_common.preprocess_common_skill",
+            new=AsyncMock(return_value=ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS),
+        ) as mock_common:
+            status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
+                session=AsyncMock(),
+                skill=SkillSpec(
+                    name="find-AlpcOwnerProcess",
+                    expected_output=["AlpcOwnerProcess.yaml"],
+                    expected_input=[],
+                ),
+                symbol=SymbolSpec(
+                    name="AlpcOwnerProcess",
+                    category="struct_offset",
+                    data_type="uint16",
+                ),
+                binary_dir=Path("/tmp"),
+                pdb_path=Path("/tmp/ntkrnlmp.pdb"),
+                debug=False,
+                llm_config={"model": "test-model", "api_key": "test-key"},
+            )
+
+        self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
+        self.assertEqual(
+            [
+                (
+                    "AlpcOwnerProcess",
+                    "_ALPC_PORT->OwnerProcess",
+                    "prompt/call_llm_decompile.md",
+                    "references/ntoskrnl/AlpcpOpenPort.{arch}.yaml",
+                )
+            ],
+            mock_common.await_args.kwargs["llm_decompile_specs"],
+        )
+
+    async def test_combined_alpc_attributes_script_dispatches_alpc_attributes(self) -> None:
+        with patch(
+            "ida_preprocessor_common.preprocess_common_skill",
+            new=AsyncMock(return_value=ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS),
+        ) as mock_common:
+            status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
+                session=AsyncMock(),
+                skill=SkillSpec(
+                    name="find-AlpcAttributes-AND-AlpcAttributesFlags-AND-AlpcCommunicationInfo",
+                    expected_output=[
+                        "AlpcAttributes.yaml",
+                        "AlpcAttributesFlags.yaml",
+                        "AlpcCommunicationInfo.yaml",
+                    ],
+                    expected_input=[],
+                ),
+                symbol=SymbolSpec(
+                    name="AlpcAttributes",
+                    category="struct_offset",
+                    data_type="uint16",
+                ),
+                binary_dir=Path("/tmp"),
+                pdb_path=Path("/tmp/ntkrnlmp.pdb"),
+                debug=False,
+                llm_config={"model": "test-model", "api_key": "test-key"},
+            )
+
+        self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
+        self.assertEqual(
+            [
+                (
+                    "AlpcAttributes",
+                    "_ALPC_PORT->PortAttributes",
+                    "prompt/call_llm_decompile.md",
+                    "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+                ),
+                (
+                    "AlpcAttributesFlags",
+                    "_ALPC_PORT_ATTRIBUTES->Flags",
+                    "prompt/call_llm_decompile.md",
+                    "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+                ),
+                (
+                    "AlpcCommunicationInfo",
+                    "_ALPC_PORT->CommunicationInfo",
+                    "prompt/call_llm_decompile.md",
+                    "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+                ),
+            ],
+            mock_common.await_args.kwargs["llm_decompile_specs"],
+        )
+
+    async def test_combined_alpc_attributes_script_dispatches_alpc_attributes_flags(self) -> None:
+        with patch(
+            "ida_preprocessor_common.preprocess_common_skill",
+            new=AsyncMock(return_value=ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS),
+        ) as mock_common:
+            status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
+                session=AsyncMock(),
+                skill=SkillSpec(
+                    name="find-AlpcAttributes-AND-AlpcAttributesFlags-AND-AlpcCommunicationInfo",
+                    expected_output=[
+                        "AlpcAttributes.yaml",
+                        "AlpcAttributesFlags.yaml",
+                        "AlpcCommunicationInfo.yaml",
+                    ],
+                    expected_input=[],
+                ),
+                symbol=SymbolSpec(
+                    name="AlpcAttributesFlags",
+                    category="struct_offset",
+                    data_type="uint16",
+                ),
+                binary_dir=Path("/tmp"),
+                pdb_path=Path("/tmp/ntkrnlmp.pdb"),
+                debug=False,
+                llm_config={"model": "test-model", "api_key": "test-key"},
+            )
+
+        self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
+        self.assertEqual(
+            ["AlpcAttributes", "AlpcAttributesFlags", "AlpcCommunicationInfo"],
+            mock_common.await_args.kwargs["struct_member_names"],
+        )
+        self.assertEqual(
+            {
+                "AlpcAttributesFlags": {
+                    "symbol_expr": "_ALPC_PORT_ATTRIBUTES->Flags",
+                    "struct_name": "_ALPC_PORT_ATTRIBUTES",
+                    "member_name": "Flags",
+                    "bits": False,
+                }
+            },
+            {
+                "AlpcAttributesFlags": mock_common.await_args.kwargs[
+                    "struct_metadata"
+                ]["AlpcAttributesFlags"]
+            },
+        )
+
+    async def test_combined_alpc_attributes_script_dispatches_alpc_communication_info(
+        self,
+    ) -> None:
+        with patch(
+            "ida_preprocessor_common.preprocess_common_skill",
+            new=AsyncMock(return_value=ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS),
+        ) as mock_common:
+            status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
+                session=AsyncMock(),
+                skill=SkillSpec(
+                    name="find-AlpcAttributes-AND-AlpcAttributesFlags-AND-AlpcCommunicationInfo",
+                    expected_output=[
+                        "AlpcAttributes.yaml",
+                        "AlpcAttributesFlags.yaml",
+                        "AlpcCommunicationInfo.yaml",
+                    ],
+                    expected_input=[],
+                ),
+                symbol=SymbolSpec(
+                    name="AlpcCommunicationInfo",
+                    category="struct_offset",
+                    data_type="uint16",
+                ),
+                binary_dir=Path("/tmp"),
+                pdb_path=Path("/tmp/ntkrnlmp.pdb"),
+                debug=False,
+                llm_config={"model": "test-model", "api_key": "test-key"},
+            )
+
+        self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
+        self.assertEqual(
+            {
+                "symbol_expr": "_ALPC_PORT->CommunicationInfo",
+                "struct_name": "_ALPC_PORT",
+                "member_name": "CommunicationInfo",
+                "bits": False,
+            },
+            mock_common.await_args.kwargs["struct_metadata"]["AlpcCommunicationInfo"],
+        )
+        self.assertEqual(
+            ["struct_name", "member_name", "offset"],
+            mock_common.await_args.kwargs["generate_yaml_desired_fields"][
+                "AlpcCommunicationInfo"
+            ],
+        )
+
     async def test_bitfield_struct_script_dispatches_bitfield_metadata(
         self,
     ) -> None:

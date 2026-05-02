@@ -84,6 +84,31 @@ By default it uses `./symbols`, `config.yaml`, and scans both `amd64,arm64`. Use
 
 The script scans `symboldir/<arch>/<file>.<version>/<sha256>/`, resolves symbols into `{symbol}.yaml`, and writes them next to the corresponding PE/PDB files.
 
+LLM fallback options are shared by preprocessor scripts that declare `LLM_DECOMPILE`:
+
+```bash
+uv run python dump_symbols.py \
+  -llm_model=gpt-4o \
+  -llm_apikey=your-key \
+  -llm_baseurl=https://api.example.com/v1 \
+  -llm_temperature=0.2 \
+  -llm_effort=medium \
+  -llm_fake_as=codex
+```
+
+The same values can be provided by `.env` or environment variables:
+
+```bash
+KPHTOOLS_LLM_MODEL=gpt-4o
+KPHTOOLS_LLM_APIKEY=your-key
+KPHTOOLS_LLM_BASEURL=https://api.example.com/v1
+KPHTOOLS_LLM_TEMPERATURE=0.2
+KPHTOOLS_LLM_EFFORT=medium
+KPHTOOLS_LLM_FAKE_AS=codex
+```
+
+When `-llm_fake_as=codex` is set, the LLM helper uses a direct `/responses` SSE transport; `-llm_baseurl` should point at the OpenAI-compatible `/v1` base URL.
+
 ## Generate reference YAML for LLM_DECOMPILE
 
 `generate_reference_yaml.py` creates a single reference YAML at:
@@ -111,6 +136,21 @@ Check the generated YAML:
 - `disasm_code` is non-empty and includes any available comments
 - `disasm_code` includes discontinuous function chunks when IDA associates them with the same function
 - `procedure` is present; it may be an empty string if Hex-Rays is unavailable
+
+Attach the reference to a preprocessor script with the CS2_VibeSignatures-style prompt:
+
+```python
+LLM_DECOMPILE = [
+    (
+        "AlpcAttributes",
+        "_ALPC_PORT->PortAttributes",
+        "prompt/call_llm_decompile.md",
+        "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+    ),
+]
+```
+
+The tuple fields are `(artifact_symbol_name, llm_query_name, prompt_path, reference_yaml_path)`. `artifact_symbol_name` selects the YAML artifact to generate, while `llm_query_name` is the exact text inserted into the LLM prompt. Then pass it into `preprocess_common_skill(..., llm_decompile_specs=LLM_DECOMPILE)`. The LLM response parser currently supports `found_call`, `found_gv`, and `found_struct_offset`; direct function and global-variable addresses are resolved from the returned instruction address through IDA MCP.
 
 ## Export kphdyn.xml
 
