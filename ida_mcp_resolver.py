@@ -491,9 +491,9 @@ def _render_llm_decompile_blocks(
         procedure = str(item.get("procedure", "") or "")
         return (
             f"### {kind} Function: {func_name}\n\n"
-            "**Disassembly**\n\n"
-            f"```c\n{disasm_code}\n```\n\n"
-            "**Procedure**\n\n"
+            f"**Disassembly for {func_name}**\n\n"
+            f"```c\n; Function: {func_name}\n{disasm_code}\n```\n\n"
+            f"**Procedure for {func_name}**\n\n"
             f"```c\n{procedure}\n```"
         )
 

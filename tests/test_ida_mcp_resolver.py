@@ -429,6 +429,83 @@ found_struct_offset:
             prompt,
         )
 
+    async def test_call_llm_decompile_labels_each_disassembly_with_func_name(self) -> None:
+        prompt_template = (
+            ida_mcp_resolver._get_preprocessor_scripts_dir()
+            / "prompt"
+            / "call_llm_decompile.md"
+        ).read_text(encoding="utf-8")
+        with patch.object(
+            ida_mcp_resolver,
+            "call_llm_text",
+            AsyncMock(return_value="found_struct_offset: []\n"),
+        ) as mock_call:
+            await ida_mcp_resolver.call_llm_decompile(
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                symbol_name_list=["_HANDLE_TABLE_ENTRY->ObjectPointerBits"],
+                reference_items=[
+                    {
+                        "func_name": "ObpEnumFindHandleProcedure",
+                        "disasm_code": "reference disasm",
+                        "procedure": "reference proc",
+                    }
+                ],
+                target_items=[
+                    {
+                        "func_name": "ObpEnumFindHandleProcedure",
+                        "disasm_code": "target primary disasm",
+                        "procedure": "target primary proc",
+                    },
+                    {
+                        "func_name": "ExGetHandlePointer",
+                        "disasm_code": "target helper disasm",
+                        "procedure": "target helper proc",
+                    },
+                ],
+                prompt_template=prompt_template,
+            )
+
+        prompt = mock_call.await_args.kwargs["prompt"]
+        target_primary_block_start = prompt.index(
+            "### Target Function: ObpEnumFindHandleProcedure",
+        )
+        target_helper_block_start = prompt.index(
+            "### Target Function: ExGetHandlePointer",
+            target_primary_block_start + 1,
+        )
+        target_section_end = prompt.index(
+            "\n\nWhat you need to do is",
+            target_helper_block_start,
+        )
+        target_primary_block = prompt[target_primary_block_start:target_helper_block_start]
+        target_helper_block = prompt[target_helper_block_start:target_section_end]
+
+        self.assertIn(
+            "**Disassembly for ObpEnumFindHandleProcedure**",
+            target_primary_block,
+        )
+        self.assertIn(
+            "**Procedure for ObpEnumFindHandleProcedure**",
+            target_primary_block,
+        )
+        target_primary_disasm_fence = "```c\n; Function: ObpEnumFindHandleProcedure\n"
+        self.assertIn(target_primary_disasm_fence, target_primary_block)
+        target_primary_disasm_index = target_primary_block.index("target primary disasm")
+        target_primary_annotation_index = target_primary_block.index(
+            target_primary_disasm_fence,
+        )
+        self.assertLess(target_primary_annotation_index, target_primary_disasm_index)
+
+        self.assertIn("**Disassembly for ExGetHandlePointer**", target_helper_block)
+        self.assertIn("**Procedure for ExGetHandlePointer**", target_helper_block)
+        target_helper_disasm_fence = "```c\n; Function: ExGetHandlePointer\n"
+        self.assertIn(target_helper_disasm_fence, target_helper_block)
+        target_helper_disasm_index = target_helper_block.index("target helper disasm")
+        target_helper_annotation_index = target_helper_block.index(
+            target_helper_disasm_fence,
+        )
+        self.assertLess(target_helper_annotation_index, target_helper_disasm_index)
+
     async def test_resolve_symbol_via_llm_decompile_uses_found_call(self) -> None:
         with (
             patch.object(
