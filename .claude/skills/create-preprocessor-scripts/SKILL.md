@@ -186,5 +186,5 @@ Stage only relevant files (finder scripts, reference YAMLs, `config.yaml`). Do n
 - `config.yaml` skill entry, expected outputs, symbols, and dependencies are consistent.
 - Reference YAML exists for LLM_DECOMPILE and includes target annotations.
 - Stale merged-away scripts/skill entries are removed when cleanup was authorized.
-- `dump_symbols.py -debug` shows `preprocess status for find-<SkillName>: success` or `skipping find-<SkillName>; expected outputs already exist` for the new skill.
+- `dump_symbols.py -debug` shows `preprocess status for find-<SkillName>/<SymbolName>: success` for the new skill.
 - Changes committed to the current branch (or a dev branch if on `main`).
