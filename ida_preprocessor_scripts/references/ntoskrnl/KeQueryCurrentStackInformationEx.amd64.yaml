@@ -1,0 +1,291 @@
+func_name: KeQueryCurrentStackInformationEx
+func_va: '0x14023dc50'
+disasm_code: |-
+  .text:000000014023DC50                 mov     [rsp+arg_10], rbp
+  .text:000000014023DC55                 push    rsi
+  .text:000000014023DC56                 push    r14
+  .text:000000014023DC58                 push    r15
+  .text:000000014023DC5A                 sub     rsp, 40h
+  .text:000000014023DC5E                 mov     eax, cs:KiBugCheckActive
+  .text:000000014023DC64                 mov     r14, r9
+  .text:000000014023DC67                 mov     rbp, r8
+  .text:000000014023DC6A                 mov     r15, rdx
+  .text:000000014023DC6D                 mov     rsi, rcx
+  .text:000000014023DC70                 test    al, 3
+  .text:000000014023DC72                 jnz     loc_14042FA24
+  .text:000000014023DC78                 xor     al, al
+  .text:000000014023DC7A                 cmp     cs:KiRecoveryInProgress, 0
+  .text:000000014023DC81                 jnz     short loc_14023DC8B
+  .text:000000014023DC83                 test    al, al
+  .text:000000014023DC85                 jnz     loc_14042FA2B
+  .text:000000014023DC8B                 mov     [rsp+58h+arg_8], rdi
+  .text:000000014023DC90                 mov     rdi, cr8
+  .text:000000014023DC94                 cmp     dil, 2
+  .text:000000014023DC98                 jnb     loc_14023DD8D
+  .text:000000014023DC9E                 call    KeAreInterruptsEnabled
+  .text:000000014023DCA3                 test    al, al
+  .text:000000014023DCA5                 jz      loc_14023DDBF
+  .text:000000014023DCAB                 mov     [rsp+58h+arg_0], rbx
+  .text:000000014023DCB0                 mov     rbx, gs:188h
+  .text:000000014023DCB9                 mov     rax, gs:1A8h
+  .text:000000014023DCC2                 cmp     [rbx+28h], rax ; 0x28 = 40 = _KTHREAD->InitialStack
+  .text:000000014023DCC6                 jnz     loc_14042FA74
+  .text:000000014023DCCC                 cmp     dil, 2
+  .text:000000014023DCD0                 jnb     loc_14023DDEA
+  .text:000000014023DCD6                 call    KeAreInterruptsEnabled
+  .text:000000014023DCDB                 test    al, al
+  .text:000000014023DCDD                 jz      loc_14042FA86
+  .text:000000014023DCE3                 mov     rax, cr8
+  .text:000000014023DCE7                 cmp     al, 0Fh
+  .text:000000014023DCE9                 jnb     loc_14042FA86
+  .text:000000014023DCEF                 test    dword ptr [rbx+74h], 1000h
+  .text:000000014023DCF6                 jnz     loc_14023DD84
+  .text:000000014023DCFC                 cmp     byte ptr [rbx+2DBh], 0
+  .text:000000014023DD03                 jnz     loc_14023DE46
+  .text:000000014023DD09                 mov     dword ptr [r15], 3
+  .text:000000014023DD10                 mov     rax, [rbx+38h] ; 0x38 = 56 = _KTHREAD->StackBase
+  .text:000000014023DD14                 mov     [rsp+58h+var_38], rax
+  .text:000000014023DD19                 mov     rax, [rbx+30h] ; 0x30 = 48 = _KTHREAD->StackLimit
+  .text:000000014023DD1D                 mov     [rsp+58h+var_30], rax
+  .text:000000014023DD22                 mov     rax, [rbx+30h] ; 0x30 = 48 = _KTHREAD->StackLimit
+  .text:000000014023DD26                 mov     rdx, [rbx+38h] ; 0x38 = 56 = _KTHREAD->StackBase
+  .text:000000014023DD2A                 mov     r8, [rsp+58h+var_38]
+  .text:000000014023DD2F                 mov     rcx, [rsp+58h+var_30]
+  .text:000000014023DD34                 cmp     rdx, r8
+  .text:000000014023DD37                 jnz     loc_14042FAD3
+  .text:000000014023DD3D                 cmp     rcx, rax
+  .text:000000014023DD40                 ja      loc_14042FAD3
+  .text:000000014023DD46                 cmp     rax, r8
+  .text:000000014023DD49                 jnb     loc_14042FAD3
+  .text:000000014023DD4F                 mov     [r14], rdx
+  .text:000000014023DD52                 mov     [rbp+0], rax
+  .text:000000014023DD56                 cmp     rax, rsi
+  .text:000000014023DD59                 ja      loc_14042FAE2
+  .text:000000014023DD5F                 cmp     rsi, [r14]
+  .text:000000014023DD62                 jnb     loc_14042FAE2
+  .text:000000014023DD68                 mov     al, 1
+  .text:000000014023DD6A                 mov     rbx, [rsp+58h+arg_0]
+  .text:000000014023DD6F                 mov     rdi, [rsp+58h+arg_8]
+  .text:000000014023DD74                 mov     rbp, [rsp+58h+arg_10]
+  .text:000000014023DD79                 add     rsp, 40h
+  .text:000000014023DD7D                 pop     r15
+  .text:000000014023DD7F                 pop     r14
+  .text:000000014023DD81                 pop     rsi
+  .text:000000014023DD82                 retn
+  .text:000000014023DD84                 mov     dword ptr [r15], 2
+  .text:000000014023DD8B                 jmp     short loc_14023DD10
+  .text:000000014023DD8D                 mov     rax, gs:8758h
+  .text:000000014023DD96                 lea     rcx, [rax-6000h]
+  .text:000000014023DD9D                 cmp     rsi, rax
+  .text:000000014023DDA0                 jb      loc_14023DE38
+  .text:000000014023DDA6                 mov     rax, gs:80A8h
+  .text:000000014023DDAF                 add     rax, 50h ; 'P'
+  .text:000000014023DDB3                 lea     rcx, [rax-6000h]
+  .text:000000014023DDBA                 cmp     rsi, rax
+  .text:000000014023DDBD                 jb      short loc_14023DE20
+  .text:000000014023DDBF                 mov     rax, gs:80A8h
+  .text:000000014023DDC8                 add     rax, 50h ; 'P'
+  .text:000000014023DDCC                 lea     rcx, [rax-6000h]
+  .text:000000014023DDD3                 cmp     rsi, rax
+  .text:000000014023DDD6                 jnb     loc_14023DCAB
+  .text:000000014023DDDC                 cmp     rcx, rsi
+  .text:000000014023DDDF                 ja      loc_14023DCAB
+  .text:000000014023DDE5                 jmp     loc_14042FA5F
+  .text:000000014023DDEA                 mov     rcx, gs:3290h
+  .text:000000014023DDF3                 mov     eax, cs:KeKernelStackSize
+  .text:000000014023DDF9                 add     rcx, 50h ; 'P'
+  .text:000000014023DDFD                 mov     rdx, rcx
+  .text:000000014023DE00                 sub     rdx, rax
+  .text:000000014023DE03                 cmp     rdx, rsi
+  .text:000000014023DE06                 ja      short loc_14023DE52
+  .text:000000014023DE08                 cmp     rsi, rcx
+  .text:000000014023DE0B                 jnb     short loc_14023DE52
+  .text:000000014023DE0D                 mov     dword ptr [r15], 1
+  .text:000000014023DE14                 mov     [r14], rcx
+  .text:000000014023DE17                 mov     [rbp+0], rdx
+  .text:000000014023DE1B                 jmp     loc_14023DD68
+  .text:000000014023DE20                 cmp     rcx, rsi
+  .text:000000014023DE23                 ja      short loc_14023DDBF
+  .text:000000014023DE25                 mov     dword ptr [rdx], 0Ah
+  .text:000000014023DE2B                 mov     [r9], rax
+  .text:000000014023DE2E                 mov     al, 1
+  .text:000000014023DE30                 mov     [r8], rcx
+  .text:000000014023DE33                 jmp     loc_14023DD6F
+  .text:000000014023DE38                 cmp     rcx, rsi
+  .text:000000014023DE3B                 ja      loc_14023DDA6
+  .text:000000014023DE41                 jmp     loc_14042FA4C
+  .text:000000014023DE46                 mov     dword ptr [r15], 4
+  .text:000000014023DE4D                 jmp     loc_14023DD10
+  .text:000000014023DE52                 mov     rcx, gs:20h
+  .text:000000014023DE5B                 mov     rax, cs:KiDebuggerOwner
+  .text:000000014023DE62                 cmp     rcx, rax
+  .text:000000014023DE65                 jz      short loc_14023DE76
+  .text:000000014023DE67                 xor     al, al
+  .text:000000014023DE69                 test    al, al
+  .text:000000014023DE6B                 jz      loc_14023DCD6
+  .text:000000014023DE71                 jmp     loc_14042FA7D
+  .text:000000014023DE76                 mov     al, 1
+  .text:000000014023DE78                 jmp     short loc_14023DE69
+  .text:000000014042FA24                 mov     al, 1
+  .text:000000014042FA26                 jmp     loc_14023DC7A
+  .text:000000014042FA2B                 mov     dword ptr [rdx], 0
+  .text:000000014042FA31                 mov     rax, 0FFFF800000000000h
+  .text:000000014042FA3B                 mov     qword ptr [r9], 0FFFFFFFFFFFFFFFFh
+  .text:000000014042FA42                 mov     [r8], rax
+  .text:000000014042FA45                 mov     al, 1
+  .text:000000014042FA47                 jmp     loc_14023DD74
+  .text:000000014042FA4C                 mov     dword ptr [rdx], 6
+  .text:000000014042FA52                 mov     [r9], rax
+  .text:000000014042FA55                 mov     al, 1
+  .text:000000014042FA57                 mov     [r8], rcx
+  .text:000000014042FA5A                 jmp     loc_14023DD6F
+  .text:000000014042FA5F                 mov     dword ptr [r15], 0Ah
+  .text:000000014042FA66                 mov     [r14], rax
+  .text:000000014042FA69                 mov     al, 1
+  .text:000000014042FA6B                 mov     [rbp+0], rcx
+  .text:000000014042FA6F                 jmp     loc_14023DD6F
+  .text:000000014042FA74                 mov     dword ptr [r15], 5
+  .text:000000014042FA7B                 jmp     short loc_14042FAB9
+  .text:000000014042FA7D                 mov     dword ptr [r15], 7
+  .text:000000014042FA84                 jmp     short loc_14042FAB9
+  .text:000000014042FA86                 mov     rdx, rsi
+  .text:000000014042FA89                 mov     ecx, 3
+  .text:000000014042FA8E                 call    KiRspInIstStack
+  .text:000000014042FA93                 test    eax, eax
+  .text:000000014042FA95                 jz      short loc_14042FAA0
+  .text:000000014042FA97                 mov     dword ptr [r15], 8
+  .text:000000014042FA9E                 jmp     short loc_14042FAB9
+  .text:000000014042FAA0                 mov     ecx, 2
+  .text:000000014042FAA5                 call    KiRspInIstStack
+  .text:000000014042FAAA                 test    eax, eax
+  .text:000000014042FAAC                 jz      loc_14023DCEF
+  .text:000000014042FAB2                 mov     dword ptr [r15], 9
+  .text:000000014042FAB9                 mov     rax, 0FFFF800000000000h
+  .text:000000014042FAC3                 mov     qword ptr [r14], 0FFFFFFFFFFFFFFFFh
+  .text:000000014042FACA                 mov     [rbp+0], rax
+  .text:000000014042FACE                 jmp     loc_14023DD68
+  .text:000000014042FAD3                 mov     [r14], r8
+  .text:000000014042FAD6                 mov     rax, rcx
+  .text:000000014042FAD9                 mov     [rbp+0], rcx
+  .text:000000014042FADD                 jmp     loc_14023DD56
+  .text:000000014042FAE2                 xor     al, al
+  .text:000000014042FAE4                 jmp     loc_14023DD6A
+procedure: |-
+  bool __fastcall KeQueryCurrentStackInformationEx(unsigned __int64 a1, _DWORD *a2, char **a3, unsigned __int64 *a4)
+  {
+    unsigned __int8 CurrentIrql; // di
+    struct _KTHREAD *CurrentThread; // rbx
+    char *StackLimit; // rax
+    char *IsrStack; // rax
+    char *v13; // rcx
+    char *v14; // rax
+    char *v15; // rcx
+    char *v16; // rax
+    char *v17; // rcx
+    char *v18; // rcx
+    char *v19; // rdx
+    __int64 v20; // rdx
+    unsigned __int64 StackBase; // [rsp+20h] [rbp-38h]
+
+    if ( !KiRecoveryInProgress && (KiBugCheckActive & 3) != 0 )
+    {
+      *a2 = 0;
+      *a4 = -1;
+      *a3 = (char *)0xFFFF800000000000LL;
+      return 1;
+    }
+    CurrentIrql = KeGetCurrentIrql();
+    if ( CurrentIrql >= 2u )
+    {
+      IsrStack = (char *)KeGetPcr()->Prcb.IsrStack;
+      v13 = IsrStack - 24576;
+      if ( a1 < (unsigned __int64)IsrStack && (unsigned __int64)v13 <= a1 )
+      {
+        *a2 = 6;
+        *a4 = (unsigned __int64)IsrStack;
+        *a3 = v13;
+        return 1;
+      }
+      v14 = (char *)KeGetPcr()->Prcb.ExceptionStack + 80;
+      v15 = v14 - 24576;
+      if ( a1 < (unsigned __int64)v14 && (unsigned __int64)v15 <= a1 )
+      {
+        *a2 = 10;
+        *a4 = (unsigned __int64)v14;
+        *a3 = v15;
+        return 1;
+      }
+    }
+    else if ( (unsigned __int8)KeAreInterruptsEnabled() )
+    {
+      goto LABEL_5;
+    }
+    v16 = (char *)KeGetPcr()->Prcb.ExceptionStack + 80;
+    v17 = v16 - 24576;
+    if ( a1 < (unsigned __int64)v16 && (unsigned __int64)v17 <= a1 )
+    {
+      *a2 = 10;
+      *a4 = (unsigned __int64)v16;
+      *a3 = v17;
+      return 1;
+    }
+  LABEL_5:
+    CurrentThread = KeGetCurrentThread();
+    if ( CurrentThread->InitialStack /* 0x28 = 40 = _KTHREAD->InitialStack */ != (void *)KeGetPcr()->Prcb.RspBase )
+    {
+      *a2 = 5;
+      goto LABEL_37;
+    }
+    if ( CurrentIrql >= 2u )
+    {
+      v18 = (char *)KeGetPcr()->Prcb.DpcStack + 80;
+      v19 = &v18[-(unsigned int)KeKernelStackSize];
+      if ( (unsigned __int64)v19 <= a1 && a1 < (unsigned __int64)v18 )
+      {
+        *a2 = 1;
+        *a4 = (unsigned __int64)v18;
+        *a3 = v19;
+        return 1;
+      }
+      if ( KeGetCurrentPrcb() == (struct _KPRCB *)KiDebuggerOwner )
+      {
+        *a2 = 7;
+  LABEL_37:
+        *a4 = -1;
+        *a3 = (char *)0xFFFF800000000000LL;
+        return 1;
+      }
+    }
+    if ( !(unsigned __int8)KeAreInterruptsEnabled() || KeGetCurrentIrql() >= 0xFu )
+    {
+      if ( (unsigned int)KiRspInIstStack(3, a1) )
+      {
+        *a2 = 8;
+      }
+      else
+      {
+        if ( !(unsigned int)KiRspInIstStack(2, v20) )
+          goto LABEL_9;
+        *a2 = 9;
+      }
+      goto LABEL_37;
+    }
+  LABEL_9:
+    if ( (CurrentThread->MiscFlags & 0x1000) != 0 )
+    {
+      *a2 = 2;
+    }
+    else if ( CurrentThread->CallbackNestingLevel )
+    {
+      *a2 = 4;
+    }
+    else
+    {
+      *a2 = 3;
+    }
+    StackBase = (unsigned __int64)CurrentThread->StackBase; // 0x38 = 56 = _KTHREAD->StackBase
+    StackLimit = (char *)CurrentThread->StackLimit; // 0x30 = 48 = _KTHREAD->StackLimit
+    *a4 = StackBase;
+    *a3 = StackLimit;
+    return (unsigned __int64)StackLimit <= a1 && a1 < *a4;
+  }

@@ -48,15 +48,11 @@ modules:
     expected_output:
     - AlpcSequenceNo.yaml
     - AlpcState.yaml
-  - name: find-KtInitialStack
+  - name: find-KtInitialStack-AND-KtStackBase-AND-KtStackLimit
     expected_output:
     - KtInitialStack.yaml
-  - name: find-KtStackLimit
-    expected_output:
-    - KtStackLimit.yaml
-  - name: find-KtStackBase
-    expected_output:
     - KtStackBase.yaml
+    - KtStackLimit.yaml
   - name: find-KtKernelStack
     expected_output:
     - KtKernelStack.yaml
