@@ -114,6 +114,28 @@ found_struct_offset:
         self.assertEqual("8", payload["found_struct_offset"][0]["size"])
         self.assertEqual("_ALPC_PORT", payload["found_struct_offset"][0]["struct_name"])
 
+    def test_parse_llm_decompile_response_preserves_struct_bit_offset(self) -> None:
+        payload = ida_mcp_resolver.parse_llm_decompile_response(
+            """
+found_struct_offset:
+  - insn_va: '0x140650EB4'
+    insn_disasm: 'test    dword ptr [rcx+464h], 2000h'
+    offset: '0x464'
+    bit_offset: '13'
+    struct_name: _EPROCESS
+    member_name: BreakOnTerminationfound_struct_offset:
+  - insn_va: '0x140650EB4'
+    insn_disasm: 'test    dword ptr [rcx+464h], 2000h'
+    offset: '0x464'
+    bit_offset: '13'
+    struct_name: _EPROCESS
+    member_name: BreakOnTermination
+            """
+        )
+
+        self.assertEqual(1, len(payload["found_struct_offset"]))
+        self.assertEqual("13", payload["found_struct_offset"][0]["bit_offset"])
+
     def test_parse_llm_decompile_response_repairs_glued_top_level_header(self) -> None:
         payload = ida_mcp_resolver.parse_llm_decompile_response(
             """
@@ -469,6 +491,71 @@ found_struct_offset:
             payload,
         )
 
+    async def test_resolve_symbol_via_llm_decompile_uses_found_struct_bit_offset(
+        self,
+    ) -> None:
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "_prepare_llm_decompile_request",
+                return_value={
+                    "prepared": True,
+                    "llm_symbol_name": "_EPROCESS->BreakOnTermination",
+                },
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "call_llm_decompile",
+                AsyncMock(
+                    return_value={
+                        "found_call": [],
+                        "found_gv": [],
+                        "found_struct_offset": [
+                            {
+                                "insn_va": "0x140650EB4",
+                                "insn_disasm": "test dword ptr [rcx+464h], 2000h",
+                                "offset": "0x464",
+                                "bit_offset": "13",
+                                "struct_name": "_EPROCESS",
+                                "member_name": "BreakOnTermination",
+                            }
+                        ],
+                    }
+                ),
+            ),
+        ):
+            payload = await ida_mcp_resolver.resolve_symbol_via_llm_decompile(
+                session=AsyncMock(),
+                symbol_name="EpBreakOnTermination",
+                category="struct_offset",
+                binary_dir="/tmp",
+                image_base=0x140000000,
+                llm_decompile_specs=[
+                    (
+                        "EpBreakOnTermination",
+                        "_EPROCESS->BreakOnTermination",
+                        "prompt/call_llm_decompile.md",
+                        "references/ntoskrnl/PspTerminateAllThreads.{arch}.yaml",
+                    )
+                ],
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                struct_metadata={
+                    "struct_name": "_EPROCESS",
+                    "member_name": "BreakOnTermination",
+                    "bits": True,
+                },
+            )
+
+        self.assertEqual(
+            {
+                "struct_name": "_EPROCESS",
+                "member_name": "BreakOnTermination",
+                "offset": 0x464,
+                "bit_offset": 13,
+            },
+            payload,
+        )
+
     async def test_resolve_symbol_via_llm_decompile_uses_spec_query_name(self) -> None:
         with (
             patch.object(
@@ -615,7 +702,7 @@ found_struct_offset:
                 session=AsyncMock(),
                 symbol_name="AlpcAttributes",
                 category="struct_offset",
-                binary_dir="/tmp/kphtools-test-amd64-batch",
+                binary_dir="/tmp/kphtools-test-batch/amd64",
                 image_base=0x140000000,
                 llm_decompile_specs=llm_specs,
                 llm_config={"model": "test-model", "api_key": "test-key"},
@@ -628,7 +715,7 @@ found_struct_offset:
                 session=AsyncMock(),
                 symbol_name="AlpcAttributesFlags",
                 category="struct_offset",
-                binary_dir="/tmp/kphtools-test-amd64-batch",
+                binary_dir="/tmp/kphtools-test-batch/amd64",
                 image_base=0x140000000,
                 llm_decompile_specs=llm_specs,
                 llm_config={"model": "test-model", "api_key": "test-key"},
@@ -642,7 +729,7 @@ found_struct_offset:
                     session=AsyncMock(),
                     symbol_name="AlpcCommunicationInfo",
                     category="struct_offset",
-                    binary_dir="/tmp/kphtools-test-amd64-batch",
+                    binary_dir="/tmp/kphtools-test-batch/amd64",
                     image_base=0x140000000,
                     llm_decompile_specs=llm_specs,
                     llm_config={"model": "test-model", "api_key": "test-key"},

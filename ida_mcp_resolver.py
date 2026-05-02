@@ -157,6 +157,9 @@ def _normalize_llm_struct_offset_entries(entries: Any) -> list[dict[str, str]]:
         size = str(entry.get("size", "")).strip()
         if size:
             item["size"] = size
+        bit_offset = str(entry.get("bit_offset", "")).strip()
+        if bit_offset:
+            item["bit_offset"] = bit_offset
         normalized.append(item)
     return normalized
 
@@ -871,10 +874,18 @@ async def resolve_symbol_via_llm_decompile(
                 offset = _parse_offset_value(entry.get("offset"))
             except (TypeError, ValueError):
                 continue
-            return {
+            payload = {
                 "struct_name": struct_name,
                 "member_name": member_name,
                 "offset": offset,
             }
+            bit_offset = str(entry.get("bit_offset", "")).strip()
+            if bit_offset:
+                try:
+                    payload["bit_offset"] = _parse_offset_value(bit_offset)
+                except (TypeError, ValueError):
+                    if bool((struct_metadata or {}).get("bits", False)):
+                        continue
+            return payload
 
     return None
