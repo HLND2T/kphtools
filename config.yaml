@@ -46,11 +46,9 @@ modules:
     - AlpcServerCommunicationPort.yaml
     - AlpcClientCommunicationPort.yaml
 
-  - name: find-AlpcSequenceNo
+  - name: find-AlpcSequenceNo-AND-AlpcState
     expected_output:
     - AlpcSequenceNo.yaml
-  - name: find-AlpcState
-    expected_output:
     - AlpcState.yaml
   - name: find-KtInitialStack
     expected_output:

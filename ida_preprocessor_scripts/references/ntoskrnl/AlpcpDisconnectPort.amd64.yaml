@@ -264,7 +264,7 @@ procedure: |-
     ExAcquirePushLockExclusiveEx((ULONG_PTR)&Port->PortObjectLock, 0);
     if ( (a2 & 1) != 0 )
       Port->u1.State |= 0x80u;
-    State = Port->u1.State;
+    State = Port->u1.State; // 0x1A0 = 416 = _ALPC_PORT->u1.State
     if ( (State & 0x20) != 0 )
     {
       if ( (_InterlockedExchangeAdd64((volatile signed __int64 *)p_PortObjectLock, 0xFFFFFFFFFFFFFFFFuLL) & 6) == 2 )

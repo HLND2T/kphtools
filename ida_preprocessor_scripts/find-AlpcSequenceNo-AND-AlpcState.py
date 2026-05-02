@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import ida_preprocessor_common as preprocessor_common
 
-TARGET_STRUCT_MEMBER_NAMES = ["AlpcSequenceNo"]
+TARGET_STRUCT_MEMBER_NAMES = ["AlpcSequenceNo", "AlpcState"]
 
 LLM_DECOMPILE = [
     (
         "AlpcSequenceNo",
         "_ALPC_PORT->SequenceNo",
+        "prompt/call_llm_decompile.md",
+        "references/ntoskrnl/AlpcpDisconnectPort.{arch}.yaml",
+    ),
+    (
+        "AlpcState",
+        "_ALPC_PORT->u1.State",
         "prompt/call_llm_decompile.md",
         "references/ntoskrnl/AlpcpDisconnectPort.{arch}.yaml",
     ),
@@ -19,11 +25,18 @@ STRUCT_METADATA = {
         "struct_name": "_ALPC_PORT",
         "member_name": "SequenceNo",
         "bits": False,
-    }
+    },
+    "AlpcState": {
+        "symbol_expr": "_ALPC_PORT->u1.State",
+        "struct_name": "_ALPC_PORT",
+        "member_name": "u1.State",
+        "bits": False,
+    },
 }
 
 GENERATE_YAML_DESIRED_FIELDS = {
     "AlpcSequenceNo": ['struct_name', 'member_name', 'offset'],
+    "AlpcState": ['struct_name', 'member_name', 'offset'],
 }
 
 
