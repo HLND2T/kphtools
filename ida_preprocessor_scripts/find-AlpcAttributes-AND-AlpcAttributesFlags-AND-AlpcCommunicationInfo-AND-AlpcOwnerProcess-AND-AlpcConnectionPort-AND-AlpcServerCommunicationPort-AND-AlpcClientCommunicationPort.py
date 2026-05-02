@@ -6,6 +6,10 @@ TARGET_STRUCT_MEMBER_NAMES = [
     "AlpcAttributes",
     "AlpcAttributesFlags",
     "AlpcCommunicationInfo",
+    "AlpcOwnerProcess",
+    "AlpcConnectionPort",
+    "AlpcServerCommunicationPort",
+    "AlpcClientCommunicationPort",
 ]
 
 LLM_DECOMPILE = [
@@ -24,6 +28,30 @@ LLM_DECOMPILE = [
     (
         "AlpcCommunicationInfo",
         "_ALPC_PORT->CommunicationInfo",
+        "prompt/call_llm_decompile.md",
+        "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+    ),
+    (
+        "AlpcOwnerProcess",
+        "_ALPC_PORT->OwnerProcess",
+        "prompt/call_llm_decompile.md",
+        "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+    ),
+    (
+        "AlpcConnectionPort",
+        "_ALPC_COMMUNICATION_INFO->ConnectionPort",
+        "prompt/call_llm_decompile.md",
+        "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+    ),
+    (
+        "AlpcServerCommunicationPort",
+        "_ALPC_COMMUNICATION_INFO->ServerCommunicationPort",
+        "prompt/call_llm_decompile.md",
+        "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+    ),
+    (
+        "AlpcClientCommunicationPort",
+        "_ALPC_COMMUNICATION_INFO->ClientCommunicationPort",
         "prompt/call_llm_decompile.md",
         "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
     ),
@@ -48,12 +76,40 @@ STRUCT_METADATA = {
         "member_name": "CommunicationInfo",
         "bits": False,
     },
+    "AlpcOwnerProcess": {
+        "symbol_expr": "_ALPC_PORT->OwnerProcess",
+        "struct_name": "_ALPC_PORT",
+        "member_name": "OwnerProcess",
+        "bits": False,
+    },
+    "AlpcConnectionPort": {
+        "symbol_expr": "_ALPC_COMMUNICATION_INFO->ConnectionPort",
+        "struct_name": "_ALPC_COMMUNICATION_INFO",
+        "member_name": "ConnectionPort",
+        "bits": False,
+    },
+    "AlpcServerCommunicationPort": {
+        "symbol_expr": "_ALPC_COMMUNICATION_INFO->ServerCommunicationPort",
+        "struct_name": "_ALPC_COMMUNICATION_INFO",
+        "member_name": "ServerCommunicationPort",
+        "bits": False,
+    },
+    "AlpcClientCommunicationPort": {
+        "symbol_expr": "_ALPC_COMMUNICATION_INFO->ClientCommunicationPort",
+        "struct_name": "_ALPC_COMMUNICATION_INFO",
+        "member_name": "ClientCommunicationPort",
+        "bits": False,
+    },
 }
 
 GENERATE_YAML_DESIRED_FIELDS = {
     "AlpcAttributes": ["struct_name", "member_name", "offset"],
     "AlpcAttributesFlags": ["struct_name", "member_name", "offset"],
     "AlpcCommunicationInfo": ["struct_name", "member_name", "offset"],
+    "AlpcOwnerProcess": ["struct_name", "member_name", "offset"],
+    "AlpcConnectionPort": ["struct_name", "member_name", "offset"],
+    "AlpcServerCommunicationPort": ["struct_name", "member_name", "offset"],
+    "AlpcClientCommunicationPort": ["struct_name", "member_name", "offset"],
 }
 
 

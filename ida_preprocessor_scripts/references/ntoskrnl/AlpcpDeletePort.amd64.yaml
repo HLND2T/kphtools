@@ -28,9 +28,9 @@ disasm_code: |-
   PAGE:0000000140671F99                 cmp     eax, 6
   PAGE:0000000140671F9C                 jnz     short loc_140671FC4
   PAGE:0000000140671F9E                 mov     rax, [rdi+10h] ; 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
-  PAGE:0000000140671FA2                 and     qword ptr [rax+8], 0
+  PAGE:0000000140671FA2                 and     qword ptr [rax+8], 0 ; 0x8 = 8LL = _ALPC_COMMUNICATION_INFO->ServerCommunicationPort
   PAGE:0000000140671FA7                 mov     rax, [rdi+10h] ; 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
-  PAGE:0000000140671FAB                 mov     rcx, [rax+10h]
+  PAGE:0000000140671FAB                 mov     rcx, [rax+10h] ; 0x10 = 16LL = _ALPC_COMMUNICATION_INFO->ClientCommunicationPort
   PAGE:0000000140671FAF                 test    rcx, rcx
   PAGE:0000000140671FB2                 jz      short loc_140671FC4
   PAGE:0000000140671FB4                 and     qword ptr [rcx+1A8h], 0
@@ -57,7 +57,7 @@ disasm_code: |-
   PAGE:000000014067200B                 and     al, 6
   PAGE:000000014067200D                 cmp     al, 4
   PAGE:000000014067200F                 jz      short loc_140672088
-  PAGE:0000000140672011                 mov     rax, [rdi+18h]
+  PAGE:0000000140672011                 mov     rax, [rdi+18h] ; 0x18 = 24LL = _ALPC_PORT->OwnerProcess
   PAGE:0000000140672015                 mov     ecx, 0
   PAGE:000000014067201A                 test    al, 1
   PAGE:000000014067201C                 ; Object
@@ -83,9 +83,9 @@ disasm_code: |-
   PAGE:000000014067206F                 pop     rdi
   PAGE:0000000140672070                 retn
   PAGE:0000000140672072                 mov     rax, [rdi+10h] ; 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
-  PAGE:0000000140672076                 and     qword ptr [rax+10h], 0
+  PAGE:0000000140672076                 and     qword ptr [rax+10h], 0 ; 0x10 = 16LL = _ALPC_COMMUNICATION_INFO->ClientCommunicationPort
   PAGE:000000014067207B                 mov     rax, [rdi+10h] ; 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
-  PAGE:000000014067207F                 mov     rcx, [rax+8]
+  PAGE:000000014067207F                 mov     rcx, [rax+8] ; 0x8 = 8LL = _ALPC_COMMUNICATION_INFO->ServerCommunicationPort
   PAGE:0000000140672083                 jmp     loc_140671FAF
   PAGE:0000000140672088                 bt      ecx, 0Ah
   PAGE:000000014067208C                 jb      short loc_140672011
@@ -102,7 +102,7 @@ disasm_code: |-
   PAGE:00000001406720B8                 call    AlpcpFreeCompletionPacketLookaside
   PAGE:00000001406720BD                 jmp     loc_140672003
   PAGE:00000001406720C2                 mov     rax, [rdi+10h] ; 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
-  PAGE:00000001406720C6                 and     qword ptr [rax], 0
+  PAGE:00000001406720C6                 and     qword ptr [rax], 0 ; 0x0 = 0LL = _ALPC_COMMUNICATION_INFO->ConnectionPort
   PAGE:00000001406720CA                 jmp     loc_140671FC4
   PAGE:00000001406720CF                 mov     edx, 1
   PAGE:00000001406720D4                 call    AlpcpDereferenceBlobEx
@@ -212,11 +212,11 @@ procedure: |-
       switch ( v4 )
       {
         case 2u:
-          a1->CommunicationInfo->ConnectionPort = nullptr; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
+          a1->CommunicationInfo->ConnectionPort = nullptr; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo, 0x0 = 0LL = _ALPC_COMMUNICATION_INFO->ConnectionPort
           break;
         case 4u:
-          a1->CommunicationInfo->ClientCommunicationPort = nullptr; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
-          ServerCommunicationPort = a1->CommunicationInfo->ServerCommunicationPort; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
+          a1->CommunicationInfo->ClientCommunicationPort = nullptr; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo, 0x10 = 16LL = _ALPC_COMMUNICATION_INFO->ClientCommunicationPort
+          ServerCommunicationPort = a1->CommunicationInfo->ServerCommunicationPort; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo, 0x8 = 8LL = _ALPC_COMMUNICATION_INFO->ServerCommunicationPort
   LABEL_8:
           if ( ServerCommunicationPort )
           {
@@ -225,8 +225,8 @@ procedure: |-
           }
           break;
         case 6u:
-          a1->CommunicationInfo->ServerCommunicationPort = nullptr; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
-          ServerCommunicationPort = a1->CommunicationInfo->ClientCommunicationPort; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
+          a1->CommunicationInfo->ServerCommunicationPort = nullptr; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo, 0x8 = 8LL = _ALPC_COMMUNICATION_INFO->ServerCommunicationPort
+          ServerCommunicationPort = a1->CommunicationInfo->ClientCommunicationPort; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo, 0x10 = 16LL = _ALPC_COMMUNICATION_INFO->ClientCommunicationPort
           goto LABEL_8;
       }
       v6 = a1->CommunicationInfo; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
@@ -250,8 +250,8 @@ procedure: |-
         HalPutDmaAdapter(ClientToken);
     }
     OwnerProcess = nullptr;
-    if ( ((__int64)a1->OwnerProcess & 1) == 0 )
-      OwnerProcess = a1->OwnerProcess;
+    if ( ((__int64)a1->OwnerProcess & 1) == 0 ) // 0x18 = 24LL = _ALPC_PORT->OwnerProcess
+      OwnerProcess = a1->OwnerProcess; // 0x18 = 24LL = _ALPC_PORT->OwnerProcess
     if ( OwnerProcess )
       ObfDereferenceObjectWithTag(OwnerProcess, 0x63706C41u);
     CallbackObject = a1->CallbackObject;

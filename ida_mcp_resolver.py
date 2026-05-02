@@ -171,6 +171,14 @@ def _parse_yaml_mapping(text: str) -> dict[str, Any] | None:
     return parsed if isinstance(parsed, dict) else None
 
 
+def _repair_glued_llm_yaml_headers(text: str) -> str:
+    return re.sub(
+        r"([^\n])((?:found_call|found_gv|found_struct_offset):)",
+        r"\1\n\2",
+        text,
+    )
+
+
 def parse_llm_decompile_response(response_text: str) -> dict[str, list[dict[str, str]]]:
     text = str(response_text or "").strip()
     if not text:
@@ -194,6 +202,10 @@ def parse_llm_decompile_response(response_text: str) -> dict[str, list[dict[str,
         if not candidate:
             continue
         parsed = _parse_yaml_mapping(candidate)
+        if parsed is None:
+            repaired_candidate = _repair_glued_llm_yaml_headers(candidate)
+            if repaired_candidate != candidate:
+                parsed = _parse_yaml_mapping(repaired_candidate)
         if parsed is not None:
             break
 

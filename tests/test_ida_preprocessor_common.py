@@ -262,7 +262,7 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
                 status = await ida_preprocessor_common.preprocess_common_skill(
                     session=AsyncMock(),
                     skill=SimpleNamespace(
-                        name="find-AlpcAttributes-AND-AlpcAttributesFlags-AND-AlpcCommunicationInfo"
+                        name="find-AlpcAttributes-AND-AlpcAttributesFlags-AND-AlpcCommunicationInfo-AND-AlpcOwnerProcess-AND-AlpcConnectionPort-AND-AlpcServerCommunicationPort-AND-AlpcClientCommunicationPort"
                     ),
                     symbol=SimpleNamespace(
                         name="AlpcAttributes",

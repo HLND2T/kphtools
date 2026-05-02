@@ -28,29 +28,21 @@ modules:
   - name: find-ObAttributesShift
     expected_output:
     - ObAttributesShift.yaml
-  - name: find-AlpcOwnerProcess
-    expected_output:
-    - AlpcOwnerProcess.yaml
-  - name: find-AlpcConnectionPort
-    expected_output:
-    - AlpcConnectionPort.yaml
-  - name: find-AlpcServerCommunicationPort
-    expected_output:
-    - AlpcServerCommunicationPort.yaml
-  - name: find-AlpcClientCommunicationPort
-    expected_output:
-    - AlpcClientCommunicationPort.yaml
   - name: find-AlpcHandleTable
     expected_output:
     - AlpcHandleTable.yaml
   - name: find-AlpcHandleTableLock
     expected_output:
     - AlpcHandleTableLock.yaml
-  - name: find-AlpcAttributes-AND-AlpcAttributesFlags-AND-AlpcCommunicationInfo
+  - name: find-AlpcAttributes-AND-AlpcAttributesFlags-AND-AlpcCommunicationInfo-AND-AlpcOwnerProcess-AND-AlpcConnectionPort-AND-AlpcServerCommunicationPort-AND-AlpcClientCommunicationPort
     expected_output:
     - AlpcAttributes.yaml
     - AlpcAttributesFlags.yaml
     - AlpcCommunicationInfo.yaml
+    - AlpcOwnerProcess.yaml
+    - AlpcConnectionPort.yaml
+    - AlpcServerCommunicationPort.yaml
+    - AlpcClientCommunicationPort.yaml
   - name: find-AlpcPortContext
     expected_output:
     - AlpcPortContext.yaml

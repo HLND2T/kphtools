@@ -114,6 +114,38 @@ found_struct_offset:
         self.assertEqual("8", payload["found_struct_offset"][0]["size"])
         self.assertEqual("_ALPC_PORT", payload["found_struct_offset"][0]["struct_name"])
 
+    def test_parse_llm_decompile_response_repairs_glued_top_level_header(self) -> None:
+        payload = ida_mcp_resolver.parse_llm_decompile_response(
+            """
+found_struct_offset:
+  - insn_va: '0x1406DE4E6'
+    insn_disasm: 'and     qword ptr [rax], 0'
+    offset: '0x0'
+    struct_name: _ALPC_COMMUNICATION_INFO
+    member_name: ConnectionPortfound_struct_offset:
+  - insn_va: '0x1406DE376'
+    insn_disasm: 'test    dword ptr [rcx+100h], 1000h'
+    offset: '0x100'
+    struct_name: _ALPC_PORT
+    member_name: PortAttributes
+  - insn_va: '0x1406DE4E6'
+    insn_disasm: 'and     qword ptr [rax], 0'
+    offset: '0x0'
+    struct_name: _ALPC_COMMUNICATION_INFO
+    member_name: ConnectionPort
+            """
+        )
+
+        self.assertEqual(2, len(payload["found_struct_offset"]))
+        self.assertEqual(
+            "PortAttributes",
+            payload["found_struct_offset"][0]["member_name"],
+        )
+        self.assertEqual(
+            "ConnectionPort",
+            payload["found_struct_offset"][1]["member_name"],
+        )
+
     def test_llm_decompile_specs_require_four_tuple(self) -> None:
         self.assertIsNone(
             ida_mcp_resolver._build_llm_decompile_specs_map(

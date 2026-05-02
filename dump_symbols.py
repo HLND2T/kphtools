@@ -641,14 +641,25 @@ class LazyIdalibSession:
             try:
                 await session.__aexit__(None, None, None)
             except asyncio.CancelledError as exc:
-                cancel_error = exc
+                if _is_mcp_cancel_scope_cancelled(exc):
+                    _debug_log(
+                        self.debug,
+                        _format_close_cancelled_message("session exit", exc),
+                    )
+                else:
+                    cancel_error = exc
             except Exception:
                 pass
         if streams is not None:
             try:
                 await streams.__aexit__(None, None, None)
             except asyncio.CancelledError as exc:
-                if cancel_error is None:
+                if _is_mcp_cancel_scope_cancelled(exc):
+                    _debug_log(
+                        self.debug,
+                        _format_close_cancelled_message("stream exit", exc),
+                    )
+                elif cancel_error is None:
                     cancel_error = exc
             except Exception:
                 pass
@@ -677,6 +688,13 @@ class LazyIdalibSession:
                             arguments={"code": "import idc; idc.qexit(0)"},
                         ),
                         timeout=IDALIB_QEXIT_TIMEOUT_SECONDS,
+                    )
+                except asyncio.CancelledError as exc:
+                    if not _is_mcp_cancel_scope_cancelled(exc):
+                        raise
+                    _debug_log(
+                        self.debug,
+                        _format_close_cancelled_message("qexit request", exc),
                     )
                 except Exception:
                     pass
@@ -735,6 +753,15 @@ def _progress(message: str) -> None:
 def _debug_log(debug: bool, message: str) -> None:
     if debug:
         print(f"[debug] {message}")
+
+
+def _is_mcp_cancel_scope_cancelled(exc: BaseException) -> bool:
+    return "cancel scope" in str(exc).lower()
+
+
+def _format_close_cancelled_message(stage: str, exc: BaseException) -> str:
+    detail = str(exc).strip() or exc.__class__.__name__
+    return f"MCP session close {stage} cancelled; suppressed teardown noise: {detail}"
 
 
 async def _process_module_binary(module, binary_dir, pdb_path, args):

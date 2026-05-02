@@ -1190,6 +1190,32 @@ class TestDumpSymbols(unittest.TestCase):
         fake_process.wait.assert_has_calls([call(timeout=10), call(timeout=1)])
         fake_process.kill.assert_called_once_with()
 
+    def test_lazy_idalib_session_close_suppresses_mcp_cancel_scope_noise(self) -> None:
+        session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
+
+        fake_process = MagicMock()
+        fake_process.poll.return_value = None
+
+        fake_session = AsyncMock()
+        fake_session.call_tool = AsyncMock(
+            side_effect=asyncio.CancelledError("Cancelled via cancel scope abc")
+        )
+        fake_streams = AsyncMock()
+
+        session.process = fake_process
+        session.session = fake_session
+        session.streams = fake_streams
+
+        asyncio.run(session.close())
+
+        fake_session.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_process.kill.assert_not_called()
+        fake_process.wait.assert_called_once_with(timeout=10)
+        self.assertIsNone(session.process)
+        self.assertIsNone(session.session)
+        self.assertIsNone(session.streams)
+
     def test_lazy_idalib_session_close_re_raises_cancel_after_cleanup(self) -> None:
         session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
 
