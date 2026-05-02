@@ -88,7 +88,7 @@ procedure: |-
     __int64 Attributes; // r11
     signed __int32 v10[10]; // [rsp+0h] [rbp-28h] BYREF
 
-    // Object pointer is recovered as: (VolatileLowValue >> 16) & ~0xF
+    // Object pointer is recovered by: (VolatileLowValue >> 16) & ~0xF or ExGetHandlePointer(a2)
     //   = (VolatileLowValue >> 20) << 4
     //   = VolatileLowValue >> ObDecodeShift << 4   (ObDecodeShift = 0x14 = 20 = _HANDLE_TABLE_ENTRY->ObjectPointerBits bit offset)
     if ( !*EnumParameter || *EnumParameter == ((*(__int64 *)HandleTableEntry >> 16) & 0xFFFFFFFFFFFFFFF0uLL) ) // 0x14 = 20 = _HANDLE_TABLE_ENTRY->ObjectPointerBits (ObDecodeShift)
@@ -128,3 +128,40 @@ procedure: |-
       ExfUnblockPushLock(&HandleTable->HandleContentionEvent, 0); // 0x30 = 48 = _HANDLE_TABLE->HandleContentionEvent
     return v5;
   }
+
+  //A simple decoding function is called here to decode Object pointer from HandleTableEntry
+  unsigned __int64 __fastcall ExGetHandlePointer(__int64 *a1)
+  {
+    return (*a1 >> 16) & 0xFFFFFFFFFFFFFFF0uLL;
+  }
+
+  bool __fastcall ObpEnumFindHandleProcedure(__int64 a1, volatile signed __int64 *a2, __int64 a3, _QWORD *a4)
+  {
+    __int64 HandlePointer; // rdx
+    bool v8; // bl
+    signed __int64 v9; // r8
+    __int64 v11; // rcx
+    _QWORD *v12; // rcx
+    signed __int32 v13[10]; // [rsp+0h] [rbp-28h] BYREF
+
+    HandlePointer = ExGetHandlePointer(a2);
+    v8 = false;
+    if ( !*a4 || *a4 == HandlePointer )
+    {
+      v11 = a4[1];
+      if ( !v11
+        || ((unsigned __int8)ObHeaderCookie ^ (unsigned __int8)(*(_BYTE *)(HandlePointer + 24) ^ BYTE1(HandlePointer))) == *(_BYTE *)(v11 + 40) )
+      {
+        v12 = (_QWORD *)a4[2]; 
+        if ( !v12 || *v12 == __PAIR64__(a2[1] & 0x1FFFFFF, ((__int64)*(unsigned int *)a2 >> 17) & 7) ) // 0x11 = 17 = _HANDLE_TABLE_ENTRY->Attributes (ObAttributesShift)
+          v8 = true;
+      }
+    }
+    v9 = _InterlockedExchangeAdd64(a2, 1u);
+    _InterlockedOr(v13, 0);
+    if ( *(_QWORD *)(a1 + 48) ) // 0x30 = 48 = _HANDLE_TABLE->HandleContentionEvent
+      ExfUnblockPushLock(a1 + 48, 0, v9); // 0x30 = 48 = _HANDLE_TABLE->HandleContentionEvent
+    return v8;
+  }
+optional_funcs:
+ - ExGetHandlePointer
