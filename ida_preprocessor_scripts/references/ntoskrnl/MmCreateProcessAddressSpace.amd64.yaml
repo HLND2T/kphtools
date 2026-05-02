@@ -1,0 +1,308 @@
+func_name: MmCreateProcessAddressSpace
+func_va: '0x140653cb8'
+disasm_code: |-
+  PAGE:0000000140653CB8                 mov     rax, rsp
+  PAGE:0000000140653CBB                 mov     [rax+8], rbx
+  PAGE:0000000140653CBF                 mov     [rax+20h], rbp
+  PAGE:0000000140653CC3                 mov     [rax+18h], r8
+  PAGE:0000000140653CC7                 mov     [rax+10h], rdx
+  PAGE:0000000140653CCB                 push    rsi
+  PAGE:0000000140653CCC                 push    rdi
+  PAGE:0000000140653CCD                 push    r13
+  PAGE:0000000140653CCF                 push    r14
+  PAGE:0000000140653CD1                 push    r15
+  PAGE:0000000140653CD3                 sub     rsp, 40h
+  PAGE:0000000140653CD7                 and     qword ptr [rax+10h], 0
+  PAGE:0000000140653CDC                 mov     r15d, r9d
+  PAGE:0000000140653CDF                 mov     rsi, cs:PspMinimumWorkingSet
+  PAGE:0000000140653CE6                 mov     rbp, r8
+  PAGE:0000000140653CE9                 mov     rdi, [rsp+68h+arg_28]
+  PAGE:0000000140653CF1                 mov     [rax-38h], rsi
+  PAGE:0000000140653CF5                 test    rcx, rcx
+  PAGE:0000000140653CF8                 jz      loc_1407FD82E
+  PAGE:0000000140653CFE                 mov     rax, [rdi+9D8h]
+  PAGE:0000000140653D05                 mov     rbx, [rax]
+  PAGE:0000000140653D08                 mov     rcx, rbx
+  PAGE:0000000140653D0B                 call    MiMakePartitionActive
+  PAGE:0000000140653D10                 test    eax, eax
+  PAGE:0000000140653D12                 jz      loc_140653F04
+  PAGE:0000000140653D18                 movzx   edx, word ptr [rbx]
+  PAGE:0000000140653D1B                 mov     rcx, rdi
+  PAGE:0000000140653D1E                 call    MiSetProcessPartitionId
+  PAGE:0000000140653D23                 xor     r8d, r8d
+  PAGE:0000000140653D26                 mov     rcx, rbx
+  PAGE:0000000140653D29                 lea     edx, [r8+4]
+  PAGE:0000000140653D2D                 call    MiChargeCommit
+  PAGE:0000000140653D32                 test    eax, eax
+  PAGE:0000000140653D34                 jz      loc_140653F04
+  PAGE:0000000140653D3A                 ; Seed
+  PAGE:0000000140653D3A                 lea     rcx, Seed; Seed
+  PAGE:0000000140653D41                 lea     r14, [rdi+680h]
+  PAGE:0000000140653D48                 call    RtlRandomEx
+  PAGE:0000000140653D4D                 movzx   ecx, ax
+  PAGE:0000000140653D50                 lea     rax, [rdi+938h]
+  PAGE:0000000140653D57                 mov     [r14], ecx
+  PAGE:0000000140653D5A                 mov     [rax+8], rax
+  PAGE:0000000140653D5E                 mov     [rax], rax
+  PAGE:0000000140653D61                 and     qword ptr [rdi+930h], 0
+  PAGE:0000000140653D69                 call    PsGetDefaultWsMaximum
+  PAGE:0000000140653D6E                 mov     r13d, 1
+  PAGE:0000000140653D74                 cmp     rbp, rax
+  PAGE:0000000140653D77                 jnz     loc_1407FD83A
+  PAGE:0000000140653D7D                 mov     [r14+70h], rsi
+  PAGE:0000000140653D81                 mov     [r14+98h], rbp
+  PAGE:0000000140653D88                 test    r13b, r15b
+  PAGE:0000000140653D8B                 jnz     loc_1407FD869
+  PAGE:0000000140653D91                 mov     r8, rsi
+  PAGE:0000000140653D94                 mov     rcx, rdi
+  PAGE:0000000140653D97                 call    PsChargeProcessQuota
+  PAGE:0000000140653D9C                 test    eax, eax
+  PAGE:0000000140653D9E                 js      loc_1407FD8A5
+  PAGE:0000000140653DA4                 xor     r8d, r8d
+  PAGE:0000000140653DA7                 mov     rdx, rsi
+  PAGE:0000000140653DAA                 mov     rcx, rbx
+  PAGE:0000000140653DAD                 call    MiChargeResident
+  PAGE:0000000140653DB2                 test    eax, eax
+  PAGE:0000000140653DB4                 jz      loc_1407FD89A
+  PAGE:0000000140653DBA                 mov     edx, r13d
+  PAGE:0000000140653DBD                 lea     rcx, qword_140C4EDC0
+  PAGE:0000000140653DC4                 call    MiReservePtes
+  PAGE:0000000140653DC9                 mov     rbp, rax
+  PAGE:0000000140653DCC                 test    rax, rax
+  PAGE:0000000140653DCF                 jz      loc_1407FD88F
+  PAGE:0000000140653DD5                 mov     edx, [rsp+68h+arg_20]
+  PAGE:0000000140653DDC                 mov     rcx, rdi
+  PAGE:0000000140653DDF                 call    MiAllocateProcessShadow
+  PAGE:0000000140653DE4                 test    eax, eax
+  PAGE:0000000140653DE6                 js      loc_1407FD87D
+  PAGE:0000000140653DEC                 lea     rcx, [rsp+68h+arg_8]
+  PAGE:0000000140653DF1                 call    MiJoinSession
+  PAGE:0000000140653DF6                 mov     rcx, rdi
+  PAGE:0000000140653DF9                 test    eax, eax
+  PAGE:0000000140653DFB                 jz      loc_1407FD876
+  PAGE:0000000140653E01                 mov     r8d, [rsp+68h+arg_20]
+  PAGE:0000000140653E09                 mov     rdx, rbp
+  PAGE:0000000140653E0C                 mov     qword ptr [rdi+648h], 4
+  PAGE:0000000140653E17                 call    MiAllocateTopLevelPage
+  PAGE:0000000140653E1C                 mov     rdx, [rsp+68h+arg_8]
+  PAGE:0000000140653E21                 mov     rsi, rax
+  PAGE:0000000140653E24                 test    rdx, rdx
+  PAGE:0000000140653E27                 jz      short loc_140653E40
+  PAGE:0000000140653E29                 mov     [rdi+558h], rdx
+  PAGE:0000000140653E30                 lock or dword ptr [rdi+464h], 10000h
+  PAGE:0000000140653E3B                 mov     rdx, [rsp+68h+arg_8]
+  PAGE:0000000140653E40                 mov     rcx, rdi
+  PAGE:0000000140653E43                 call    MiInsertNewProcess
+  PAGE:0000000140653E48                 mov     rbx, rbp
+  PAGE:0000000140653E4B                 shl     rbx, 19h
+  PAGE:0000000140653E4F                 mov     rax, 0FFFFF68000000000h
+  PAGE:0000000140653E59                 shl     rax, 19h
+  PAGE:0000000140653E5D                 mov     rcx, rdi
+  PAGE:0000000140653E60                 sub     rbx, rax
+  PAGE:0000000140653E63                 sar     rbx, 10h
+  PAGE:0000000140653E67                 mov     rdx, rbx
+  PAGE:0000000140653E6A                 call    MiCreateNewProcessTopLevelMappings
+  PAGE:0000000140653E6F                 mov     rax, 0FFFFF6FB7DBEDF68h
+  PAGE:0000000140653E79                 shr     rax, 3
+  PAGE:0000000140653E7D                 mov     r8d, 90000006h
+  PAGE:0000000140653E83                 and     eax, 1FFh
+  PAGE:0000000140653E88                 mov     rdx, rsi
+  PAGE:0000000140653E8B                 xor     ecx, ecx
+  PAGE:0000000140653E8D                 lea     r14, [rbx+rax*8]
+  PAGE:0000000140653E91                 call    MiMakeValidPte
+  PAGE:0000000140653E96                 mov     rbx, rax
+  PAGE:0000000140653E99                 mov     rcx, r14
+  PAGE:0000000140653E9C                 btr     rbx, 8
+  PAGE:0000000140653EA1                 xor     r15d, r15d
+  PAGE:0000000140653EA4                 call    MiPteInShadowRange
+  PAGE:0000000140653EA9                 test    eax, eax
+  PAGE:0000000140653EAB                 jnz     loc_1407FD8B8
+  PAGE:0000000140653EB1                 mov     [r14], rbx
+  PAGE:0000000140653EB4                 test    r15d, r15d
+  PAGE:0000000140653EB7                 jnz     loc_1407FD90E
+  PAGE:0000000140653EBD                 shl     rsi, 0Ch
+  PAGE:0000000140653EC1                 mov     rcx, rsi
+  PAGE:0000000140653EC4                 call    KeMakeKernelDirectoryTableBase
+  PAGE:0000000140653EC9                 mov     rcx, rdi
+  PAGE:0000000140653ECC                 mov     [rdi+28h], rax; 0x28 = 40 = _KPROCESS->DirectoryTableBase
+  PAGE:0000000140653ED0                 call    MiSyncSystemPdes
+  PAGE:0000000140653ED5                 mov     r8d, r13d
+  PAGE:0000000140653ED8                 lea     rcx, qword_140C4EDC0
+  PAGE:0000000140653EDF                 mov     rdx, rbp
+  PAGE:0000000140653EE2                 call    MiReleasePtes
+  PAGE:0000000140653EE7                 mov     al, r13b
+  PAGE:0000000140653EEA                 lea     r11, [rsp+68h+var_28]
+  PAGE:0000000140653EEF                 mov     rbx, [r11+30h]
+  PAGE:0000000140653EF3                 mov     rbp, [r11+48h]
+  PAGE:0000000140653EF7                 mov     rsp, r11
+  PAGE:0000000140653EFA                 pop     r15
+  PAGE:0000000140653EFC                 pop     r14
+  PAGE:0000000140653EFE                 pop     r13
+  PAGE:0000000140653F00                 pop     rdi
+  PAGE:0000000140653F01                 pop     rsi
+  PAGE:0000000140653F02                 retn
+  PAGE:0000000140653F04                 xor     al, al
+  PAGE:0000000140653F06                 jmp     short loc_140653EEA
+  PAGE:00000001407FD82E                 lea     rbx, MiSystemPartition
+  PAGE:00000001407FD835                 jmp     loc_140653D08
+  PAGE:00000001407FD83A                 mov     r9d, r15d
+  PAGE:00000001407FD83D                 mov     [rsp+68h+var_48], r13d
+  PAGE:00000001407FD842                 lea     r8, [rsp+68h+arg_10]
+  PAGE:00000001407FD84A                 mov     rcx, r14
+  PAGE:00000001407FD84D                 lea     rdx, [rsp+68h+var_38]
+  PAGE:00000001407FD852                 call    MiCheckWsLimits
+  PAGE:00000001407FD857                 mov     rbp, [rsp+68h+arg_10]
+  PAGE:00000001407FD85F                 mov     rsi, [rsp+68h+var_38]
+  PAGE:00000001407FD864                 jmp     loc_140653D7D
+  PAGE:00000001407FD869                 or      byte ptr [r14+0B8h], 40h
+  PAGE:00000001407FD871                 jmp     loc_140653D91
+  PAGE:00000001407FD876                 xor     edx, edx
+  PAGE:00000001407FD878                 call    MiDeleteProcessShadow
+  PAGE:00000001407FD87D                 mov     r8d, r13d
+  PAGE:00000001407FD880                 lea     rcx, qword_140C4EDC0
+  PAGE:00000001407FD887                 mov     rdx, rbp
+  PAGE:00000001407FD88A                 call    MiReleasePtes
+  PAGE:00000001407FD88F                 mov     rdx, rsi
+  PAGE:00000001407FD892                 mov     rcx, rbx
+  PAGE:00000001407FD895                 call    MiReturnResident
+  PAGE:00000001407FD89A                 mov     r8, rsi
+  PAGE:00000001407FD89D                 mov     rcx, rdi
+  PAGE:00000001407FD8A0                 call    PsReturnProcessQuota
+  PAGE:00000001407FD8A5                 mov     edx, 4
+  PAGE:00000001407FD8AA                 mov     rcx, rbx
+  PAGE:00000001407FD8AD                 call    MiReturnCommit
+  PAGE:00000001407FD8B2                 nop
+  PAGE:00000001407FD8B3                 jmp     loc_140653F04
+  PAGE:00000001407FD8B8                 call    MiPteHasShadow
+  PAGE:00000001407FD8BD                 test    eax, eax
+  PAGE:00000001407FD8BF                 jz      short loc_1407FD8D3
+  PAGE:00000001407FD8C1                 cmp     byte ptr cs:word_140C4DE88+1, 0
+  PAGE:00000001407FD8C8                 mov     r15d, r13d
+  PAGE:00000001407FD8CB                 jnz     loc_140653EB1
+  PAGE:00000001407FD8D1                 jmp     short loc_1407FD8F3
+  PAGE:00000001407FD8D3                 mov     rax, gs:188h
+  PAGE:00000001407FD8DC                 mov     rcx, [rax+0B8h]
+  PAGE:00000001407FD8E3                 test    dword ptr [rcx+87Ch], 1000h
+  PAGE:00000001407FD8ED                 jz      loc_140653EB1
+  PAGE:00000001407FD8F3                 test    r13b, bl
+  PAGE:00000001407FD8F6                 jz      loc_140653EB1
+  PAGE:00000001407FD8FC                 mov     rax, 8000000000000000h
+  PAGE:00000001407FD906                 or      rbx, rax
+  PAGE:00000001407FD909                 jmp     loc_140653EB1
+  PAGE:00000001407FD90E                 mov     rdx, rbx
+  PAGE:00000001407FD911                 mov     rcx, r14
+  PAGE:00000001407FD914                 call    MiWritePteShadow
+  PAGE:00000001407FD919                 nop
+  PAGE:00000001407FD91A                 jmp     loc_140653EBD
+procedure: |-
+  char __fastcall MmCreateProcessAddressSpace(__int64 a1, __int64 a2, __int64 a3, int a4, unsigned int a5, _EPROCESS *a6)
+  {
+    __int64 v7; // rsi
+    __int64 v8; // rbp
+    _EPROCESS *v9; // rdi
+    ULONG_PTR *v10; // rbx
+    __int64 v11; // rdx
+    __int64 v12; // rdx
+    __int64 *v13; // rbp
+    __int64 TopLevelPage; // rsi
+    unsigned __int64 v15; // rbx
+    int v16; // r15d
+    __int64 v18; // [rsp+30h] [rbp-38h] BYREF
+    _MM_SESSION_SPACE *v19; // [rsp+78h] [rbp+10h] BYREF
+    __int64 v20; // [rsp+80h] [rbp+18h] BYREF
+
+    v20 = a3;
+    v19 = nullptr;
+    v7 = PspMinimumWorkingSet;
+    v8 = a3;
+    v9 = a6;
+    v18 = PspMinimumWorkingSet;
+    if ( a1 )
+      v10 = *(ULONG_PTR **)a6->PartitionObject;
+    else
+      v10 = &MiSystemPartition;
+    if ( !(unsigned int)MiMakePartitionActive(v10) )
+      return 0;
+    MiSetProcessPartitionId(v9, *(unsigned __int16 *)v10);
+    if ( !(unsigned int)MiChargeCommit(v10, 4) )
+      return 0;
+    v9->Vm.Instance.NextPageColor = (unsigned __int16)RtlRandomEx(&Seed);
+    v9->SharedCommitLinks.Blink = &v9->SharedCommitLinks;
+    v9->SharedCommitLinks.Flink = &v9->SharedCommitLinks;
+    v9->SharedCommitLock.Value = 0;
+    if ( v8 != PsGetDefaultWsMaximum() )
+    {
+      MiCheckWsLimits((_DWORD)v9 + 1664, (unsigned int)&v18, (unsigned int)&v20, a4, 1);
+      v8 = v20;
+      v7 = v18;
+    }
+    v9->Vm.Instance.MinimumWorkingSetSize = v7;
+    v9->Vm.Instance.MaximumWorkingSetSize = v8;
+    if ( (a4 & 1) != 0 )
+      *(_BYTE *)&v9->Vm.Instance.Flags.__s0 |= 0x40u;
+    if ( (int)PsChargeProcessQuota(v9, v11, v7) < 0 )
+    {
+  LABEL_26:
+      MiReturnCommit(v10, 4);
+      return 0;
+    }
+    if ( !(unsigned int)MiChargeResident(v10, v7, 0) )
+    {
+  LABEL_25:
+      PsReturnProcessQuota(v9, v12, v7);
+      goto LABEL_26;
+    }
+    v13 = (__int64 *)MiReservePtes(&qword_140C4EDC0, 1);
+    if ( !v13 )
+    {
+  LABEL_24:
+      MiReturnResident(v10, v7);
+      goto LABEL_25;
+    }
+    if ( (int)MiAllocateProcessShadow(v9, a5) < 0 )
+    {
+  LABEL_23:
+      MiReleasePtes(&qword_140C4EDC0, v13, 1);
+      goto LABEL_24;
+    }
+    if ( !(unsigned int)MiJoinSession(&v19) )
+    {
+      MiDeleteProcessShadow((__int64)v9, 0);
+      goto LABEL_23;
+    }
+    v9->CommitCharge = 4;
+    TopLevelPage = MiAllocateTopLevelPage((__int64)v9, v13);
+    if ( v19 )
+    {
+      v9->Session = v19;
+      _InterlockedOr((volatile signed __int32 *)&v9->___u6, 0x10000u);
+    }
+    ((void (__fastcall *)(_EPROCESS *))MiInsertNewProcess)(v9);
+    MiCreateNewProcessTopLevelMappings((__int64)v9, (__int64)((_QWORD)v13 << 25) >> 16);
+    v15 = MiMakeValidPte(0, TopLevelPage, 0x90000006LL) & 0xFFFFFFFFFFFFFEFFuLL;
+    v16 = 0;
+    if ( !(unsigned int)MiPteInShadowRange(((__int64)((_QWORD)v13 << 25) >> 16) + 3944) )
+      goto LABEL_17;
+    if ( (unsigned int)MiPteHasShadow() )
+    {
+      v16 = 1;
+      if ( !HIBYTE(word_140C4DE88) )
+      {
+  LABEL_31:
+        if ( (v15 & 1) != 0 )
+          v15 |= 0x8000000000000000uLL;
+      }
+    }
+    else if ( (HIDWORD(KeGetCurrentThread()->ApcState.Process[2].Header.WaitListHead.Flink) & 0x1000) != 0 )
+    {
+      goto LABEL_31;
+    }
+  LABEL_17:
+    *(_QWORD *)(((__int64)((_QWORD)v13 << 25) >> 16) + 0xF68) = v15;
+    if ( v16 )
+      MiWritePteShadow(((__int64)((_QWORD)v13 << 25) >> 16) + 3944, v15);
+    v9->Pcb.DirectoryTableBase = KeMakeKernelDirectoryTableBase(TopLevelPage << 12); // 0x28 = 40 = _KPROCESS->DirectoryTableBase
+    MiSyncSystemPdes(v9);
+    MiReleasePtes(&qword_140C4EDC0, v13, 1);
+    return 1;
+  }

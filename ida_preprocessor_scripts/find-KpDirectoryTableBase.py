@@ -4,6 +4,15 @@ import ida_preprocessor_common as preprocessor_common
 
 TARGET_STRUCT_MEMBER_NAMES = ["KpDirectoryTableBase"]
 
+LLM_DECOMPILE = [
+    (
+        "KpDirectoryTableBase",
+        "_KPROCESS->DirectoryTableBase",
+        "prompt/call_llm_decompile.md",
+        "references/ntoskrnl/MmCreateProcessAddressSpace.{arch}.yaml",
+    ),
+]
+
 STRUCT_METADATA = {
     "KpDirectoryTableBase": {
         "symbol_expr": "_KPROCESS->DirectoryTableBase",
@@ -29,5 +38,6 @@ async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, 
         llm_config=llm_config,
         struct_member_names=TARGET_STRUCT_MEMBER_NAMES,
         struct_metadata=STRUCT_METADATA,
+        llm_decompile_specs=LLM_DECOMPILE,
         generate_yaml_desired_fields=GENERATE_YAML_DESIRED_FIELDS,
     )
