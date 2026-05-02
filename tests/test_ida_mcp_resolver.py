@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import AsyncMock, patch
 
 import ida_mcp_resolver
@@ -180,6 +182,120 @@ found_struct_offset:
                 ]
             )
         )
+
+    def test_prepare_llm_decompile_request_includes_optional_funcs(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            scripts_dir = Path(temp_dir)
+            (scripts_dir / "prompt").mkdir()
+            (scripts_dir / "references" / "ntoskrnl").mkdir(parents=True)
+            (scripts_dir / "prompt" / "call_llm_decompile.md").write_text(
+                "{reference_blocks}\n{target_blocks}\n{symbol_name_list}",
+                encoding="utf-8",
+            )
+            (scripts_dir / "references" / "ntoskrnl" / "Ref.amd64.yaml").write_text(
+                "\n".join(
+                    [
+                        "func_name: ObpEnumFindHandleProcedure",
+                        "func_va: '0x1406c6cd0'",
+                        "disasm_code: mov rax, rcx",
+                        "procedure: ''",
+                        "optional_funcs:",
+                        "  - ExGetHandlePointer",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            with patch.object(
+                ida_mcp_resolver,
+                "_get_preprocessor_scripts_dir",
+                return_value=scripts_dir,
+            ):
+                request = ida_mcp_resolver._prepare_llm_decompile_request(
+                    symbol_name="ObDecodeShift",
+                    llm_decompile_specs=[
+                        (
+                            "ObDecodeShift",
+                            "_HANDLE_TABLE_ENTRY->ObjectPointerBits",
+                            "prompt/call_llm_decompile.md",
+                            "references/ntoskrnl/Ref.{arch}.yaml",
+                        )
+                    ],
+                    llm_config={"model": "test-model", "api_key": "test-key"},
+                    binary_dir="/tmp/amd64/ntoskrnl",
+                )
+
+        self.assertIsNotNone(request)
+        self.assertEqual(
+            ["ObpEnumFindHandleProcedure", "ExGetHandlePointer"],
+            request["target_func_names"],
+        )
+        self.assertEqual(
+            ["ObpEnumFindHandleProcedure"],
+            request["required_target_func_names"],
+        )
+
+    def test_prepare_llm_decompile_request_deduplicates_optional_funcs(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            scripts_dir = Path(temp_dir)
+            (scripts_dir / "prompt").mkdir()
+            (scripts_dir / "references" / "ntoskrnl").mkdir(parents=True)
+            (scripts_dir / "prompt" / "call_llm_decompile.md").write_text(
+                "{reference_blocks}\n{target_blocks}\n{symbol_name_list}",
+                encoding="utf-8",
+            )
+            for ref_name, func_name, optional_func in [
+                ("RefA", "PrimaryA", "SharedHelper"),
+                ("RefB", "PrimaryB", "SharedHelper"),
+            ]:
+                (scripts_dir / "references" / "ntoskrnl" / f"{ref_name}.amd64.yaml").write_text(
+                    "\n".join(
+                        [
+                            f"func_name: {func_name}",
+                            "func_va: '0x140001000'",
+                            "disasm_code: mov rax, rcx",
+                            "procedure: ''",
+                            "optional_funcs:",
+                            f"  - {optional_func}",
+                            "  - PrimaryA",
+                            "",
+                        ]
+                    ),
+                    encoding="utf-8",
+                )
+
+            with patch.object(
+                ida_mcp_resolver,
+                "_get_preprocessor_scripts_dir",
+                return_value=scripts_dir,
+            ):
+                request = ida_mcp_resolver._prepare_llm_decompile_request(
+                    symbol_name="ObDecodeShift",
+                    llm_decompile_specs=[
+                        (
+                            "ObDecodeShift",
+                            "_HANDLE_TABLE_ENTRY->ObjectPointerBits",
+                            "prompt/call_llm_decompile.md",
+                            "references/ntoskrnl/RefA.{arch}.yaml",
+                        ),
+                        (
+                            "ObDecodeShift",
+                            "_HANDLE_TABLE_ENTRY->ObjectPointerBits",
+                            "prompt/call_llm_decompile.md",
+                            "references/ntoskrnl/RefB.{arch}.yaml",
+                        ),
+                    ],
+                    llm_config={"model": "test-model", "api_key": "test-key"},
+                    binary_dir="/tmp/amd64/ntoskrnl",
+                )
+
+        self.assertIsNotNone(request)
+        self.assertEqual(
+            ["PrimaryA", "SharedHelper", "PrimaryB"],
+            request["target_func_names"],
+        )
+        self.assertEqual(["PrimaryA", "PrimaryB"], request["required_target_func_names"])
 
     async def test_call_llm_decompile_uses_cs2_prompt_template(self) -> None:
         prompt_template = (

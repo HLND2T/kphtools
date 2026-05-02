@@ -354,6 +354,14 @@ def _build_llm_decompile_result_cache_key(
     )
 
 
+def _append_unique_text(items: list[str], seen: set[str], value: Any) -> None:
+    text = str(value or "").strip()
+    if not text or text in seen:
+        return
+    seen.add(text)
+    items.append(text)
+
+
 def _load_reference_item(reference_yaml_path: Path) -> dict[str, str] | None:
     try:
         data = yaml.safe_load(reference_yaml_path.read_text(encoding="utf-8")) or {}
@@ -419,6 +427,8 @@ def _prepare_llm_decompile_request(
     reference_items: list[dict[str, str]] = []
     reference_paths: list[str] = []
     target_func_names: list[str] = []
+    required_target_func_names: list[str] = []
+    seen_target_func_names: set[str] = set()
     for spec in llm_specs:
         reference_path = Path(
             _resolve_llm_template_value(spec["reference_yaml_path"], arch)
@@ -440,7 +450,19 @@ def _prepare_llm_decompile_request(
             return None
         reference_items.append(reference_item)
         reference_paths.append(os.fspath(reference_path.resolve()))
-        target_func_names.append(reference_item["func_name"])
+        required_func_name = reference_item["func_name"]
+        required_target_func_names.append(required_func_name)
+        _append_unique_text(
+            target_func_names,
+            seen_target_func_names,
+            required_func_name,
+        )
+        for optional_func_name in reference_item.get("optional_funcs", []):
+            _append_unique_text(
+                target_func_names,
+                seen_target_func_names,
+                optional_func_name,
+            )
 
     llm_symbol_names = _collect_grouped_llm_symbol_names(specs_map, symbol_name)
     if not llm_symbol_names:
@@ -454,6 +476,7 @@ def _prepare_llm_decompile_request(
         "reference_items": reference_items,
         "reference_paths": reference_paths,
         "target_func_names": target_func_names,
+        "required_target_func_names": required_target_func_names,
         "arch": arch,
     }
 
