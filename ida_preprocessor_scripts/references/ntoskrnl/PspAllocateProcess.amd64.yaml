@@ -1,0 +1,3303 @@
+func_name: PspAllocateProcess
+func_va: '0x140656d44'
+disasm_code: |-
+  PAGE:0000000140656D44                 push    rbx
+  PAGE:0000000140656D46                 push    rsi
+  PAGE:0000000140656D47                 push    rdi
+  PAGE:0000000140656D48                 push    r12
+  PAGE:0000000140656D4A                 push    r13
+  PAGE:0000000140656D4C                 push    r14
+  PAGE:0000000140656D4E                 push    r15
+  PAGE:0000000140656D50                 sub     rsp, 730h
+  PAGE:0000000140656D57                 mov     rax, cs:__security_cookie
+  PAGE:0000000140656D5E                 xor     rax, rsp
+  PAGE:0000000140656D61                 mov     [rsp+768h+var_48], rax
+  PAGE:0000000140656D69                 mov     dil, r9b
+  PAGE:0000000140656D6C                 mov     r15, r8
+  PAGE:0000000140656D6F                 mov     [rsp+768h+var_6B0], r8
+  PAGE:0000000140656D77                 mov     [rsp+768h+PreviousMode], dl
+  PAGE:0000000140656D7B                 mov     r14, rcx
+  PAGE:0000000140656D7E                 mov     [rsp+768h+Process], rcx
+  PAGE:0000000140656D86                 mov     [rsp+768h+var_5C0], rcx
+  PAGE:0000000140656D8E                 mov     rax, [rsp+768h+arg_30]
+  PAGE:0000000140656D96                 mov     [rsp+768h+var_680], rax
+  PAGE:0000000140656D9E                 mov     rax, [rsp+768h+arg_38]
+  PAGE:0000000140656DA6                 mov     [rsp+768h+Token], rax
+  PAGE:0000000140656DAE                 mov     r13, [rsp+768h+arg_50]
+  PAGE:0000000140656DB6                 mov     [rsp+768h+var_5B8], r13
+  PAGE:0000000140656DBE                 mov     rcx, [rsp+768h+arg_60]
+  PAGE:0000000140656DC6                 mov     [rsp+768h+var_608], rcx
+  PAGE:0000000140656DCE                 mov     rax, [rsp+768h+arg_68]
+  PAGE:0000000140656DD6                 mov     [rsp+768h+var_598], rax
+  PAGE:0000000140656DDE                 mov     rax, [rsp+768h+arg_70]
+  PAGE:0000000140656DE6                 mov     [rsp+768h+var_590], rax
+  PAGE:0000000140656DEE                 xor     esi, esi
+  PAGE:0000000140656DF0                 mov     [rsp+768h+var_620], esi
+  PAGE:0000000140656DF7                 xorps   xmm0, xmm0
+  PAGE:0000000140656DFA                 movups  xmmword ptr [rsp+768h+ApcState.ApcListHead.Flink], xmm0
+  PAGE:0000000140656E02                 movups  xmmword ptr [rsp+768h+ApcState.ApcListHead.Flink+10h], xmm0
+  PAGE:0000000140656E0A                 movups  xmmword ptr [rsp+768h+ApcState.Process], xmm0
+  PAGE:0000000140656E12                 xorps   xmm1, xmm1
+  PAGE:0000000140656E15                 movups  xmmword ptr [rsp+768h+ObjectAttributes.Length], xmm1
+  PAGE:0000000140656E1D                 movups  xmmword ptr [rsp+768h+ObjectAttributes.ObjectName], xmm1
+  PAGE:0000000140656E25                 movups  xmmword ptr [rsp+768h+ObjectAttributes.SecurityDescriptor], xmm1
+  PAGE:0000000140656E2D                 movups  [rsp+768h+var_640], xmm0
+  PAGE:0000000140656E35                 mov     [rsp+768h+KeyHandle], rsi
+  PAGE:0000000140656E3D                 ; Val
+  PAGE:0000000140656E3D                 xor     edx, edx; Val
+  PAGE:0000000140656E3F                 ; Size
+  PAGE:0000000140656E3F                 mov     r8d, 0A8h; Size
+  PAGE:0000000140656E45                 ; void *
+  PAGE:0000000140656E45                 lea     rcx, [rsp+768h+var_358]; void *
+  PAGE:0000000140656E4D                 call    memset
+  PAGE:0000000140656E52                 mov     ebx, esi
+  PAGE:0000000140656E54                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:0000000140656E58                 xorps   xmm0, xmm0
+  PAGE:0000000140656E5B                 xor     eax, eax
+  PAGE:0000000140656E5D                 movups  [rsp+768h+var_3D8], xmm0
+  PAGE:0000000140656E65                 mov     [rsp+768h+var_3C8], rax
+  PAGE:0000000140656E6D                 xorps   xmm1, xmm1
+  PAGE:0000000140656E70                 movups  [rsp+768h+var_3C0], xmm1
+  PAGE:0000000140656E78                 mov     [rsp+768h+var_3B0], rax
+  PAGE:0000000140656E80                 mov     [rsp+768h+var_6EA], sil
+  PAGE:0000000140656E85                 movups  xmmword ptr [rsp+768h+var_558.Length], xmm0
+  PAGE:0000000140656E8D                 movups  xmmword ptr [rsp+768h+var_558.ObjectName], xmm0
+  PAGE:0000000140656E95                 movups  xmmword ptr [rsp+768h+var_558.SecurityDescriptor], xmm0
+  PAGE:0000000140656E9D                 mov     [rsp+768h+Handle], rsi
+  PAGE:0000000140656EA5                 mov     [rsp+768h+Object], rsi
+  PAGE:0000000140656EAD                 mov     [rsp+768h+var_6EB], sil
+  PAGE:0000000140656EB2                 mov     [rsp+768h+var_6D0], si
+  PAGE:0000000140656EBA                 mov     dword ptr [rsp+768h+NumberOfBytes], esi
+  PAGE:0000000140656EC1                 ; Val
+  PAGE:0000000140656EC1                 xor     edx, edx; Val
+  PAGE:0000000140656EC3                 ; Size
+  PAGE:0000000140656EC3                 lea     r8d, [rsi+48h]; Size
+  PAGE:0000000140656EC7                 ; void *
+  PAGE:0000000140656EC7                 lea     rcx, [rsp+768h+var_428]; void *
+  PAGE:0000000140656ECF                 call    memset
+  PAGE:0000000140656ED4                 mov     dword ptr [rsp+768h+TokenInformation], esi
+  PAGE:0000000140656EDB                 mov     [rsp+768h+var_5A8], rsi
+  PAGE:0000000140656EE3                 mov     rax, gs:188h
+  PAGE:0000000140656EEC                 mov     [rsp+768h+var_628], rax
+  PAGE:0000000140656EF4                 mov     rax, [rax+0B8h]
+  PAGE:0000000140656EFB                 mov     [rsp+768h+var_688], rax
+  PAGE:0000000140656F03                 mov     eax, esi
+  PAGE:0000000140656F05                 mov     [rsp+768h+var_610], rax
+  PAGE:0000000140656F0D                 mov     [rsp+768h+var_6C0], rax
+  PAGE:0000000140656F15                 mov     [rsp+768h+P], rsi
+  PAGE:0000000140656F1D                 mov     [rsp+768h+var_6C4], esi
+  PAGE:0000000140656F24                 mov     [rsp+768h+var_664], esi
+  PAGE:0000000140656F2B                 mov     [rsp+768h+var_6D4], esi
+  PAGE:0000000140656F32                 mov     [rsp+768h+var_678], rsi
+  PAGE:0000000140656F3A                 mov     [rsp+768h+var_690], esi
+  PAGE:0000000140656F41                 mov     [rsp+768h+var_694], esi
+  PAGE:0000000140656F48                 mov     word ptr [rsp+768h+var_6D8], si
+  PAGE:0000000140656F50                 mov     dword ptr [rsp+768h+TokenInformation+4], esi
+  PAGE:0000000140656F57                 mov     [rsp+768h+var_6C8], esi
+  PAGE:0000000140656F5E                 mov     [rsp+768h+var_65C], esi
+  PAGE:0000000140656F65                 mov     [rsp+768h+var_6A8], esi
+  PAGE:0000000140656F6C                 mov     [rsp+768h+Address], rsi
+  PAGE:0000000140656F74                 mov     [rsp+768h+var_660], esi
+  PAGE:0000000140656F7B                 mov     [rsp+768h+var_5C8], rsi
+  PAGE:0000000140656F83                 ; Val
+  PAGE:0000000140656F83                 xor     edx, edx; Val
+  PAGE:0000000140656F85                 ; Size
+  PAGE:0000000140656F85                 mov     r8d, 218h; Size
+  PAGE:0000000140656F8B                 ; void *
+  PAGE:0000000140656F8B                 lea     rcx, [rsp+768h+var_2A8]; void *
+  PAGE:0000000140656F93                 call    memset
+  PAGE:0000000140656F98                 mov     eax, [rsp+768h+arg_40]
+  PAGE:0000000140656F9F                 mov     [rsp+768h+var_6F0], eax
+  PAGE:0000000140656FA3                 mov     r12d, 2000h
+  PAGE:0000000140656FA9                 bt      eax, 0Bh
+  PAGE:0000000140656FAD                 jnb     short loc_140656FD2
+  PAGE:0000000140656FAF                 mov     ebx, 400h
+  PAGE:0000000140656FB4                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:0000000140656FB8                 test    r12d, eax
+  PAGE:0000000140656FBB                 jz      short loc_140656FD2
+  PAGE:0000000140656FBD                 mov     ebx, 10400h
+  PAGE:0000000140656FC2                 bt      eax, 0Eh
+  PAGE:0000000140656FC6                 mov     ecx, 30400h
+  PAGE:0000000140656FCB                 cmovb   ebx, ecx
+  PAGE:0000000140656FCE                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:0000000140656FD2                 and     eax, 100h
+  PAGE:0000000140656FD7                 neg     eax
+  PAGE:0000000140656FD9                 sbb     rcx, rcx
+  PAGE:0000000140656FDC                 and     rcx, r14
+  PAGE:0000000140656FDF                 mov     [rsp+768h+var_650], rcx
+  PAGE:0000000140656FE7                 test    r13, r13
+  PAGE:0000000140656FEA                 jz      short loc_140657032
+  PAGE:0000000140656FEC                 test    [r13+4], r12d
+  PAGE:0000000140656FF0                 jz      short loc_140657032
+  PAGE:0000000140656FF2                 test    rcx, rcx
+  PAGE:0000000140656FF5                 jz      short loc_140657001
+  PAGE:0000000140656FF7                 mov     eax, 0C0000030h
+  PAGE:0000000140656FFC                 jmp     loc_1406590FE
+  PAGE:0000000140657001                 movzx   eax, word ptr [r13+0FAh]
+  PAGE:0000000140657009                 lea     rcx, cs:140000000h
+  PAGE:0000000140657010                 mov     rax, ds:rva KeNodeBlock[rcx+rax*8]
+  PAGE:0000000140657018                 mov     [rsp+768h+var_610], rax
+  PAGE:0000000140657020                 mov     [rsp+768h+var_6C0], rax
+  PAGE:0000000140657028                 mov     [rsp+768h+var_650], rsi
+  PAGE:0000000140657030                 jmp     short loc_14065705F
+  PAGE:0000000140657032                 test    r14, r14
+  PAGE:0000000140657035                 jz      short loc_14065705F
+  PAGE:0000000140657037                 mov     [rsp+768h+var_650], rcx
+  PAGE:000000014065703F                 test    dword ptr [r14+460h], 200000h
+  PAGE:000000014065704A                 jz      short loc_14065705F
+  PAGE:000000014065704C                 mov     [rsp+768h+var_650], r14
+  PAGE:0000000140657054                 mov     [rsp+768h+var_6D4], 200000h
+  PAGE:000000014065705F                 test    r13, r13
+  PAGE:0000000140657062                 jz      short loc_140657076
+  PAGE:0000000140657064                 test    dword ptr [r13+4], 40000h
+  PAGE:000000014065706C                 jz      short loc_140657076
+  PAGE:000000014065706E                 bts     ebx, 0Ch
+  PAGE:0000000140657072                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:0000000140657076                 xorps   xmm0, xmm0
+  PAGE:0000000140657079                 movups  [rsp+768h+var_378], xmm0
+  PAGE:0000000140657081                 movups  [rsp+768h+var_368], xmm0
+  PAGE:0000000140657089                 mov     [rsp+768h+var_5F8], rsi
+  PAGE:0000000140657091                 mov     ecx, 0A40h
+  PAGE:0000000140657096                 mov     r14d, ecx
+  PAGE:0000000140657099                 mov     dword ptr [rsp+768h+NumberOfBytes+4], esi
+  PAGE:00000001406570A0                 mov     [rsp+768h+var_670], rsi
+  PAGE:00000001406570A8                 cmp     cs:PsDisableDiskCounters, esi
+  PAGE:00000001406570AE                 jnz     short loc_1406570C4
+  PAGE:00000001406570B0                 lea     r14d, [rcx+28h]
+  PAGE:00000001406570B4                 bts     ebx, 9
+  PAGE:00000001406570B8                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:00000001406570BC                 mov     [rsp+768h+var_670], rcx
+  PAGE:00000001406570C4                 call    PoEnergyEstimationEnabled
+  PAGE:00000001406570C9                 test    al, al
+  PAGE:00000001406570CB                 jz      short loc_1406570F3
+  PAGE:00000001406570CD                 lea     r15d, [r14+7]
+  PAGE:00000001406570D1                 and     r15d, 0FFFFFFF8h
+  PAGE:00000001406570D5                 mov     dword ptr [rsp+768h+NumberOfBytes+4], r15d
+  PAGE:00000001406570DD                 lea     r14d, [r15+1E0h]
+  PAGE:00000001406570E4                 or      ebx, r12d
+  PAGE:00000001406570E7                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:00000001406570EB                 mov     r15, [rsp+768h+var_6B0]
+  PAGE:00000001406570F3                 call    KeQueryMaximumGroupCount
+  PAGE:00000001406570F8                 movzx   eax, ax
+  PAGE:00000001406570FB                 mov     dword ptr [rsp+768h+var_6B0], eax
+  PAGE:0000000140657102                 mov     r12d, esi
+  PAGE:0000000140657105                 cmp     eax, 1
+  PAGE:0000000140657108                 jbe     short loc_14065711B
+  PAGE:000000014065710A                 add     r14d, 7
+  PAGE:000000014065710E                 and     r14d, 0FFFFFFF8h
+  PAGE:0000000140657112                 mov     r12d, r14d
+  PAGE:0000000140657115                 shl     eax, 4
+  PAGE:0000000140657118                 add     r14d, eax
+  PAGE:000000014065711B                 lea     rax, [rsp+768h+Object]
+  PAGE:0000000140657123                 mov     [rsp+768h+var_728], rax
+  PAGE:0000000140657128                 mov     [rsp+768h+var_730], r14d
+  PAGE:000000014065712D                 mov     [rsp+768h+var_738], esi
+  PAGE:0000000140657131                 mov     dword ptr [rsp+768h+var_740], r14d
+  PAGE:0000000140657136                 mov     qword ptr [rsp+768h+var_748], rsi
+  PAGE:000000014065713B                 mov     r9b, [rsp+768h+PreviousMode]
+  PAGE:0000000140657140                 mov     r8, r15
+  PAGE:0000000140657143                 mov     rdx, cs:PsProcessType
+  PAGE:000000014065714A                 mov     cl, r9b
+  PAGE:000000014065714D                 call    ObCreateObject
+  PAGE:0000000140657152                 test    eax, eax
+  PAGE:0000000140657154                 js      loc_1406590FE
+  PAGE:000000014065715A                 ; Tag
+  PAGE:000000014065715A                 mov     edx, 72437350h; Tag
+  PAGE:000000014065715F                 mov     r15, [rsp+768h+Object]
+  PAGE:0000000140657167                 ; Object
+  PAGE:0000000140657167                 mov     rcx, r15; Object
+  PAGE:000000014065716A                 call    ObfReferenceObjectWithTag
+  PAGE:000000014065716F                 ; Tag
+  PAGE:000000014065716F                 mov     edx, 746C6644h; Tag
+  PAGE:0000000140657174                 ; Object
+  PAGE:0000000140657174                 mov     rcx, r15; Object
+  PAGE:0000000140657177                 call    ObfDereferenceObjectWithTag
+  PAGE:000000014065717C                 ; Size
+  PAGE:000000014065717C                 mov     r8d, r14d; Size
+  PAGE:000000014065717F                 ; Val
+  PAGE:000000014065717F                 xor     edx, edx; Val
+  PAGE:0000000140657181                 ; void *
+  PAGE:0000000140657181                 mov     rcx, r15; void *
+  PAGE:0000000140657184                 call    memset
+  PAGE:0000000140657189                 mov     rcx, r15
+  PAGE:000000014065718C                 call    LpcInitializeProcess
+  PAGE:0000000140657191                 ; SpinLock
+  PAGE:0000000140657191                 lea     rcx, [r15+458h]; SpinLock
+  PAGE:0000000140657198                 call    ExInitializePushLock
+  PAGE:000000014065719D                 mov     rcx, r15
+  PAGE:00000001406571A0                 call    PspInitializeProcessLock
+  PAGE:00000001406571A5                 lea     rax, [r15+5E0h]
+  PAGE:00000001406571AC                 mov     [rax+8], rax
+  PAGE:00000001406571B0                 mov     [rax], rax
+  PAGE:00000001406571B3                 lea     rax, [r15+8A0h]
+  PAGE:00000001406571BA                 mov     [rax+8], rax
+  PAGE:00000001406571BE                 mov     [rax], rax
+  PAGE:00000001406571C1                 lea     rax, [r15+990h]
+  PAGE:00000001406571C8                 mov     [rax+8], rax
+  PAGE:00000001406571CC                 mov     [rax], rax
+  PAGE:00000001406571CF                 mov     [r15+87Ah], dil
+  PAGE:00000001406571D6                 mov     al, [rsp+768h+arg_20]
+  PAGE:00000001406571DD                 mov     [r15+878h], al
+  PAGE:00000001406571E4                 mov     al, [rsp+768h+arg_28]
+  PAGE:00000001406571EB                 mov     [r15+879h], al
+  PAGE:00000001406571F2                 mov     [r15+8D8h], rsi
+  PAGE:00000001406571F9                 mov     [r15+0A08h], rsi
+  PAGE:0000000140657200                 mov     [r15+0A00h], rsi
+  PAGE:0000000140657207                 mov     [r15+0A18h], rsi
+  PAGE:000000014065720E                 mov     [r15+0A10h], rsi
+  PAGE:0000000140657215                 mov     r9d, ebx
+  PAGE:0000000140657218                 and     r9d, 400h
+  PAGE:000000014065721F                 mov     edi, 1
+  PAGE:0000000140657224                 jz      short loc_14065722D
+  PAGE:0000000140657226                 or      [r15+87Ch], edi
+  PAGE:000000014065722D                 test    [rsp+768h+var_6F0], 8000h
+  PAGE:0000000140657235                 jz      short loc_14065724C
+  PAGE:0000000140657237                 mov     eax, 20h ; ' '
+  PAGE:000000014065723C                 mov     [rsp+768h+var_698], eax
+  PAGE:0000000140657243                 or      [r15+87Ch], eax
+  PAGE:000000014065724A                 jmp     short loc_140657257
+  PAGE:000000014065724C                 mov     [rsp+768h+var_698], 20h ; ' '
+  PAGE:0000000140657257                 test    r12d, r12d
+  PAGE:000000014065725A                 jz      short loc_140657284
+  PAGE:000000014065725C                 bts     dword ptr [r15+87Ch], 7
+  PAGE:0000000140657265                 mov     ecx, r12d
+  PAGE:0000000140657268                 add     rcx, r15
+  PAGE:000000014065726B                 mov     [r15+948h], rcx
+  PAGE:0000000140657272                 mov     eax, dword ptr [rsp+768h+var_6B0]
+  PAGE:0000000140657279                 lea     rcx, [rcx+rax*8]
+  PAGE:000000014065727D                 mov     [r15+950h], rcx
+  PAGE:0000000140657284                 mov     eax, dword ptr [rsp+768h+arg_48]
+  PAGE:000000014065728B                 test    dil, al
+  PAGE:000000014065728E                 jz      short loc_140657299
+  PAGE:0000000140657290                 bts     dword ptr [r15+87Ch], 0Ch
+  PAGE:0000000140657299                 test    al, 4
+  PAGE:000000014065729B                 jz      short loc_1406572A6
+  PAGE:000000014065729D                 bts     dword ptr [r15+87Ch], 17h
+  PAGE:00000001406572A6                 test    al, 8
+  PAGE:00000001406572A8                 jz      short loc_1406572B3
+  PAGE:00000001406572AA                 bts     dword ptr [r15+87Ch], 1Bh
+  PAGE:00000001406572B3                 mov     rdx, [rsp+768h+var_688]
+  PAGE:00000001406572BB                 mov     rdx, [rdx+440h]
+  PAGE:00000001406572C2                 mov     r12d, [rsp+768h+var_6F0]
+  PAGE:00000001406572C7                 mov     eax, r12d
+  PAGE:00000001406572CA                 mov     r8d, 200h
+  PAGE:00000001406572D0                 mov     rcx, rdx
+  PAGE:00000001406572D3                 or      rcx, 2
+  PAGE:00000001406572D7                 and     eax, r8d
+  PAGE:00000001406572DA                 cmovnz  rcx, rdx
+  PAGE:00000001406572DE                 mov     [r15+548h], rcx
+  PAGE:00000001406572E5                 test    r8d, ebx
+  PAGE:00000001406572E8                 jz      short loc_1406572FC
+  PAGE:00000001406572EA                 mov     rax, [rsp+768h+var_670]
+  PAGE:00000001406572F2                 add     rax, r15
+  PAGE:00000001406572F5                 mov     [r15+8B8h], rax
+  PAGE:00000001406572FC                 bt      ebx, 0Dh
+  PAGE:0000000140657300                 jnb     short loc_140657318
+  PAGE:0000000140657302                 mov     ecx, dword ptr [rsp+768h+NumberOfBytes+4]
+  PAGE:0000000140657309                 add     rcx, r15
+  PAGE:000000014065730C                 mov     [r15+8E8h], rcx
+  PAGE:0000000140657313                 call    PoEnergyContextInitialize
+  PAGE:0000000140657318                 test    r13, r13
+  PAGE:000000014065731B                 jz      short loc_140657334
+  PAGE:000000014065731D                 test    [r13+4], r8d
+  PAGE:0000000140657321                 jz      short loc_140657334
+  PAGE:0000000140657323                 mov     eax, [r13+13Ch]
+  PAGE:000000014065732A                 mov     r14, [rsp+768h+Process]
+  PAGE:0000000140657332                 jmp     short loc_14065734F
+  PAGE:0000000140657334                 mov     r14, [rsp+768h+Process]
+  PAGE:000000014065733C                 test    r14, r14
+  PAGE:000000014065733F                 jz      short loc_14065734A
+  PAGE:0000000140657341                 mov     eax, [r14+5F8h]
+  PAGE:0000000140657348                 jmp     short loc_14065734F
+  PAGE:000000014065734A                 mov     eax, 5
+  PAGE:000000014065734F                 lea     rcx, [r15+5F8h]
+  PAGE:0000000140657356                 mov     [rsp+768h+var_5A0], rcx
+  PAGE:000000014065735E                 mov     [rcx], eax
+  PAGE:0000000140657360                 mov     dword ptr [r15+7D4h], 103h
+  PAGE:000000014065736B                 test    r14, r14
+  PAGE:000000014065736E                 jz      short loc_14065739C
+  PAGE:0000000140657370                 mov     edx, [r14+464h]
+  PAGE:0000000140657377                 shr     edx, 1Bh
+  PAGE:000000014065737A                 and     edx, 7
+  PAGE:000000014065737D                 mov     r8d, [r14+460h]
+  PAGE:0000000140657384                 shr     r8d, 0Ch
+  PAGE:0000000140657388                 and     r8d, 7
+  PAGE:000000014065738C                 mov     rax, [r14+440h]
+  PAGE:0000000140657393                 mov     [r15+540h], rax
+  PAGE:000000014065739A                 jmp     short loc_1406573A9
+  PAGE:000000014065739C                 mov     edx, 2
+  PAGE:00000001406573A1                 call    MmGetDefaultPagePriority
+  PAGE:00000001406573A6                 mov     r8d, eax
+  PAGE:00000001406573A9                 lea     rax, [r15+464h]
+  PAGE:00000001406573B0                 mov     [rsp+768h+var_6B0], rax
+  PAGE:00000001406573B8                 shl     edx, 1Bh
+  PAGE:00000001406573BB                 mov     ecx, [rax]
+  PAGE:00000001406573BD                 and     ecx, 0C7FFFFFFh
+  PAGE:00000001406573C3                 or      edx, ecx
+  PAGE:00000001406573C5                 mov     [rax], edx
+  PAGE:00000001406573C7                 lea     rcx, [r15+460h]
+  PAGE:00000001406573CE                 mov     [rsp+768h+var_670], rcx
+  PAGE:00000001406573D6                 mov     eax, [rcx]
+  PAGE:00000001406573D8                 and     eax, 0FFFF8FFFh
+  PAGE:00000001406573DD                 shl     r8d, 0Ch
+  PAGE:00000001406573E1                 or      eax, r8d
+  PAGE:00000001406573E4                 mov     [rcx], eax
+  PAGE:00000001406573E6                 mov     r8, [rsp+768h+var_608]
+  PAGE:00000001406573EE                 test    r8, r8
+  PAGE:00000001406573F1                 jz      short loc_14065740A
+  PAGE:00000001406573F3                 mov     rcx, r8
+  PAGE:00000001406573F6                 call    PsReferencePartitionSafe
+  PAGE:00000001406573FB                 test    al, al
+  PAGE:00000001406573FD                 jnz     short loc_140657421
+  PAGE:00000001406573FF                 mov     r14d, 0C00004A0h
+  PAGE:0000000140657405                 jmp     loc_140657D4D
+  PAGE:000000014065740A                 mov     r8, cs:PspSystemPartition
+  PAGE:0000000140657411                 mov     [rsp+768h+var_608], r8
+  PAGE:0000000140657419                 mov     rcx, r8
+  PAGE:000000014065741C                 call    PsReferencePartition
+  PAGE:0000000140657421                 mov     [r15+9D8h], r8
+  PAGE:0000000140657428                 test    r9d, r9d
+  PAGE:000000014065742B                 jnz     loc_140657526
+  PAGE:0000000140657431                 mov     rax, [rsp+768h+var_680]
+  PAGE:0000000140657439                 mov     [rsp+768h+var_678], rax
+  PAGE:0000000140657441                 test    rax, rax
+  PAGE:0000000140657444                 jz      short loc_140657465
+  PAGE:0000000140657446                 bt      r12d, 0Ch
+  PAGE:000000014065744B                 jnb     short loc_140657458
+  PAGE:000000014065744D                 mov     r14d, 0C0000030h
+  PAGE:0000000140657453                 jmp     loc_140657D4D
+  PAGE:0000000140657458                 ; Object
+  PAGE:0000000140657458                 mov     rcx, rax; Object
+  PAGE:000000014065745B                 call    ObfReferenceObject
+  PAGE:0000000140657460                 jmp     loc_140657526
+  PAGE:0000000140657465                 test    r14, r14
+  PAGE:0000000140657468                 jz      loc_140657526
+  PAGE:000000014065746E                 cmp     [rsp+768h+arg_58], esi
+  PAGE:0000000140657475                 jnz     short loc_14065744D
+  PAGE:0000000140657477                 mov     rcx, r14
+  PAGE:000000014065747A                 call    PsIsSystemProcess
+  PAGE:000000014065747F                 test    al, al
+  PAGE:0000000140657481                 jz      short loc_14065748E
+  PAGE:0000000140657483                 mov     r14d, 0C000000Dh
+  PAGE:0000000140657489                 jmp     loc_140657D4D
+  PAGE:000000014065748E                 lea     rdi, [r14+458h]
+  PAGE:0000000140657495                 ; RunRef
+  PAGE:0000000140657495                 mov     rcx, rdi; RunRef
+  PAGE:0000000140657498                 call    ExAcquireRundownProtection_0
+  PAGE:000000014065749D                 test    al, al
+  PAGE:000000014065749F                 jz      short loc_1406574C5
+  PAGE:00000001406574A1                 mov     rax, [r14+518h]
+  PAGE:00000001406574A8                 mov     [rsp+768h+var_680], rax
+  PAGE:00000001406574B0                 test    rax, rax
+  PAGE:00000001406574B3                 jz      short loc_1406574BD
+  PAGE:00000001406574B5                 ; Object
+  PAGE:00000001406574B5                 mov     rcx, rax; Object
+  PAGE:00000001406574B8                 call    ObfReferenceObject
+  PAGE:00000001406574BD                 ; RunRef
+  PAGE:00000001406574BD                 mov     rcx, rdi; RunRef
+  PAGE:00000001406574C0                 call    ExReleaseRundownProtection_0
+  PAGE:00000001406574C5                 cmp     [rsp+768h+var_680], rsi
+  PAGE:00000001406574CD                 jnz     short loc_1406574DA
+  PAGE:00000001406574CF                 mov     r14d, 0C000010Ah
+  PAGE:00000001406574D5                 jmp     loc_140657D4D
+  PAGE:00000001406574DA                 mov     rax, [r14+580h]
+  PAGE:00000001406574E1                 test    rax, rax
+  PAGE:00000001406574E4                 jz      short loc_140657503
+  PAGE:00000001406574E6                 bts     ebx, 0Eh
+  PAGE:00000001406574EA                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:00000001406574EE                 movzx   ecx, word ptr [rax+8]
+  PAGE:00000001406574F2                 mov     [rsp+768h+var_6D8], ecx
+  PAGE:00000001406574F9                 mov     eax, [rax+0Ch]
+  PAGE:00000001406574FC                 mov     dword ptr [rsp+768h+TokenInformation+4], eax
+  PAGE:0000000140657503                 mov     edi, 1
+  PAGE:0000000140657508                 test    dword ptr [r14+464h], 20000h
+  PAGE:0000000140657513                 jz      short loc_140657526
+  PAGE:0000000140657515                 or      r12d, 8
+  PAGE:0000000140657519                 mov     [rsp+768h+var_6F0], r12d
+  PAGE:000000014065751E                 mov     [rsp+768h+arg_40], r12d
+  PAGE:0000000140657526                 lea     rax, [r15+518h]
+  PAGE:000000014065752D                 mov     [rsp+768h+var_5E8], rax
+  PAGE:0000000140657535                 mov     rcx, [rsp+768h+var_680]
+  PAGE:000000014065753D                 mov     [rax], rcx
+  PAGE:0000000140657540                 mov     word ptr [rsp+768h+NumberOfBytes+4], si
+  PAGE:0000000140657548                 test    r13, r13
+  PAGE:000000014065754B                 jz      loc_140657ABD
+  PAGE:0000000140657551                 mov     rax, [r13+1D0h]
+  PAGE:0000000140657558                 mov     [r15+870h], rax
+  PAGE:000000014065755F                 lea     r8, [r13+30h]
+  PAGE:0000000140657563                 mov     edx, 4
+  PAGE:0000000140657568                 call    MmGetSectionInformation
+  PAGE:000000014065756D                 mov     r14d, eax
+  PAGE:0000000140657570                 test    eax, eax
+  PAGE:0000000140657572                 js      loc_140657D4D
+  PAGE:0000000140657578                 mov     ecx, [r13+70h]
+  PAGE:000000014065757C                 movzx   r8d, byte ptr [r13+63h]
+  PAGE:0000000140657581                 mov     edx, ecx
+  PAGE:0000000140657583                 and     edx, 0F8h
+  PAGE:0000000140657589                 add     edx, edx
+  PAGE:000000014065758B                 mov     eax, ecx
+  PAGE:000000014065758D                 and     eax, 2
+  PAGE:0000000140657590                 or      edx, eax
+  PAGE:0000000140657592                 add     edx, edx
+  PAGE:0000000140657594                 and     ecx, edi
+  PAGE:0000000140657596                 or      edx, ecx
+  PAGE:0000000140657598                 shl     edx, 0Bh
+  PAGE:000000014065759B                 mov     eax, r8d
+  PAGE:000000014065759E                 and     eax, 2
+  PAGE:00000001406575A1                 or      edx, eax
+  PAGE:00000001406575A3                 shl     edx, 2
+  PAGE:00000001406575A6                 mov     eax, r8d
+  PAGE:00000001406575A9                 and     eax, 4
+  PAGE:00000001406575AC                 or      edx, eax
+  PAGE:00000001406575AE                 shl     edx, 5
+  PAGE:00000001406575B1                 or      edx, ebx
+  PAGE:00000001406575B3                 mov     ebx, edx
+  PAGE:00000001406575B5                 movzx   eax, word ptr [r13+56h]
+  PAGE:00000001406575BA                 mov     [rsp+768h+var_690], eax
+  PAGE:00000001406575C1                 movzx   eax, word ptr [r13+54h]
+  PAGE:00000001406575C6                 mov     [rsp+768h+var_694], eax
+  PAGE:00000001406575CD                 movzx   ecx, word ptr [r13+60h]
+  PAGE:00000001406575D2                 bt      edx, 8
+  PAGE:00000001406575D6                 jnb     short loc_1406575F2
+  PAGE:00000001406575D8                 mov     edx, 14Ch
+  PAGE:00000001406575DD                 cmp     cx, dx
+  PAGE:00000001406575E0                 jnz     short loc_1406575F2
+  PAGE:00000001406575E2                 test    dil, r8b
+  PAGE:00000001406575E5                 jz      short loc_1406575F2
+  PAGE:00000001406575E7                 mov     r14d, 8000h
+  PAGE:00000001406575ED                 mov     eax, r14d
+  PAGE:00000001406575F0                 jmp     short loc_1406575FA
+  PAGE:00000001406575F2                 mov     eax, esi
+  PAGE:00000001406575F4                 mov     r14d, 8000h
+  PAGE:00000001406575FA                 or      ebx, eax
+  PAGE:00000001406575FC                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:0000000140657600                 call    RtlWow64GetEquivalentMachineCHPE
+  PAGE:0000000140657605                 movzx   edi, ax
+  PAGE:0000000140657608                 movzx   ecx, word ptr [r13+5Ch]
+  PAGE:000000014065760D                 test    [r13+0Ah], cx
+  PAGE:0000000140657612                 jz      short loc_14065762F
+  PAGE:0000000140657614                 mov     ecx, 3
+  PAGE:0000000140657619                 mov     r14d, 0C000007Bh
+  PAGE:000000014065761F                 xor     r8d, r8d
+  PAGE:0000000140657622                 mov     rdx, r13
+  PAGE:0000000140657625                 call    PspUpdateCreateInfo
+  PAGE:000000014065762A                 jmp     loc_140657D4D
+  PAGE:000000014065762F                 test    r14d, ebx
+  PAGE:0000000140657632                 jnz     short loc_140657680
+  PAGE:0000000140657634                 movzx   ecx, di
+  PAGE:0000000140657637                 call    PsWow64IsMachineSupported
+  PAGE:000000014065763C                 test    eax, eax
+  PAGE:000000014065763E                 jz      short loc_140657650
+  PAGE:0000000140657640                 bts     ebx, 0Eh
+  PAGE:0000000140657644                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:0000000140657648                 mov     word ptr [rsp+768h+var_6D8], di
+  PAGE:0000000140657650                 test    r14d, ebx
+  PAGE:0000000140657653                 jnz     short loc_140657680
+  PAGE:0000000140657655                 mov     rax, 0FFFFF7800000002Ch
+  PAGE:000000014065765F                 cmp     di, [rax]
+  PAGE:0000000140657662                 jb      short loc_140657673
+  PAGE:0000000140657664                 mov     rax, 0FFFFF7800000002Eh
+  PAGE:000000014065766E                 cmp     di, [rax]
+  PAGE:0000000140657671                 jbe     short loc_140657680
+  PAGE:0000000140657673                 bt      ebx, 0Eh
+  PAGE:0000000140657677                 jb      short loc_140657680
+  PAGE:0000000140657679                 mov     ecx, 4
+  PAGE:000000014065767E                 jmp     short loc_140657619
+  PAGE:0000000140657680                 cmp     [rsp+768h+var_678], rsi
+  PAGE:0000000140657688                 jz      loc_140657B7B
+  PAGE:000000014065768E                 movzx   eax, word ptr [r13+5Eh]
+  PAGE:0000000140657693                 mov     word ptr [rsp+768h+NumberOfBytes+4], ax
+  PAGE:000000014065769B                 lea     r12, [r13+0C0h]
+  PAGE:00000001406576A2                 lea     rcx, [r13+0E8h]
+  PAGE:00000001406576A9                 mov     r8, r12
+  PAGE:00000001406576AC                 xor     edx, edx
+  PAGE:00000001406576AE                 call    RtlOpenImageFileOptionsKey
+  PAGE:00000001406576B3                 test    eax, eax
+  PAGE:00000001406576B5                 jns     short loc_1406576C7
+  PAGE:00000001406576B7                 cmp     eax, 0C0000034h
+  PAGE:00000001406576BC                 jnz     short loc_1406576C3
+  PAGE:00000001406576BE                 or      byte ptr [r13+8], 40h
+  PAGE:00000001406576C3                 mov     [r12], rsi
+  PAGE:00000001406576C7                 ; Tag
+  PAGE:00000001406576C7                 mov     edx, 72437350h; Tag
+  PAGE:00000001406576CC                 ; Object
+  PAGE:00000001406576CC                 mov     rcx, [r13+0B0h]; Object
+  PAGE:00000001406576D3                 call    ObfReferenceObjectWithTag
+  PAGE:00000001406576D8                 mov     rax, [r13+0B0h]
+  PAGE:00000001406576DF                 mov     [r15+5A0h], rax
+  PAGE:00000001406576E6                 bt      ebx, 0Eh
+  PAGE:00000001406576EA                 jb      loc_140657775
+  PAGE:00000001406576F0                 lea     rdx, [rsp+768h+arg_40]
+  PAGE:00000001406576F8                 mov     rcx, r13
+  PAGE:00000001406576FB                 call    PspDetectComplusILImage
+  PAGE:0000000140657700                 mov     r14d, eax
+  PAGE:0000000140657703                 test    eax, eax
+  PAGE:0000000140657705                 js      loc_140657D4D
+  PAGE:000000014065770B                 mov     eax, 14Ch
+  PAGE:0000000140657710                 mov     r14d, [rsp+768h+arg_40]
+  PAGE:0000000140657718                 mov     [rsp+768h+var_6F0], r14d
+  PAGE:000000014065771D                 cmp     di, ax
+  PAGE:0000000140657720                 jnz     short loc_14065777A
+  PAGE:0000000140657722                 test    r14b, 8
+  PAGE:0000000140657726                 jnz     short loc_14065777A
+  PAGE:0000000140657728                 mov     ecx, eax
+  PAGE:000000014065772A                 call    PsWow64IsMachineSupported
+  PAGE:000000014065772F                 test    eax, eax
+  PAGE:0000000140657731                 jz      short loc_140657740
+  PAGE:0000000140657733                 mov     [rsp+768h+var_6D8], 14Ch
+  PAGE:000000014065773E                 jmp     short loc_140657758
+  PAGE:0000000140657740                 mov     edi, 1C4h
+  PAGE:0000000140657745                 mov     ecx, edi
+  PAGE:0000000140657747                 call    PsWow64IsMachineSupported
+  PAGE:000000014065774C                 test    eax, eax
+  PAGE:000000014065774E                 jz      short loc_140657762
+  PAGE:0000000140657750                 mov     word ptr [rsp+768h+var_6D8], di
+  PAGE:0000000140657758                 bts     ebx, 0Eh
+  PAGE:000000014065775C                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:0000000140657760                 jmp     short loc_14065777A
+  PAGE:0000000140657762                 or      r14d, 8
+  PAGE:0000000140657766                 mov     [rsp+768h+var_6F0], r14d
+  PAGE:000000014065776B                 mov     [rsp+768h+arg_40], r14d
+  PAGE:0000000140657773                 jmp     short loc_14065777A
+  PAGE:0000000140657775                 mov     r14d, [rsp+768h+var_6F0]
+  PAGE:000000014065777A                 ; KeyHandle
+  PAGE:000000014065777A                 mov     rcx, [r12]; KeyHandle
+  PAGE:000000014065777E                 test    rcx, rcx
+  PAGE:0000000140657781                 jz      loc_140657B80
+  PAGE:0000000140657787                 cmp     [r13+8], sil
+  PAGE:000000014065778B                 jl      short loc_1406577EB
+  PAGE:000000014065778D                 lea     rax, [rsp+768h+NumberOfBytes]
+  PAGE:0000000140657795                 ; __int64
+  PAGE:0000000140657795                 mov     [rsp+768h+var_740], rax; __int64
+  PAGE:000000014065779A                 ; int
+  PAGE:000000014065779A                 mov     [rsp+768h+var_748], 2; int
+  PAGE:00000001406577A2                 lea     r9, [rsp+768h+var_6D0]
+  PAGE:00000001406577AA                 mov     r8d, 1
+  PAGE:00000001406577B0                 lea     rdx, aDebugger; "Debugger"
+  PAGE:00000001406577B7                 call    RtlQueryImageFileKeyOption
+  PAGE:00000001406577BC                 cmp     eax, 80000005h
+  PAGE:00000001406577C1                 jz      short loc_1406577DB
+  PAGE:00000001406577C3                 test    eax, eax
+  PAGE:00000001406577C5                 js      short loc_1406577EB
+  PAGE:00000001406577C7                 cmp     dword ptr [rsp+768h+NumberOfBytes], 2
+  PAGE:00000001406577CF                 jnz     short loc_1406577EB
+  PAGE:00000001406577D1                 cmp     [rsp+768h+var_6D0], si
+  PAGE:00000001406577D9                 jz      short loc_1406577EB
+  PAGE:00000001406577DB                 mov     r14d, 0C0000039h
+  PAGE:00000001406577E1                 mov     ecx, 5
+  PAGE:00000001406577E6                 jmp     loc_14065761F
+  PAGE:00000001406577EB                 mov     [rsp+768h+var_6CC], esi
+  PAGE:00000001406577F2                 ; __int64
+  PAGE:00000001406577F2                 mov     [rsp+768h+var_740], rsi; __int64
+  PAGE:00000001406577F7                 mov     edi, 4
+  PAGE:00000001406577FC                 ; int
+  PAGE:00000001406577FC                 mov     [rsp+768h+var_748], edi; int
+  PAGE:0000000140657800                 lea     r9, [rsp+768h+var_6CC]
+  PAGE:0000000140657808                 mov     r8d, edi
+  PAGE:000000014065780B                 lea     rdx, aUselargepages; "UseLargePages"
+  PAGE:0000000140657812                 ; KeyHandle
+  PAGE:0000000140657812                 mov     rcx, [r12]; KeyHandle
+  PAGE:0000000140657816                 call    RtlQueryImageFileKeyOption
+  PAGE:000000014065781B                 test    eax, eax
+  PAGE:000000014065781D                 js      loc_140657900
+  PAGE:0000000140657823                 cmp     [rsp+768h+var_6CC], esi
+  PAGE:000000014065782A                 jz      loc_140657900
+  PAGE:0000000140657830                 or      r14d, 10h
+  PAGE:0000000140657834                 mov     [rsp+768h+var_6F0], r14d
+  PAGE:0000000140657839                 mov     [rsp+768h+arg_40], r14d
+  PAGE:0000000140657841                 bt      ebx, 0Eh
+  PAGE:0000000140657845                 jb      loc_140657900
+  PAGE:000000014065784B                 mov     [rsp+768h+ObjectAttributes.Length], 30h ; '0'
+  PAGE:0000000140657856                 mov     rax, [r12]
+  PAGE:000000014065785A                 mov     [rsp+768h+ObjectAttributes.RootDirectory], rax
+  PAGE:0000000140657862                 mov     [rsp+768h+ObjectAttributes.Attributes], 240h
+  PAGE:000000014065786D                 lea     rax, PspLargePageDLLKeyName
+  PAGE:0000000140657874                 mov     [rsp+768h+ObjectAttributes.ObjectName], rax
+  PAGE:000000014065787C                 xorps   xmm0, xmm0
+  PAGE:000000014065787F                 movdqu  xmmword ptr [rsp+768h+ObjectAttributes.SecurityDescriptor], xmm0
+  PAGE:0000000140657888                 ; ObjectAttributes
+  PAGE:0000000140657888                 lea     r8, [rsp+768h+ObjectAttributes]; ObjectAttributes
+  PAGE:0000000140657890                 ; DesiredAccess
+  PAGE:0000000140657890                 lea     edx, [rdi-3]; DesiredAccess
+  PAGE:0000000140657893                 ; KeyHandle
+  PAGE:0000000140657893                 lea     rcx, [rsp+768h+KeyHandle]; KeyHandle
+  PAGE:000000014065789B                 call    ZwOpenKey
+  PAGE:00000001406578A0                 test    eax, eax
+  PAGE:00000001406578A2                 js      short loc_140657900
+  PAGE:00000001406578A4                 mov     [rsp+768h+var_6CC], esi
+  PAGE:00000001406578AB                 ; __int64
+  PAGE:00000001406578AB                 mov     [rsp+768h+var_740], rsi; __int64
+  PAGE:00000001406578B0                 ; int
+  PAGE:00000001406578B0                 mov     [rsp+768h+var_748], edi; int
+  PAGE:00000001406578B4                 lea     r9, [rsp+768h+var_6CC]
+  PAGE:00000001406578BC                 mov     r8d, edi
+  PAGE:00000001406578BF                 lea     rdx, aNtdllDll_0; "ntdll.dll"
+  PAGE:00000001406578C6                 ; KeyHandle
+  PAGE:00000001406578C6                 mov     rcx, [rsp+768h+KeyHandle]; KeyHandle
+  PAGE:00000001406578CE                 call    RtlQueryImageFileKeyOption
+  PAGE:00000001406578D3                 test    eax, eax
+  PAGE:00000001406578D5                 js      short loc_1406578F1
+  PAGE:00000001406578D7                 cmp     [rsp+768h+var_6CC], esi
+  PAGE:00000001406578DE                 jz      short loc_1406578F1
+  PAGE:00000001406578E0                 or      r14d, 20h
+  PAGE:00000001406578E4                 mov     [rsp+768h+var_6F0], r14d
+  PAGE:00000001406578E9                 mov     [rsp+768h+arg_40], r14d
+  PAGE:00000001406578F1                 ; PreviousMode
+  PAGE:00000001406578F1                 xor     edx, edx; PreviousMode
+  PAGE:00000001406578F3                 ; Handle
+  PAGE:00000001406578F3                 mov     rcx, [rsp+768h+KeyHandle]; Handle
+  PAGE:00000001406578FB                 call    ObCloseHandle
+  PAGE:0000000140657900                 cmp     [rsp+768h+var_650], rsi
+  PAGE:0000000140657908                 jnz     short loc_14065792E
+  PAGE:000000014065790A                 lea     r8, [rsp+768h+var_6C0]
+  PAGE:0000000140657912                 mov     rdx, [r12]
+  PAGE:0000000140657916                 mov     rcx, r15
+  PAGE:0000000140657919                 call    PspReadIFEONodeOptions
+  PAGE:000000014065791E                 mov     rax, [rsp+768h+var_6C0]
+  PAGE:0000000140657926                 mov     [rsp+768h+var_610], rax
+  PAGE:000000014065792E                 mov     [rsp+768h+var_668], esi
+  PAGE:0000000140657935                 ; __int64
+  PAGE:0000000140657935                 mov     [rsp+768h+var_740], rsi; __int64
+  PAGE:000000014065793A                 ; int
+  PAGE:000000014065793A                 mov     [rsp+768h+var_748], edi; int
+  PAGE:000000014065793E                 lea     r9, [rsp+768h+var_668]
+  PAGE:0000000140657946                 mov     r8d, edi
+  PAGE:0000000140657949                 lea     rdx, aForcewakecharg; "ForceWakeCharge"
+  PAGE:0000000140657950                 ; KeyHandle
+  PAGE:0000000140657950                 mov     rcx, [r12]; KeyHandle
+  PAGE:0000000140657954                 call    RtlQueryImageFileKeyOption
+  PAGE:0000000140657959                 test    eax, eax
+  PAGE:000000014065795B                 js      short loc_14065796E
+  PAGE:000000014065795D                 cmp     [rsp+768h+var_668], esi
+  PAGE:0000000140657964                 jz      short loc_14065796E
+  PAGE:0000000140657966                 or      [rsp+768h+var_6D4], 40h
+  PAGE:000000014065796E                 lea     rax, [rsp+768h+NumberOfBytes]
+  PAGE:0000000140657976                 ; __int64
+  PAGE:0000000140657976                 mov     [rsp+768h+var_740], rax; __int64
+  PAGE:000000014065797B                 ; int
+  PAGE:000000014065797B                 mov     [rsp+768h+var_748], esi; int
+  PAGE:000000014065797F                 xor     r9d, r9d
+  PAGE:0000000140657982                 lea     r8d, [r9+3]
+  PAGE:0000000140657986                 lea     rdx, aAllowedcpusets; "AllowedCpuSets"
+  PAGE:000000014065798D                 ; KeyHandle
+  PAGE:000000014065798D                 mov     rcx, [r12]; KeyHandle
+  PAGE:0000000140657991                 call    RtlQueryImageFileKeyOption
+  PAGE:0000000140657996                 cmp     eax, 80000005h
+  PAGE:000000014065799B                 jnz     loc_140657A35
+  PAGE:00000001406579A1                 mov     edi, dword ptr [rsp+768h+NumberOfBytes]
+  PAGE:00000001406579A8                 cmp     edi, 0A0h
+  PAGE:00000001406579AE                 ja      loc_140657A35
+  PAGE:00000001406579B4                 test    dil, 7
+  PAGE:00000001406579B8                 jnz     short loc_140657A35
+  PAGE:00000001406579BA                 ; NumberOfBytes
+  PAGE:00000001406579BA                 mov     edx, edi; NumberOfBytes
+  PAGE:00000001406579BC                 ; PoolType
+  PAGE:00000001406579BC                 mov     ecx, 200h; PoolType
+  PAGE:00000001406579C1                 ; Tag
+  PAGE:00000001406579C1                 mov     r8d, 73437350h; Tag
+  PAGE:00000001406579C7                 call    ExAllocatePoolWithTag
+  PAGE:00000001406579CC                 mov     [rsp+768h+P], rax
+  PAGE:00000001406579D4                 test    rax, rax
+  PAGE:00000001406579D7                 jnz     short loc_1406579E4
+  PAGE:00000001406579D9                 mov     r14d, 0C0000017h
+  PAGE:00000001406579DF                 jmp     loc_140657D4D
+  PAGE:00000001406579E4                 lea     rcx, [rsp+768h+NumberOfBytes]
+  PAGE:00000001406579EC                 ; __int64
+  PAGE:00000001406579EC                 mov     [rsp+768h+var_740], rcx; __int64
+  PAGE:00000001406579F1                 ; int
+  PAGE:00000001406579F1                 mov     [rsp+768h+var_748], edi; int
+  PAGE:00000001406579F5                 mov     r9, rax
+  PAGE:00000001406579F8                 mov     r8d, 3
+  PAGE:00000001406579FE                 lea     rdx, aAllowedcpusets; "AllowedCpuSets"
+  PAGE:0000000140657A05                 ; KeyHandle
+  PAGE:0000000140657A05                 mov     rcx, [r12]; KeyHandle
+  PAGE:0000000140657A09                 call    RtlQueryImageFileKeyOption
+  PAGE:0000000140657A0E                 test    eax, eax
+  PAGE:0000000140657A10                 js      short loc_140657A35
+  PAGE:0000000140657A12                 test    byte ptr [rsp+768h+NumberOfBytes], 7
+  PAGE:0000000140657A1A                 jnz     short loc_140657A35
+  PAGE:0000000140657A1C                 bts     ebx, 15h
+  PAGE:0000000140657A20                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:0000000140657A24                 mov     eax, dword ptr [rsp+768h+NumberOfBytes]
+  PAGE:0000000140657A2B                 shr     eax, 3
+  PAGE:0000000140657A2E                 mov     [rsp+768h+var_6C4], eax
+  PAGE:0000000140657A35                 mov     [rsp+768h+var_558.Length], 30h ; '0'
+  PAGE:0000000140657A40                 mov     rax, [r12]
+  PAGE:0000000140657A44                 mov     [rsp+768h+var_558.RootDirectory], rax
+  PAGE:0000000140657A4C                 mov     [rsp+768h+var_558.Attributes], 240h
+  PAGE:0000000140657A57                 lea     rax, PspPerfOptionsKeyName
+  PAGE:0000000140657A5E                 mov     [rsp+768h+var_558.ObjectName], rax
+  PAGE:0000000140657A66                 xorps   xmm0, xmm0
+  PAGE:0000000140657A69                 movdqu  xmmword ptr [rsp+768h+var_558.SecurityDescriptor], xmm0
+  PAGE:0000000140657A72                 ; ObjectAttributes
+  PAGE:0000000140657A72                 lea     r8, [rsp+768h+var_558]; ObjectAttributes
+  PAGE:0000000140657A7A                 ; DesiredAccess
+  PAGE:0000000140657A7A                 mov     edx, 1; DesiredAccess
+  PAGE:0000000140657A7F                 ; KeyHandle
+  PAGE:0000000140657A7F                 lea     rcx, [rsp+768h+Handle]; KeyHandle
+  PAGE:0000000140657A87                 call    ZwOpenKey
+  PAGE:0000000140657A8C                 test    eax, eax
+  PAGE:0000000140657A8E                 js      loc_140657B80
+  PAGE:0000000140657A94                 lea     rdx, [rsp+768h+var_378]
+  PAGE:0000000140657A9C                 ; KeyHandle
+  PAGE:0000000140657A9C                 mov     rcx, [rsp+768h+Handle]; KeyHandle
+  PAGE:0000000140657AA4                 call    PspReadIFEOPerfOptions
+  PAGE:0000000140657AA9                 ; PreviousMode
+  PAGE:0000000140657AA9                 xor     edx, edx; PreviousMode
+  PAGE:0000000140657AAB                 ; Handle
+  PAGE:0000000140657AAB                 mov     rcx, [rsp+768h+Handle]; Handle
+  PAGE:0000000140657AB3                 call    ObCloseHandle
+  PAGE:0000000140657AB8                 jmp     loc_140657B80
+  PAGE:0000000140657ABD                 test    rcx, rcx
+  PAGE:0000000140657AC0                 jz      loc_140657B7B
+  PAGE:0000000140657AC6                 lea     r8, [rsp+768h+var_428]
+  PAGE:0000000140657ACE                 mov     edx, 4
+  PAGE:0000000140657AD3                 call    MmGetSectionInformation
+  PAGE:0000000140657AD8                 mov     r14d, eax
+  PAGE:0000000140657ADB                 test    eax, eax
+  PAGE:0000000140657ADD                 js      loc_140657D4D
+  PAGE:0000000140657AE3                 movzx   edx, [rsp+768h+var_3F5]
+  PAGE:0000000140657AEB                 mov     ecx, [rsp+768h+var_3E8]
+  PAGE:0000000140657AF2                 mov     r8d, ecx
+  PAGE:0000000140657AF5                 and     r8d, 0F8h
+  PAGE:0000000140657AFC                 add     r8d, r8d
+  PAGE:0000000140657AFF                 mov     eax, ecx
+  PAGE:0000000140657B01                 and     eax, 2
+  PAGE:0000000140657B04                 or      r8d, eax
+  PAGE:0000000140657B07                 add     r8d, r8d
+  PAGE:0000000140657B0A                 and     ecx, edi
+  PAGE:0000000140657B0C                 or      r8d, ecx
+  PAGE:0000000140657B0F                 shl     r8d, 0Bh
+  PAGE:0000000140657B13                 mov     eax, edx
+  PAGE:0000000140657B15                 and     eax, 2
+  PAGE:0000000140657B18                 or      r8d, eax
+  PAGE:0000000140657B1B                 shl     r8d, 2
+  PAGE:0000000140657B1F                 and     edx, 4
+  PAGE:0000000140657B22                 or      r8d, edx
+  PAGE:0000000140657B25                 shl     r8d, 5
+  PAGE:0000000140657B29                 or      ebx, r8d
+  PAGE:0000000140657B2C                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:0000000140657B30                 movzx   eax, [rsp+768h+var_3FA]
+  PAGE:0000000140657B38                 mov     word ptr [rsp+768h+NumberOfBytes+4], ax
+  PAGE:0000000140657B40                 movzx   eax, [rsp+768h+var_402]
+  PAGE:0000000140657B48                 mov     [rsp+768h+var_690], eax
+  PAGE:0000000140657B4F                 movzx   eax, [rsp+768h+var_404]
+  PAGE:0000000140657B57                 mov     [rsp+768h+var_694], eax
+  PAGE:0000000140657B5E                 cmp     [rsp+768h+var_678], rsi
+  PAGE:0000000140657B66                 jnz     short loc_140657B7B
+  PAGE:0000000140657B68                 mov     [rsp+768h+var_664], 8
+  PAGE:0000000140657B73                 bts     ebx, 0Bh
+  PAGE:0000000140657B77                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:0000000140657B7B                 mov     r14d, [rsp+768h+var_6F0]
+  PAGE:0000000140657B80                 mov     eax, r14d
+  PAGE:0000000140657B83                 mov     r12d, [rsp+768h+var_664]
+  PAGE:0000000140657B8B                 bts     r12d, 11h
+  PAGE:0000000140657B90                 and     al, 8
+  PAGE:0000000140657B92                 cmovz   r12d, [rsp+768h+var_664]
+  PAGE:0000000140657B9B                 bt      ebx, 0Eh
+  PAGE:0000000140657B9F                 jnb     short loc_140657C0A
+  PAGE:0000000140657BA1                 ; NumberOfBytes
+  PAGE:0000000140657BA1                 mov     edx, 10h; NumberOfBytes
+  PAGE:0000000140657BA6                 ; PoolType
+  PAGE:0000000140657BA6                 mov     ecx, 200h; PoolType
+  PAGE:0000000140657BAB                 ; Tag
+  PAGE:0000000140657BAB                 mov     r8d, 50776F57h; Tag
+  PAGE:0000000140657BB1                 call    ExAllocatePoolWithTag
+  PAGE:0000000140657BB6                 mov     r10, rax
+  PAGE:0000000140657BB9                 mov     [r15+580h], rax
+  PAGE:0000000140657BC0                 test    rax, rax
+  PAGE:0000000140657BC3                 jz      loc_1406579D9
+  PAGE:0000000140657BC9                 mov     eax, dword ptr [rsp+768h+TokenInformation+4]
+  PAGE:0000000140657BD0                 mov     r11d, [rsp+768h+var_6D8]
+  PAGE:0000000140657BD8                 test    eax, eax
+  PAGE:0000000140657BDA                 jnz     short loc_140657BE8
+  PAGE:0000000140657BDC                 movzx   edx, r11w
+  PAGE:0000000140657BE0                 mov     rcx, r13
+  PAGE:0000000140657BE3                 call    PspWow64PickBestNtdll
+  PAGE:0000000140657BE8                 mov     [r10+8], r11w
+  PAGE:0000000140657BED                 mov     rcx, [r15+580h]
+  PAGE:0000000140657BF4                 mov     [rcx+0Ch], eax
+  PAGE:0000000140657BF7                 mov     rax, [r15+580h]
+  PAGE:0000000140657BFE                 test    rax, rax
+  PAGE:0000000140657C01                 jz      short loc_140657C0A
+  PAGE:0000000140657C03                 mov     qword ptr [rax], 1
+  PAGE:0000000140657C0A                 ; TokenInformation
+  PAGE:0000000140657C0A                 lea     r8, [rsp+768h+TokenInformation]; TokenInformation
+  PAGE:0000000140657C12                 ; TokenInformationClass
+  PAGE:0000000140657C12                 mov     edx, 1Dh; TokenInformationClass
+  PAGE:0000000140657C17                 ; Token
+  PAGE:0000000140657C17                 mov     rcx, [rsp+768h+Token]; Token
+  PAGE:0000000140657C1F                 call    SeQueryInformationToken
+  PAGE:0000000140657C24                 mov     r14d, eax
+  PAGE:0000000140657C27                 test    eax, eax
+  PAGE:0000000140657C29                 js      loc_140657D4D
+  PAGE:0000000140657C2F                 mov     edi, esi
+  PAGE:0000000140657C31                 mov     al, [rsp+768h+PreviousMode]
+  PAGE:0000000140657C35                 test    al, al
+  PAGE:0000000140657C37                 jz      loc_140657D0F
+  PAGE:0000000140657C3D                 test    r13, r13
+  PAGE:0000000140657C40                 jz      short loc_140657C66
+  PAGE:0000000140657C42                 test    dword ptr [r13+4], 100h
+  PAGE:0000000140657C4A                 jz      short loc_140657C66
+  PAGE:0000000140657C4C                 cmp     byte ptr [r13+0F8h], 4
+  PAGE:0000000140657C54                 jnz     short loc_140657C66
+  PAGE:0000000140657C56                 mov     [rsp+768h+var_88], 0Eh
+  PAGE:0000000140657C61                 mov     edi, 1
+  PAGE:0000000140657C66                 cmp     [rsp+768h+arg_58], esi
+  PAGE:0000000140657C6D                 jz      short loc_140657C7E
+  PAGE:0000000140657C6F                 mov     eax, edi
+  PAGE:0000000140657C71                 mov     [rsp+rax*4+768h+var_88], 3
+  PAGE:0000000140657C7C                 inc     edi
+  PAGE:0000000140657C7E                 mov     r14d, [rsp+768h+var_6F0]
+  PAGE:0000000140657C83                 test    r14b, 30h
+  PAGE:0000000140657C87                 jz      short loc_140657C98
+  PAGE:0000000140657C89                 mov     eax, edi
+  PAGE:0000000140657C8B                 mov     [rsp+rax*4+768h+var_88], 4
+  PAGE:0000000140657C96                 inc     edi
+  PAGE:0000000140657C98                 test    r14b, r14b
+  PAGE:0000000140657C9B                 jns     short loc_140657CBD
+  PAGE:0000000140657C9D                 mov     rcx, [rsp+768h+var_688]
+  PAGE:0000000140657CA5                 call    MmIsSessionLeaderProcess
+  PAGE:0000000140657CAA                 test    eax, eax
+  PAGE:0000000140657CAC                 jnz     short loc_140657CBD
+  PAGE:0000000140657CAE                 mov     eax, edi
+  PAGE:0000000140657CB0                 mov     [rsp+rax*4+768h+var_88], 0Ah
+  PAGE:0000000140657CBB                 inc     edi
+  PAGE:0000000140657CBD                 test    r14d, 8400h
+  PAGE:0000000140657CC4                 jz      short loc_140657CD5
+  PAGE:0000000140657CC6                 mov     eax, edi
+  PAGE:0000000140657CC8                 mov     [rsp+rax*4+768h+var_88], 7
+  PAGE:0000000140657CD3                 inc     edi
+  PAGE:0000000140657CD5                 test    edi, edi
+  PAGE:0000000140657CD7                 jz      short loc_140657D16
+  PAGE:0000000140657CD9                 mov     r8d, esi
+  PAGE:0000000140657CDC                 cmp     [rsp+768h+arg_58], esi
+  PAGE:0000000140657CE3                 setnz   r8b
+  PAGE:0000000140657CE7                 lea     r9, [rsp+768h+var_5F8]
+  PAGE:0000000140657CEF                 mov     edx, edi
+  PAGE:0000000140657CF1                 lea     rcx, [rsp+768h+var_88]
+  PAGE:0000000140657CF9                 call    RtlAcquirePrivilege
+  PAGE:0000000140657CFE                 test    eax, eax
+  PAGE:0000000140657D00                 mov     al, [rsp+768h+PreviousMode]
+  PAGE:0000000140657D04                 js      short loc_140657D1A
+  PAGE:0000000140657D06                 or      ebx, 10h
+  PAGE:0000000140657D09                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:0000000140657D0D                 jmp     short loc_140657D1A
+  PAGE:0000000140657D0F                 mov     r14d, [rsp+768h+var_6F0]
+  PAGE:0000000140657D14                 jmp     short loc_140657D1A
+  PAGE:0000000140657D16                 mov     al, [rsp+768h+PreviousMode]
+  PAGE:0000000140657D1A                 test    r14d, 8400h
+  PAGE:0000000140657D21                 jz      short loc_140657D94
+  PAGE:0000000140657D23                 ; PreviousMode
+  PAGE:0000000140657D23                 mov     dl, al; PreviousMode
+  PAGE:0000000140657D25                 ; PrivilegeValue
+  PAGE:0000000140657D25                 mov     rcx, qword ptr cs:SeTcbPrivilege.LowPart; PrivilegeValue
+  PAGE:0000000140657D2C                 call    SeSinglePrivilegeCheck
+  PAGE:0000000140657D31                 test    al, al
+  PAGE:0000000140657D33                 jnz     short loc_140657D94
+  PAGE:0000000140657D35                 mov     r14d, 0C0000061h
+  PAGE:0000000140657D3B                 test    bl, 10h
+  PAGE:0000000140657D3E                 jz      short loc_140657D4D
+  PAGE:0000000140657D40                 ; P
+  PAGE:0000000140657D40                 mov     rcx, [rsp+768h+var_5F8]; P
+  PAGE:0000000140657D48                 call    RtlReleasePrivilege
+  PAGE:0000000140657D4D                 xor     edx, edx
+  PAGE:0000000140657D4F                 ; BugCheckParameter1
+  PAGE:0000000140657D4F                 mov     rcx, r15; BugCheckParameter1
+  PAGE:0000000140657D52                 call    PspRundownSingleProcess
+  PAGE:0000000140657D57                 ; Tag
+  PAGE:0000000140657D57                 mov     edx, 72437350h; Tag
+  PAGE:0000000140657D5C                 ; Object
+  PAGE:0000000140657D5C                 mov     rcx, r15; Object
+  PAGE:0000000140657D5F                 call    ObfDereferenceObjectWithTag
+  PAGE:0000000140657D64                 mov     rax, [rsp+768h+P]
+  PAGE:0000000140657D6C                 test    rax, rax
+  PAGE:0000000140657D6F                 jz      short loc_140657D7E
+  PAGE:0000000140657D71                 ; Tag
+  PAGE:0000000140657D71                 mov     edx, 73437350h; Tag
+  PAGE:0000000140657D76                 ; P
+  PAGE:0000000140657D76                 mov     rcx, rax; P
+  PAGE:0000000140657D79                 call    ExFreePoolWithTag
+  PAGE:0000000140657D7E                 lea     rcx, [rsp+768h+var_2A8]
+  PAGE:0000000140657D86                 call    SeDeleteCodeIntegrityOriginClaimMembers
+  PAGE:0000000140657D8B                 mov     eax, r14d
+  PAGE:0000000140657D8E                 jmp     loc_1406590FE
+  PAGE:0000000140657D94                 mov     rax, [rsp+768h+var_650]
+  PAGE:0000000140657D9C                 test    rax, rax
+  PAGE:0000000140657D9F                 jnz     loc_140657EBE
+  PAGE:0000000140657DA5                 mov     rax, [rsp+768h+var_610]
+  PAGE:0000000140657DAD                 test    rax, rax
+  PAGE:0000000140657DB0                 jnz     loc_140657EB5
+  PAGE:0000000140657DB6                 mov     rcx, [rsp+768h+Process]
+  PAGE:0000000140657DBE                 test    rcx, rcx
+  PAGE:0000000140657DC1                 jz      loc_140657EA6
+  PAGE:0000000140657DC7                 test    dword ptr [rcx+460h], 100000h
+  PAGE:0000000140657DD1                 jz      loc_140657E57
+  PAGE:0000000140657DD7                 bts     [rsp+768h+var_6D4], 14h
+  PAGE:0000000140657DE0                 movzx   eax, word ptr [rcx+344h]
+  PAGE:0000000140657DE7                 lea     rdx, cs:140000000h
+  PAGE:0000000140657DEE                 mov     rax, ds:rva KeNodeBlock[rdx+rax*8]
+  PAGE:0000000140657DF6                 mov     [rsp+768h+var_6C0], rax
+  PAGE:0000000140657DFE                 movzx   edi, word ptr [rax+90h]
+  PAGE:0000000140657E05                 mov     word ptr [rsp+768h+var_640+8], di
+  PAGE:0000000140657E0D                 movzx   eax, di
+  PAGE:0000000140657E10                 mov     rax, ds:rva qword_140CFC848[rdx+rax*8]
+  PAGE:0000000140657E18                 mov     qword ptr [rsp+768h+var_640], rax
+  PAGE:0000000140657E20                 cmp     [rsp+768h+var_6C0], rsi
+  PAGE:0000000140657E28                 jnz     short loc_140657E3F
+  PAGE:0000000140657E2A                 lea     rcx, [rsp+768h+var_640]
+  PAGE:0000000140657E32                 call    KeSelectNodeForAffinity
+  PAGE:0000000140657E37                 mov     [rsp+768h+var_6C0], rax
+  PAGE:0000000140657E3F                 mov     eax, [rsp+768h+arg_40]
+  PAGE:0000000140657E46                 mov     [rsp+768h+var_6F0], eax
+  PAGE:0000000140657E4A                 mov     r15, [rsp+768h+Object]
+  PAGE:0000000140657E52                 jmp     loc_140657F15
+  PAGE:0000000140657E57                 call    PspSelectNodeForProcess
+  PAGE:0000000140657E5C                 mov     [rsp+768h+var_6C0], rax
+  PAGE:0000000140657E64                 movzx   edi, word ptr [rax+90h]
+  PAGE:0000000140657E6B                 cmp     cs:KeForceGroupAwareness, sil
+  PAGE:0000000140657E72                 jz      short loc_140657EA9
+  PAGE:0000000140657E74                 call    KeQueryActiveGroupCount
+  PAGE:0000000140657E79                 mov     ecx, 1
+  PAGE:0000000140657E7E                 lea     rdx, cs:140000000h
+  PAGE:0000000140657E85                 cmp     ax, cx
+  PAGE:0000000140657E88                 jbe     loc_140657E05
+  PAGE:0000000140657E8E                 test    di, di
+  PAGE:0000000140657E91                 jnz     loc_140657E05
+  PAGE:0000000140657E97                 mov     [rsp+768h+var_6C0], rsi
+  PAGE:0000000140657E9F                 mov     edi, ecx
+  PAGE:0000000140657EA1                 jmp     loc_140657E05
+  PAGE:0000000140657EA6                 movzx   edi, si
+  PAGE:0000000140657EA9                 lea     rdx, cs:140000000h
+  PAGE:0000000140657EB0                 jmp     loc_140657E05
+  PAGE:0000000140657EB5                 movzx   edi, word ptr [rax+90h]
+  PAGE:0000000140657EBC                 jmp     short loc_140657EA9
+  PAGE:0000000140657EBE                 lea     r9, [rsp+768h+var_70]
+  PAGE:0000000140657EC6                 xor     r8d, r8d
+  PAGE:0000000140657EC9                 lea     rdx, [rsp+768h+var_358]
+  PAGE:0000000140657ED1                 mov     rcx, rax
+  PAGE:0000000140657ED4                 call    KeQueryAffinityProcess
+  PAGE:0000000140657ED9                 lea     rdx, [rsp+768h+var_358]
+  PAGE:0000000140657EE1                 lea     rcx, [rsp+768h+var_640]
+  PAGE:0000000140657EE9                 call    KeFirstGroupAffinityEx
+  PAGE:0000000140657EEE                 movzx   eax, word ptr [rsp+768h+var_640+8]
+  PAGE:0000000140657EF6                 movzx   ecx, [rsp+rax*2+768h+var_70]
+  PAGE:0000000140657EFE                 lea     rdx, cs:140000000h
+  PAGE:0000000140657F05                 mov     rax, ds:rva KeNodeBlock[rdx+rcx*8]
+  PAGE:0000000140657F0D                 mov     [rsp+768h+var_6C0], rax
+  PAGE:0000000140657F15                 mov     rdi, [rsp+768h+var_6B0]
+  PAGE:0000000140657F1D                 or      [rdi], r12d
+  PAGE:0000000140657F20                 mov     eax, [rsp+768h+var_6D4]
+  PAGE:0000000140657F27                 mov     rcx, [rsp+768h+var_670]
+  PAGE:0000000140657F2F                 or      [rcx], eax
+  PAGE:0000000140657F31                 mov     r12, [rsp+768h+Process]
+  PAGE:0000000140657F39                 test    r12, r12
+  PAGE:0000000140657F3C                 jz      loc_14065816D
+  PAGE:0000000140657F42                 mov     [rsp+768h+DmaAdapter], rsi
+  PAGE:0000000140657F4A                 mov     r14d, esi
+  PAGE:0000000140657F4D                 mov     [rsp+768h+SessionId], esi
+  PAGE:0000000140657F54                 mov     r12b, sil
+  PAGE:0000000140657F57                 mov     [rsp+768h+var_6EC], sil
+  PAGE:0000000140657F5C                 cmp     [rsp+768h+arg_58], esi
+  PAGE:0000000140657F63                 jz      loc_140658010
+  PAGE:0000000140657F69                 ; PreviousMode
+  PAGE:0000000140657F69                 mov     dl, [rsp+768h+PreviousMode]; PreviousMode
+  PAGE:0000000140657F6D                 ; PrivilegeValue
+  PAGE:0000000140657F6D                 mov     rcx, qword ptr cs:SeAssignPrimaryTokenPrivilege.LowPart; PrivilegeValue
+  PAGE:0000000140657F74                 call    SeSinglePrivilegeCheck
+  PAGE:0000000140657F79                 test    al, al
+  PAGE:0000000140657F7B                 jz      short loc_140657F80
+  PAGE:0000000140657F7D                 or      ebx, 4
+  PAGE:0000000140657F80                 lea     rdx, [rsp+768h+var_6EC]
+  PAGE:0000000140657F85                 mov     rcx, [rsp+768h+Token]
+  PAGE:0000000140657F8D                 call    SeIsTokenAssignableToProcess
+  PAGE:0000000140657F92                 mov     r14d, eax
+  PAGE:0000000140657F95                 test    eax, eax
+  PAGE:0000000140657F97                 js      loc_140657D3B
+  PAGE:0000000140657F9D                 mov     edi, ebx
+  PAGE:0000000140657F9F                 shr     edi, 2
+  PAGE:0000000140657FA2                 and     edi, 1
+  PAGE:0000000140657FA5                 mov     r12b, [rsp+768h+var_6EC]
+  PAGE:0000000140657FAA                 test    r12b, r12b
+  PAGE:0000000140657FAD                 jnz     short loc_140657FB7
+  PAGE:0000000140657FAF                 test    edi, edi
+  PAGE:0000000140657FB1                 jz      loc_140657D35
+  PAGE:0000000140657FB7                 ; SessionId
+  PAGE:0000000140657FB7                 lea     rdx, [rsp+768h+SessionId]; SessionId
+  PAGE:0000000140657FBF                 ; Token
+  PAGE:0000000140657FBF                 mov     rcx, [rsp+768h+Token]; Token
+  PAGE:0000000140657FC7                 call    SeQuerySessionIdToken
+  PAGE:0000000140657FCC                 mov     r14d, eax
+  PAGE:0000000140657FCF                 test    eax, eax
+  PAGE:0000000140657FD1                 js      loc_140657D3B
+  PAGE:0000000140657FD7                 mov     rcx, [rsp+768h+var_688]
+  PAGE:0000000140657FDF                 call    MmGetSessionIdEx
+  PAGE:0000000140657FE4                 mov     r14d, [rsp+768h+SessionId]
+  PAGE:0000000140657FEC                 cmp     r14d, eax
+  PAGE:0000000140657FEF                 jz      short loc_140658048
+  PAGE:0000000140657FF1                 test    edi, edi
+  PAGE:0000000140657FF3                 jz      loc_140657D35
+  PAGE:0000000140657FF9                 test    byte ptr [rsp+768h+var_6F0], 80h
+  PAGE:0000000140657FFE                 jz      short loc_14065800B
+  PAGE:0000000140658000                 mov     r14d, 0C000000Dh
+  PAGE:0000000140658006                 jmp     loc_140657D3B
+  PAGE:000000014065800B                 or      ebx, 1
+  PAGE:000000014065800E                 jmp     short loc_140658048
+  PAGE:0000000140658010                 cmp     [rsp+768h+var_678], rsi
+  PAGE:0000000140658018                 jnz     short loc_140658048
+  PAGE:000000014065801A                 mov     rcx, [rsp+768h+Process]
+  PAGE:0000000140658022                 call    MmGetSessionIdEx
+  PAGE:0000000140658027                 mov     r14d, eax
+  PAGE:000000014065802A                 mov     [rsp+768h+SessionId], eax
+  PAGE:0000000140658031                 mov     rcx, [rsp+768h+var_688]
+  PAGE:0000000140658039                 call    MmGetSessionIdEx
+  PAGE:000000014065803E                 mov     ecx, esi
+  PAGE:0000000140658040                 cmp     r14d, eax
+  PAGE:0000000140658043                 setnz   cl
+  PAGE:0000000140658046                 or      ebx, ecx
+  PAGE:0000000140658048                 mov     edi, ebx
+  PAGE:000000014065804A                 and     edi, 1
+  PAGE:000000014065804D                 jz      short loc_140658082
+  PAGE:000000014065804F                 lea     r8, [rsp+768h+DmaAdapter]
+  PAGE:0000000140658057                 lea     rdx, [rsp+768h+ApcState]
+  PAGE:000000014065805F                 mov     ecx, r14d
+  PAGE:0000000140658062                 call    PspAttachSession
+  PAGE:0000000140658067                 mov     r14d, eax
+  PAGE:000000014065806A                 test    eax, eax
+  PAGE:000000014065806C                 jns     short loc_140658076
+  PAGE:000000014065806E                 and     ebx, 0FFFFFFFEh
+  PAGE:0000000140658071                 jmp     loc_140657D3B
+  PAGE:0000000140658076                 mov     rax, [rsp+768h+var_670]
+  PAGE:000000014065807E                 bts     dword ptr [rax], 7
+  PAGE:0000000140658082                 cmp     [rsp+768h+arg_58], esi
+  PAGE:0000000140658089                 jz      short loc_1406580CB
+  PAGE:000000014065808B                 test    r12b, r12b
+  PAGE:000000014065808E                 jnz     short loc_1406580CB
+  PAGE:0000000140658090                 mov     r8, [rsp+768h+Token]
+  PAGE:0000000140658098                 mov     rdx, r15
+  PAGE:000000014065809B                 xor     ecx, ecx
+  PAGE:000000014065809D                 call    PspAssignProcessQuotaBlock
+  PAGE:00000001406580A2                 mov     r14d, eax
+  PAGE:00000001406580A5                 test    eax, eax
+  PAGE:00000001406580A7                 jns     short loc_1406580E7
+  PAGE:00000001406580A9                 test    edi, edi
+  PAGE:00000001406580AB                 jz      loc_140657D3B
+  PAGE:00000001406580B1                 lea     rdx, [rsp+768h+ApcState]
+  PAGE:00000001406580B9                 ; DmaAdapter
+  PAGE:00000001406580B9                 mov     rcx, [rsp+768h+DmaAdapter]; DmaAdapter
+  PAGE:00000001406580C1                 call    PspDetachSession
+  PAGE:00000001406580C6                 jmp     loc_140657D3B
+  PAGE:00000001406580CB                 mov     rdx, [rsp+768h+Process]
+  PAGE:00000001406580D3                 test    r12b, r12b
+  PAGE:00000001406580D6                 cmovnz  rdx, [rsp+768h+var_688]
+  PAGE:00000001406580DF                 mov     rcx, r15
+  PAGE:00000001406580E2                 call    PspInheritQuota
+  PAGE:00000001406580E7                 mov     r9d, dword ptr [rsp+768h+var_378+4]
+  PAGE:00000001406580EF                 mov     r14d, 1
+  PAGE:00000001406580F5                 and     r9d, r14d
+  PAGE:00000001406580F8                 mov     r8, cs:PspMaximumWorkingSet
+  PAGE:00000001406580FF                 cmovnz  r8, qword ptr [rsp+768h+var_368+8]
+  PAGE:0000000140658108                 mov     rax, [rsp+768h+var_6C0]
+  PAGE:0000000140658110                 movzx   eax, word ptr [rax+92h]
+  PAGE:0000000140658117                 add     eax, r14d
+  PAGE:000000014065811A                 mov     [rsp+768h+var_740], r15
+  PAGE:000000014065811F                 mov     [rsp+768h+var_748], eax
+  PAGE:0000000140658123                 mov     rcx, [rsp+768h+var_608]
+  PAGE:000000014065812B                 call    MmCreateProcessAddressSpace
+  PAGE:0000000140658130                 movzx   eax, al
+  PAGE:0000000140658133                 and     eax, r14d
+  PAGE:0000000140658136                 shl     eax, 5
+  PAGE:0000000140658139                 or      ebx, eax
+  PAGE:000000014065813B                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:000000014065813F                 test    r14b, bl
+  PAGE:0000000140658142                 jz      short loc_140658159
+  PAGE:0000000140658144                 lea     rdx, [rsp+768h+ApcState]
+  PAGE:000000014065814C                 ; DmaAdapter
+  PAGE:000000014065814C                 mov     rcx, [rsp+768h+DmaAdapter]; DmaAdapter
+  PAGE:0000000140658154                 call    PspDetachSession
+  PAGE:0000000140658159                 test    bl, 20h
+  PAGE:000000014065815C                 jnz     loc_140658333
+  PAGE:0000000140658162                 mov     r14d, 0C000009Ah
+  PAGE:0000000140658168                 jmp     loc_140657D3B
+  PAGE:000000014065816D                 xor     edx, edx
+  PAGE:000000014065816F                 mov     rcx, r15
+  PAGE:0000000140658172                 call    PspInheritQuota
+  PAGE:0000000140658177                 mov     byte ptr [r15+390h], 1
+  PAGE:000000014065817F                 call    MmInitializeHandBuiltProcess
+  PAGE:0000000140658184                 mov     r14d, eax
+  PAGE:0000000140658187                 test    eax, eax
+  PAGE:0000000140658189                 js      loc_140657D3B
+  PAGE:000000014065818F                 mov     r14d, 1
+  PAGE:0000000140658195                 mov     dword ptr [rsp+768h+TokenInformation+4], ebx
+  PAGE:000000014065819C                 lock or dword ptr [rdi], 40000h
+  PAGE:00000001406581A3                 mov     rax, [rsp+768h+var_5A0]
+  PAGE:00000001406581AB                 mov     eax, [rax]
+  PAGE:00000001406581AD                 shr     eax, 2
+  PAGE:00000001406581B0                 and     eax, r14d
+  PAGE:00000001406581B3                 mov     edi, ebx
+  PAGE:00000001406581B5                 shr     edi, 0Ch
+  PAGE:00000001406581B8                 mov     r8d, eax
+  PAGE:00000001406581BB                 or      r8d, 2
+  PAGE:00000001406581BF                 and     edi, r14d
+  PAGE:00000001406581C2                 cmovz   r8d, eax
+  PAGE:00000001406581C6                 mov     r15, [rsp+768h+Object]
+  PAGE:00000001406581CE                 mov     rcx, r15
+  PAGE:00000001406581D1                 call    MmGetSessionSchedulingGroupByProcess
+  PAGE:00000001406581D6                 mov     dword ptr [rsp+768h+var_740], r8d
+  PAGE:00000001406581DB                 mov     qword ptr [rsp+768h+var_748], rax
+  PAGE:00000001406581E0                 mov     r9, [rsp+768h+var_6C0]
+  PAGE:00000001406581E8                 lea     r8, [rsp+768h+var_640]
+  PAGE:00000001406581F0                 mov     edx, 8
+  PAGE:00000001406581F5                 call    KeInitializeProcess
+  PAGE:00000001406581FA                 mov     r14d, eax
+  PAGE:00000001406581FD                 test    eax, eax
+  PAGE:00000001406581FF                 js      loc_140657D3B
+  PAGE:0000000140658205                 test    r13, r13
+  PAGE:0000000140658208                 jz      loc_140658348
+  PAGE:000000014065820E                 mov     eax, [r13+1A0h]
+  PAGE:0000000140658215                 mov     [rsp+768h+var_6C8], eax
+  PAGE:000000014065821C                 mov     eax, [r13+1A4h]
+  PAGE:0000000140658223                 mov     [rsp+768h+var_65C], eax
+  PAGE:000000014065822A                 mov     rax, [r13+1B8h]
+  PAGE:0000000140658231                 mov     [rsp+768h+Address], rax
+  PAGE:0000000140658239                 mov     eax, [r13+1C0h]
+  PAGE:0000000140658240                 mov     [rsp+768h+var_660], eax
+  PAGE:0000000140658247                 mov     rax, [r13+0D0h]
+  PAGE:000000014065824E                 mov     [rsp+768h+var_5C8], rax
+  PAGE:0000000140658256                 mov     r14, [r13+1A8h]
+  PAGE:000000014065825D                 mov     eax, [r13+1B0h]
+  PAGE:0000000140658264                 mov     [rsp+768h+var_6A8], eax
+  PAGE:000000014065826B                 mov     rcx, [r13+0B0h]
+  PAGE:0000000140658272                 test    rcx, rcx
+  PAGE:0000000140658275                 jz      loc_14065834B
+  PAGE:000000014065827B                 lea     rdx, [rsp+768h+var_2A8]
+  PAGE:0000000140658283                 call    SeGetCodeIntegrityOriginClaimForFileObject
+  PAGE:0000000140658288                 test    eax, eax
+  PAGE:000000014065828A                 js      loc_14065834B
+  PAGE:0000000140658290                 cmp     [rsp+768h+var_2A8], esi
+  PAGE:0000000140658297                 jnz     loc_14065831E
+  PAGE:000000014065829D                 test    r14, r14
+  PAGE:00000001406582A0                 jz      short loc_14065831E
+  PAGE:00000001406582A2                 cmp     [rsp+768h+var_6A8], 20Ch
+  PAGE:00000001406582AD                 jnz     short loc_14065831E
+  PAGE:00000001406582AF                 lea     rcx, [rsp+768h+var_2A8]
+  PAGE:00000001406582B7                 mov     eax, 4
+  PAGE:00000001406582BC                 lea     edx, [rax+7Ch]
+  PAGE:00000001406582BF                 movups  xmm0, xmmword ptr [r14]
+  PAGE:00000001406582C3                 movups  xmmword ptr [rcx], xmm0
+  PAGE:00000001406582C6                 movups  xmm1, xmmword ptr [r14+10h]
+  PAGE:00000001406582CB                 movups  xmmword ptr [rcx+10h], xmm1
+  PAGE:00000001406582CF                 movups  xmm0, xmmword ptr [r14+20h]
+  PAGE:00000001406582D4                 movups  xmmword ptr [rcx+20h], xmm0
+  PAGE:00000001406582D8                 movups  xmm1, xmmword ptr [r14+30h]
+  PAGE:00000001406582DD                 movups  xmmword ptr [rcx+30h], xmm1
+  PAGE:00000001406582E1                 movups  xmm0, xmmword ptr [r14+40h]
+  PAGE:00000001406582E6                 movups  xmmword ptr [rcx+40h], xmm0
+  PAGE:00000001406582EA                 movups  xmm1, xmmword ptr [r14+50h]
+  PAGE:00000001406582EF                 movups  xmmword ptr [rcx+50h], xmm1
+  PAGE:00000001406582F3                 movups  xmm0, xmmword ptr [r14+60h]
+  PAGE:00000001406582F8                 movups  xmmword ptr [rcx+60h], xmm0
+  PAGE:00000001406582FC                 add     rcx, rdx
+  PAGE:00000001406582FF                 movups  xmm1, xmmword ptr [r14+70h]
+  PAGE:0000000140658304                 movups  xmmword ptr [rcx-10h], xmm1
+  PAGE:0000000140658308                 add     r14, rdx
+  PAGE:000000014065830B                 sub     rax, 1
+  PAGE:000000014065830F                 jnz     short loc_1406582BF
+  PAGE:0000000140658311                 mov     rax, [r14]
+  PAGE:0000000140658314                 mov     [rcx], rax
+  PAGE:0000000140658317                 mov     eax, [r14+8]
+  PAGE:000000014065831B                 mov     [rcx+8], eax
+  PAGE:000000014065831E                 lea     r14, [rsp+768h+var_2A8]
+  PAGE:0000000140658326                 mov     [rsp+768h+var_6A8], 218h
+  PAGE:0000000140658331                 jmp     short loc_14065834B
+  PAGE:0000000140658333                 mov     r12, [rsp+768h+Process]
+  PAGE:000000014065833B                 mov     rdi, [rsp+768h+var_6B0]
+  PAGE:0000000140658343                 jmp     loc_140658195
+  PAGE:0000000140658348                 mov     r14, rsi
+  PAGE:000000014065834B                 mov     eax, ebx
+  PAGE:000000014065834D                 shr     eax, 0Bh
+  PAGE:0000000140658350                 and     eax, 1
+  PAGE:0000000140658353                 mov     rcx, [rsp+768h+var_598]
+  PAGE:000000014065835B                 ; __int64
+  PAGE:000000014065835B                 mov     [rsp+768h+var_700], rcx; __int64
+  PAGE:0000000140658360                 mov     rcx, [rsp+768h+var_5C8]
+  PAGE:0000000140658368                 ; __int64
+  PAGE:0000000140658368                 mov     [rsp+768h+var_708], rcx; __int64
+  PAGE:000000014065836D                 mov     ecx, [rsp+768h+var_660]
+  PAGE:0000000140658374                 ; int
+  PAGE:0000000140658374                 mov     [rsp+768h+var_710], ecx; int
+  PAGE:0000000140658378                 mov     rcx, [rsp+768h+Address]
+  PAGE:0000000140658380                 ; __int64
+  PAGE:0000000140658380                 mov     [rsp+768h+var_718], rcx; __int64
+  PAGE:0000000140658385                 mov     ecx, [rsp+768h+var_6A8]
+  PAGE:000000014065838C                 ; int
+  PAGE:000000014065838C                 mov     [rsp+768h+var_720], ecx; int
+  PAGE:0000000140658390                 ; __int64
+  PAGE:0000000140658390                 mov     [rsp+768h+var_728], r14; __int64
+  PAGE:0000000140658395                 mov     ecx, [rsp+768h+var_65C]
+  PAGE:000000014065839C                 ; int
+  PAGE:000000014065839C                 mov     [rsp+768h+var_730], ecx; int
+  PAGE:00000001406583A0                 ; int
+  PAGE:00000001406583A0                 mov     [rsp+768h+var_738], edi; int
+  PAGE:00000001406583A4                 ; int
+  PAGE:00000001406583A4                 mov     dword ptr [rsp+768h+var_740], eax; int
+  PAGE:00000001406583A8                 mov     eax, [rsp+768h+var_6C8]
+  PAGE:00000001406583AF                 ; int
+  PAGE:00000001406583AF                 mov     [rsp+768h+var_748], eax; int
+  PAGE:00000001406583B3                 mov     r9d, [rsp+768h+arg_58]
+  PAGE:00000001406583BB                 mov     r8, [rsp+768h+Token]
+  PAGE:00000001406583C3                 mov     rdx, r15
+  PAGE:00000001406583C6                 ; Process
+  PAGE:00000001406583C6                 mov     rcx, r12; Process
+  PAGE:00000001406583C9                 call    PspInitializeProcessSecurity
+  PAGE:00000001406583CE                 mov     r14d, eax
+  PAGE:00000001406583D1                 test    eax, eax
+  PAGE:00000001406583D3                 js      loc_140657D3B
+  PAGE:00000001406583D9                 mov     byte ptr [r15+5B7h], 2
+  PAGE:00000001406583E1                 test    r12, r12
+  PAGE:00000001406583E4                 jz      short loc_140658443
+  PAGE:00000001406583E6                 movzx   ecx, byte ptr [r12+5B7h]
+  PAGE:00000001406583EF                 lea     eax, [rcx-1]
+  PAGE:00000001406583F2                 test    al, 0FBh
+  PAGE:00000001406583F4                 movzx   eax, byte ptr [r15+5B7h]
+  PAGE:00000001406583FC                 cmovz   eax, ecx
+  PAGE:00000001406583FF                 mov     [r15+5B7h], al
+  PAGE:0000000140658406                 test    r13, r13
+  PAGE:0000000140658409                 jz      short loc_140658414
+  PAGE:000000014065840B                 mov     r9, [r13+128h]
+  PAGE:0000000140658412                 jmp     short loc_140658417
+  PAGE:0000000140658414                 mov     r9, rsi
+  PAGE:0000000140658417                 test    r13, r13
+  PAGE:000000014065841A                 jz      short loc_140658425
+  PAGE:000000014065841C                 mov     r8d, [r13+124h]
+  PAGE:0000000140658423                 jmp     short loc_140658428
+  PAGE:0000000140658425                 mov     r8d, esi
+  PAGE:0000000140658428                 mov     eax, [rsp+768h+arg_40]
+  PAGE:000000014065842F                 and     al, 4
+  PAGE:0000000140658431                 neg     al
+  PAGE:0000000140658433                 sbb     rcx, rcx
+  PAGE:0000000140658436                 and     rcx, r12
+  PAGE:0000000140658439                 mov     rdx, r15
+  PAGE:000000014065843C                 call    ObInitProcess
+  PAGE:0000000140658441                 jmp     short loc_140658461
+  PAGE:0000000140658443                 mov     rax, [rsp+768h+var_688]
+  PAGE:000000014065844B                 mov     rax, [rax+570h]
+  PAGE:0000000140658452                 mov     [r15+570h], rax
+  PAGE:0000000140658459                 ; BugCheckParameter1
+  PAGE:0000000140658459                 mov     rcx, r15; BugCheckParameter1
+  PAGE:000000014065845C                 call    MmInitializeHandBuiltProcess2
+  PAGE:0000000140658461                 test    eax, eax
+  PAGE:0000000140658463                 mov     r14d, eax
+  PAGE:0000000140658466                 js      loc_140657D3B
+  PAGE:000000014065846C                 mov     dil, [rsp+768h+PreviousMode]
+  PAGE:0000000140658471                 test    byte ptr [rsp+768h+var_378], 7
+  PAGE:0000000140658479                 jz      short loc_14065848E
+  PAGE:000000014065847B                 mov     r8b, dil
+  PAGE:000000014065847E                 lea     rdx, [rsp+768h+var_378]
+  PAGE:0000000140658486                 mov     rcx, r15
+  PAGE:0000000140658489                 call    PspApplyIFEOPerfOptions
+  PAGE:000000014065848E                 bt      ebx, 15h
+  PAGE:0000000140658492                 jnb     short loc_1406584B1
+  PAGE:0000000140658494                 mov     r9d, 1
+  PAGE:000000014065849A                 mov     r8, [rsp+768h+P]
+  PAGE:00000001406584A2                 mov     edx, [rsp+768h+var_6C4]
+  PAGE:00000001406584A9                 mov     rcx, r15
+  PAGE:00000001406584AC                 call    KeSetCpuSetsProcess
+  PAGE:00000001406584B1                 test    r13, r13
+  PAGE:00000001406584B4                 jz      short loc_1406584E0
+  PAGE:00000001406584B6                 test    dword ptr [r13+4], 100h
+  PAGE:00000001406584BE                 jz      short loc_1406584E0
+  PAGE:00000001406584C0                 mov     r9b, dil
+  PAGE:00000001406584C3                 xor     r8d, r8d
+  PAGE:00000001406584C6                 mov     dl, [r13+0F8h]
+  PAGE:00000001406584CD                 mov     rcx, r15
+  PAGE:00000001406584D0                 call    PspSetProcessPriorityClass
+  PAGE:00000001406584D5                 mov     r14d, eax
+  PAGE:00000001406584D8                 test    eax, eax
+  PAGE:00000001406584DA                 js      loc_140657D3B
+  PAGE:00000001406584E0                 mov     qword ptr [rsp+768h+var_748], rsi
+  PAGE:00000001406584E5                 xor     r9d, r9d
+  PAGE:00000001406584E8                 lea     r8, [rsp+768h+var_6EB]
+  PAGE:00000001406584ED                 xor     edx, edx
+  PAGE:00000001406584EF                 mov     rcx, r15
+  PAGE:00000001406584F2                 call    PspComputeQuantumAndPriority
+  PAGE:00000001406584F7                 mov     [r15+280h], al
+  PAGE:00000001406584FE                 mov     al, [rsp+768h+var_6EB]
+  PAGE:0000000140658502                 mov     [r15+281h], al
+  PAGE:0000000140658509                 mov     r14d, esi
+  PAGE:000000014065850C                 mov     [rsp+768h+var_6C8], esi
+  PAGE:0000000140658513                 lea     rdx, [rsp+768h+var_3D8]
+  PAGE:000000014065851B                 mov     rcx, r13
+  PAGE:000000014065851E                 call    PspReadIFEOMitigationOptions
+  PAGE:0000000140658523                 movups  xmm0, [rsp+768h+var_3D8]
+  PAGE:000000014065852B                 movaps  [rsp+768h+var_508], xmm0
+  PAGE:0000000140658533                 movsd   xmm0, [rsp+768h+var_3C8]
+  PAGE:000000014065853C                 movsd   [rsp+768h+var_4F8], xmm0
+  PAGE:0000000140658545                 movups  xmm1, cs:PspSystemMitigationOptions
+  PAGE:000000014065854C                 movaps  [rsp+768h+var_4E8], xmm1
+  PAGE:0000000140658554                 movsd   xmm0, cs:qword_140CFC9E0
+  PAGE:000000014065855C                 movsd   [rsp+768h+var_4D8], xmm0
+  PAGE:0000000140658565                 lea     r8, [rsp+768h+var_3D8]
+  PAGE:000000014065856D                 lea     rdx, [rsp+768h+var_508]
+  PAGE:0000000140658575                 lea     rcx, [rsp+768h+var_4E8]
+  PAGE:000000014065857D                 call    PspInheritMitigationOptions
+  PAGE:0000000140658582                 lea     rdx, [rsp+768h+var_3C0]
+  PAGE:000000014065858A                 mov     rcx, r13
+  PAGE:000000014065858D                 call    PspReadIFEOMitigationAuditOptions
+  PAGE:0000000140658592                 movups  xmm0, [rsp+768h+var_3C0]
+  PAGE:000000014065859A                 movaps  [rsp+768h+var_4C8], xmm0
+  PAGE:00000001406585A2                 movsd   xmm0, [rsp+768h+var_3B0]
+  PAGE:00000001406585AB                 movsd   [rsp+768h+var_4B8], xmm0
+  PAGE:00000001406585B4                 movups  xmm1, cs:PspSystemMitigationAuditOptions
+  PAGE:00000001406585BB                 movaps  [rsp+768h+var_4A8], xmm1
+  PAGE:00000001406585C3                 movsd   xmm0, cs:qword_140CFCB80
+  PAGE:00000001406585CB                 movsd   [rsp+768h+var_498], xmm0
+  PAGE:00000001406585D4                 lea     r8, [rsp+768h+var_3C0]
+  PAGE:00000001406585DC                 lea     rdx, [rsp+768h+var_4C8]
+  PAGE:00000001406585E4                 lea     rcx, [rsp+768h+var_4A8]
+  PAGE:00000001406585EC                 call    PspInheritMitigationAuditOptions
+  PAGE:00000001406585F1                 mov     rdi, qword ptr [rsp+768h+var_3D8]
+  PAGE:00000001406585F9                 shr     rdi, 30h
+  PAGE:00000001406585FD                 and     edi, 3
+  PAGE:0000000140658600                 shl     edi, 10h
+  PAGE:0000000140658603                 test    r13, r13
+  PAGE:0000000140658606                 jz      loc_1406586E7
+  PAGE:000000014065860C                 test    dword ptr [r13+4], 10000h
+  PAGE:0000000140658614                 jz      short loc_140658677
+  PAGE:0000000140658616                 movups  xmm0, xmmword ptr [r13+168h]
+  PAGE:000000014065861E                 movaps  [rsp+768h+var_488], xmm0
+  PAGE:0000000140658626                 movsd   xmm1, qword ptr [r13+178h]
+  PAGE:000000014065862F                 movsd   [rsp+768h+var_478], xmm1
+  PAGE:0000000140658638                 movups  xmm0, [rsp+768h+var_3D8]
+  PAGE:0000000140658640                 movaps  [rsp+768h+var_468], xmm0
+  PAGE:0000000140658648                 movsd   xmm0, [rsp+768h+var_3C8]
+  PAGE:0000000140658651                 movsd   [rsp+768h+var_458], xmm0
+  PAGE:000000014065865A                 lea     r8, [rsp+768h+var_3D8]
+  PAGE:0000000140658662                 lea     rdx, [rsp+768h+var_488]
+  PAGE:000000014065866A                 lea     rcx, [rsp+768h+var_468]
+  PAGE:0000000140658672                 call    PspInheritMitigationOptions
+  PAGE:0000000140658677                 test    r13, r13
+  PAGE:000000014065867A                 jz      short loc_1406586E7
+  PAGE:000000014065867C                 test    dword ptr [r13+4], 8000000h
+  PAGE:0000000140658684                 jz      short loc_1406586E7
+  PAGE:0000000140658686                 movups  xmm0, xmmword ptr [r13+1E8h]
+  PAGE:000000014065868E                 movaps  [rsp+768h+var_528], xmm0
+  PAGE:0000000140658696                 movsd   xmm1, qword ptr [r13+1F8h]
+  PAGE:000000014065869F                 movsd   [rsp+768h+var_518], xmm1
+  PAGE:00000001406586A8                 movups  xmm0, [rsp+768h+var_3C0]
+  PAGE:00000001406586B0                 movaps  [rsp+768h+var_448], xmm0
+  PAGE:00000001406586B8                 movsd   xmm0, [rsp+768h+var_3B0]
+  PAGE:00000001406586C1                 movsd   [rsp+768h+var_438], xmm0
+  PAGE:00000001406586CA                 lea     r8, [rsp+768h+var_3C0]
+  PAGE:00000001406586D2                 lea     rdx, [rsp+768h+var_528]
+  PAGE:00000001406586DA                 lea     rcx, [rsp+768h+var_448]
+  PAGE:00000001406586E2                 call    PspInheritMitigationAuditOptions
+  PAGE:00000001406586E7                 cmp     dword ptr [rsp+768h+TokenInformation], esi
+  PAGE:00000001406586EE                 jz      short loc_1406586F3
+  PAGE:00000001406586F0                 or      edi, 4
+  PAGE:00000001406586F3                 mov     eax, edi
+  PAGE:00000001406586F5                 mov     r11d, edi
+  PAGE:00000001406586F8                 bts     r11d, 8
+  PAGE:00000001406586FD                 and     al, 4
+  PAGE:00000001406586FF                 cmovz   r11d, edi
+  PAGE:0000000140658703                 test    r11d, 0FF00h
+  PAGE:000000014065870A                 jz      short loc_140658719
+  PAGE:000000014065870C                 lea     rcx, [rsp+768h+var_3D8]
+  PAGE:0000000140658714                 call    PspHardenMitigationOptions
+  PAGE:0000000140658719                 call    KeIsUserCetAllowed
+  PAGE:000000014065871E                 mov     r12, 0EFFFFFFFFFFFFFFFh
+  PAGE:0000000140658728                 mov     r9, 2000000000000000h
+  PAGE:0000000140658732                 test    al, al
+  PAGE:0000000140658734                 jnz     short loc_14065874C
+  PAGE:0000000140658736                 mov     rax, qword ptr [rsp+768h+var_3D8+8]
+  PAGE:000000014065873E                 and     rax, r12
+  PAGE:0000000140658741                 or      rax, r9
+  PAGE:0000000140658744                 mov     qword ptr [rsp+768h+var_3D8+8], rax
+  PAGE:000000014065874C                 movzx   eax, word ptr [rsp+768h+NumberOfBytes+4]
+  PAGE:0000000140658754                 movzx   edx, ax
+  PAGE:0000000140658757                 mov     r10d, 4000h
+  PAGE:000000014065875D                 and     dx, r10w
+  PAGE:0000000140658761                 test    ebx, 180h
+  PAGE:0000000140658767                 mov     r8d, esi
+  PAGE:000000014065876A                 setnz   r8b
+  PAGE:000000014065876E                 shr     eax, 4
+  PAGE:0000000140658771                 and     eax, 2
+  PAGE:0000000140658774                 or      r8d, eax
+  PAGE:0000000140658777                 movzx   eax, dx
+  PAGE:000000014065877A                 neg     ax
+  PAGE:000000014065877D                 sbb     ecx, ecx
+  PAGE:000000014065877F                 and     ecx, 8
+  PAGE:0000000140658782                 or      r8d, ecx
+  PAGE:0000000140658785                 or      r8d, r11d
+  PAGE:0000000140658788                 test    dx, dx
+  PAGE:000000014065878B                 jz      short loc_140658793
+  PAGE:000000014065878D                 bt      ebx, 12h
+  PAGE:0000000140658791                 jb      short loc_14065879A
+  PAGE:0000000140658793                 mov     [rsp+768h+var_698], esi
+  PAGE:000000014065879A                 mov     edi, ebx
+  PAGE:000000014065879C                 shr     edi, 1
+  PAGE:000000014065879E                 and     edi, 7C00000h
+  PAGE:00000001406587A4                 mov     eax, ebx
+  PAGE:00000001406587A6                 and     eax, 100000h
+  PAGE:00000001406587AB                 or      edi, eax
+  PAGE:00000001406587AD                 shr     edi, 2
+  PAGE:00000001406587B0                 or      edi, [rsp+768h+var_698]
+  PAGE:00000001406587B7                 or      edi, r8d
+  PAGE:00000001406587BA                 mov     eax, ebx
+  PAGE:00000001406587BC                 and     eax, 400h
+  PAGE:00000001406587C1                 mov     dword ptr [rsp+768h+var_6B0], eax
+  PAGE:00000001406587C8                 jz      short loc_140658845
+  PAGE:00000001406587CA                 mov     rax, qword ptr [rsp+768h+var_3D8+8]
+  PAGE:00000001406587D2                 mov     rcx, 0EFFFFFFFFFFFFFFEh
+  PAGE:00000001406587DC                 and     rax, rcx
+  PAGE:00000001406587DF                 mov     rcx, 2000000000000002h
+  PAGE:00000001406587E9                 or      rax, rcx
+  PAGE:00000001406587EC                 mov     qword ptr [rsp+768h+var_3D8+8], rax
+  PAGE:00000001406587F4                 mov     rax, qword ptr [rsp+768h+var_3D8]
+  PAGE:00000001406587FC                 mov     rcx, 0FFFFFEFFFFFCFFFFh
+  PAGE:0000000140658806                 and     rax, rcx
+  PAGE:0000000140658809                 mov     rcx, 20000000000h
+  PAGE:0000000140658813                 or      rax, rcx
+  PAGE:0000000140658816                 test    [rsp+768h+arg_48], 2
+  PAGE:000000014065881E                 jz      short loc_14065882D
+  PAGE:0000000140658820                 btr     rax, 14h
+  PAGE:0000000140658825                 or      rax, 220000h
+  PAGE:000000014065882B                 jmp     short loc_14065883D
+  PAGE:000000014065882D                 bts     rax, 10h
+  PAGE:0000000140658832                 and     rax, 0FFFFFFFFFFCFFFFFh
+  PAGE:0000000140658838                 bts     rax, 14h
+  PAGE:000000014065883D                 mov     qword ptr [rsp+768h+var_3D8], rax
+  PAGE:0000000140658845                 cmp     [rsp+768h+var_678], rsi
+  PAGE:000000014065884D                 jnz     short loc_14065887D
+  PAGE:000000014065884F                 mov     rax, [rsp+768h+Process]
+  PAGE:0000000140658857                 test    rax, rax
+  PAGE:000000014065885A                 jz      short loc_14065887D
+  PAGE:000000014065885C                 mov     eax, [rax+9D4h]
+  PAGE:0000000140658862                 test    r10d, eax
+  PAGE:0000000140658865                 jnz     short loc_14065887D
+  PAGE:0000000140658867                 mov     rax, qword ptr [rsp+768h+var_3D8+8]
+  PAGE:000000014065886F                 and     rax, r12
+  PAGE:0000000140658872                 or      rax, r9
+  PAGE:0000000140658875                 mov     qword ptr [rsp+768h+var_3D8+8], rax
+  PAGE:000000014065887D                 mov     rcx, r15
+  PAGE:0000000140658880                 call    PsGetProcessServerSilo
+  PAGE:0000000140658885                 mov     rcx, rax
+  PAGE:0000000140658888                 call    PsIsHostSilo
+  PAGE:000000014065888D                 mov     rcx, 2000000000000000h
+  PAGE:0000000140658897                 test    al, al
+  PAGE:0000000140658899                 jnz     short loc_1406588B1
+  PAGE:000000014065889B                 mov     rax, qword ptr [rsp+768h+var_3D8+8]
+  PAGE:00000001406588A3                 and     rax, r12
+  PAGE:00000001406588A6                 or      rax, rcx
+  PAGE:00000001406588A9                 mov     qword ptr [rsp+768h+var_3D8+8], rax
+  PAGE:00000001406588B1                 bt      ebx, 0Eh
+  PAGE:00000001406588B5                 jnb     short loc_1406588CD
+  PAGE:00000001406588B7                 mov     rax, qword ptr [rsp+768h+var_3D8+8]
+  PAGE:00000001406588BF                 and     rax, r12
+  PAGE:00000001406588C2                 or      rax, rcx
+  PAGE:00000001406588C5                 mov     qword ptr [rsp+768h+var_3D8+8], rax
+  PAGE:00000001406588CD                 mov     eax, [rsp+768h+var_694]
+  PAGE:00000001406588D4                 mov     [rsp+768h+var_738], eax
+  PAGE:00000001406588D8                 mov     eax, [rsp+768h+var_690]
+  PAGE:00000001406588DF                 mov     dword ptr [rsp+768h+var_740], eax
+  PAGE:00000001406588E3                 mov     [rsp+768h+var_748], edi
+  PAGE:00000001406588E7                 lea     r9, [rsp+768h+var_3C0]
+  PAGE:00000001406588EF                 lea     r8, [rsp+768h+var_3D8]
+  PAGE:00000001406588F7                 mov     r12, [rsp+768h+Process]
+  PAGE:00000001406588FF                 mov     rdx, r12
+  PAGE:0000000140658902                 mov     rcx, r15
+  PAGE:0000000140658905                 call    PspApplyMitigationOptions
+  PAGE:000000014065890A                 test    r13, r13
+  PAGE:000000014065890D                 jz      short loc_14065896D
+  PAGE:000000014065890F                 mov     rdx, r13
+  PAGE:0000000140658912                 mov     rcx, r15
+  PAGE:0000000140658915                 call    PspApplyWin32kFilterOptions
+  PAGE:000000014065891A                 test    r13, r13
+  PAGE:000000014065891D                 jz      short loc_14065896D
+  PAGE:000000014065891F                 call    PspApplyComponentFilterOptions
+  PAGE:0000000140658924                 test    r13, r13
+  PAGE:0000000140658927                 jz      short loc_14065896D
+  PAGE:0000000140658929                 movups  xmm0, [rsp+768h+var_3D8]
+  PAGE:0000000140658931                 movups  xmmword ptr [r13+168h], xmm0
+  PAGE:0000000140658939                 movsd   xmm0, [rsp+768h+var_3C8]
+  PAGE:0000000140658942                 movsd   qword ptr [r13+178h], xmm0
+  PAGE:000000014065894B                 movups  xmm1, [rsp+768h+var_3C0]
+  PAGE:0000000140658953                 movups  xmmword ptr [r13+1E8h], xmm1
+  PAGE:000000014065895B                 movsd   xmm0, [rsp+768h+var_3B0]
+  PAGE:0000000140658964                 movsd   qword ptr [r13+1F8h], xmm0
+  PAGE:000000014065896D                 lea     r8, [rsp+768h+var_6EA]
+  PAGE:0000000140658972                 xor     edx, edx
+  PAGE:0000000140658974                 mov     rcx, r15
+  PAGE:0000000140658977                 call    PsQueryProcessAttributes
+  PAGE:000000014065897C                 mov     ecx, esi
+  PAGE:000000014065897E                 cmp     dword ptr [rsp+768h+TokenInformation], esi
+  PAGE:0000000140658985                 mov     eax, 1
+  PAGE:000000014065898A                 cmovnz  ecx, eax
+  PAGE:000000014065898D                 mov     eax, [rsp+768h+arg_40]
+  PAGE:0000000140658994                 mov     edx, ecx
+  PAGE:0000000140658996                 or      edx, 2
+  PAGE:0000000140658999                 and     eax, 20000h
+  PAGE:000000014065899E                 cmovz   edx, ecx
+  PAGE:00000001406589A1                 mov     rcx, r15
+  PAGE:00000001406589A4                 call    SmProcessCreateNotification
+  PAGE:00000001406589A9                 test    r12, r12
+  PAGE:00000001406589AC                 jz      short loc_1406589CD
+  PAGE:00000001406589AE                 cmp     r12, cs:PsInitialSystemProcess
+  PAGE:00000001406589B5                 jz      short loc_1406589CD
+  PAGE:00000001406589B7                 mov     ecx, 2000000h
+  PAGE:00000001406589BC                 test    [r12+87Ch], ecx
+  PAGE:00000001406589C4                 jz      short loc_1406589CD
+  PAGE:00000001406589C6                 or      [r15+87Ch], ecx
+  PAGE:00000001406589CD                 test    byte ptr [rsp+768h+arg_40], 80h
+  PAGE:00000001406589D5                 jz      short loc_140658A00
+  PAGE:00000001406589D7                 mov     rcx, [rsp+768h+var_688]
+  PAGE:00000001406589DF                 call    MmIsSessionLeaderProcess
+  PAGE:00000001406589E4                 test    eax, eax
+  PAGE:00000001406589E6                 jnz     short loc_140658A00
+  PAGE:00000001406589E8                 ; PreviousMode
+  PAGE:00000001406589E8                 mov     dl, [rsp+768h+PreviousMode]; PreviousMode
+  PAGE:00000001406589EC                 ; PrivilegeValue
+  PAGE:00000001406589EC                 mov     rcx, qword ptr cs:SeLoadDriverPrivilege.LowPart; PrivilegeValue
+  PAGE:00000001406589F3                 call    SeSinglePrivilegeCheck
+  PAGE:00000001406589F8                 test    al, al
+  PAGE:00000001406589FA                 jz      loc_140657D35
+  PAGE:0000000140658A00                 mov     edi, dword ptr [rsp+768h+var_6B0]
+  PAGE:0000000140658A07                 test    edi, edi
+  PAGE:0000000140658A09                 jnz     loc_140658B0D
+  PAGE:0000000140658A0F                 cmp     [rsp+768h+var_678], rsi
+  PAGE:0000000140658A17                 jnz     loc_140658B0D
+  PAGE:0000000140658A1D                 test    r12, r12
+  PAGE:0000000140658A20                 jz      loc_140658BBB
+  PAGE:0000000140658A26                 mov     rax, [r12+520h]
+  PAGE:0000000140658A2E                 mov     [r15+520h], rax
+  PAGE:0000000140658A35                 mov     eax, ebx
+  PAGE:0000000140658A37                 shr     eax, 0Bh
+  PAGE:0000000140658A3A                 and     eax, 1
+  PAGE:0000000140658A3D                 ; int
+  PAGE:0000000140658A3D                 mov     [rsp+768h+var_748], eax; int
+  PAGE:0000000140658A41                 lea     r9, [rsp+768h+arg_40]
+  PAGE:0000000140658A49                 xor     r8d, r8d
+  PAGE:0000000140658A4C                 mov     rdx, r12
+  PAGE:0000000140658A4F                 ; BugCheckParameter1
+  PAGE:0000000140658A4F                 mov     rcx, r15; BugCheckParameter1
+  PAGE:0000000140658A52                 call    MmInitializeProcessAddressSpace
+  PAGE:0000000140658A57                 mov     r14d, eax
+  PAGE:0000000140658A5A                 test    eax, eax
+  PAGE:0000000140658A5C                 js      loc_140657D3B
+  PAGE:0000000140658A62                 mov     ebx, [rsp+768h+arg_40]
+  PAGE:0000000140658A69                 and     ebx, 10h
+  PAGE:0000000140658A6C                 shl     ebx, 2
+  PAGE:0000000140658A6F                 or      ebx, dword ptr [rsp+768h+TokenInformation+4]
+  PAGE:0000000140658A76                 or      ebx, 2
+  PAGE:0000000140658A79                 mov     rax, [r12+5C0h]
+  PAGE:0000000140658A81                 movzx   edi, word ptr [rax+2]
+  PAGE:0000000140658A85                 ; Tag
+  PAGE:0000000140658A85                 mov     r8d, 61506553h; Tag
+  PAGE:0000000140658A8B                 ; NumberOfBytes
+  PAGE:0000000140658A8B                 lea     rdx, [rdi+10h]; NumberOfBytes
+  PAGE:0000000140658A8F                 ; PoolType
+  PAGE:0000000140658A8F                 mov     ecx, 200h; PoolType
+  PAGE:0000000140658A94                 call    ExAllocatePoolWithTag
+  PAGE:0000000140658A99                 mov     [r15+5C0h], rax
+  PAGE:0000000140658AA0                 test    rax, rax
+  PAGE:0000000140658AA3                 jz      loc_140658162
+  PAGE:0000000140658AA9                 ; Size
+  PAGE:0000000140658AA9                 lea     r8, [rdi+10h]; Size
+  PAGE:0000000140658AAD                 ; Src
+  PAGE:0000000140658AAD                 mov     rdx, [r12+5C0h]; Src
+  PAGE:0000000140658AB5                 ; void *
+  PAGE:0000000140658AB5                 mov     rcx, rax; void *
+  PAGE:0000000140658AB8                 call    memmove
+  PAGE:0000000140658ABD                 mov     rcx, [r15+5C0h]
+  PAGE:0000000140658AC4                 lea     rax, [rcx+10h]
+  PAGE:0000000140658AC8                 mov     [rcx+8], rax
+  PAGE:0000000140658ACC                 mov     eax, [r12+528h]; 0x528 = 1320 = _EPROCESS->Cookie
+  PAGE:0000000140658AD4                 mov     [r15+528h], eax; 0x528 = 1320 = _EPROCESS->Cookie
+  PAGE:0000000140658ADB                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:0000000140658ADF                 test    [rsp+768h+arg_40], 1000h
+  PAGE:0000000140658AEA                 jz      loc_140658BBB
+  PAGE:0000000140658AF0                 mov     rax, [rsp+768h+var_5E8]
+  PAGE:0000000140658AF8                 mov     [rax], rsi
+  PAGE:0000000140658AFB                 ; DmaAdapter
+  PAGE:0000000140658AFB                 mov     rcx, [rsp+768h+var_680]; DmaAdapter
+  PAGE:0000000140658B03                 call    ObDereferenceObjectWithTag
+  PAGE:0000000140658B08                 jmp     loc_140658BB7
+  PAGE:0000000140658B0D                 mov     rdx, r15
+  PAGE:0000000140658B10                 mov     rcx, r13
+  PAGE:0000000140658B13                 call    PspInitializeFullProcessImageName
+  PAGE:0000000140658B18                 mov     r14d, eax
+  PAGE:0000000140658B1B                 test    eax, eax
+  PAGE:0000000140658B1D                 js      loc_140657D3B
+  PAGE:0000000140658B23                 lea     r9, [rsp+768h+arg_40]
+  PAGE:0000000140658B2B                 ; BugCheckParameter1
+  PAGE:0000000140658B2B                 mov     rcx, r15; BugCheckParameter1
+  PAGE:0000000140658B2E                 bt      ebx, 10h
+  PAGE:0000000140658B32                 jb      short loc_140658B4C
+  PAGE:0000000140658B34                 ; int
+  PAGE:0000000140658B34                 mov     [rsp+768h+var_748], esi; int
+  PAGE:0000000140658B38                 mov     r12, [rsp+768h+var_680]
+  PAGE:0000000140658B40                 mov     r8, r12
+  PAGE:0000000140658B43                 xor     edx, edx
+  PAGE:0000000140658B45                 call    MmInitializeProcessAddressSpace
+  PAGE:0000000140658B4A                 jmp     short loc_140658B6B
+  PAGE:0000000140658B4C                 mov     eax, ebx
+  PAGE:0000000140658B4E                 shr     eax, 11h
+  PAGE:0000000140658B51                 and     eax, 1
+  PAGE:0000000140658B54                 ; int
+  PAGE:0000000140658B54                 mov     [rsp+768h+var_748], eax; int
+  PAGE:0000000140658B58                 xor     r8d, r8d
+  PAGE:0000000140658B5B                 mov     rdx, r12
+  PAGE:0000000140658B5E                 call    MmInitializeProcessAddressSpace
+  PAGE:0000000140658B63                 mov     r12, [rsp+768h+var_680]
+  PAGE:0000000140658B6B                 mov     r14d, eax
+  PAGE:0000000140658B6E                 test    eax, eax
+  PAGE:0000000140658B70                 js      loc_140657D3B
+  PAGE:0000000140658B76                 test    r13, r13
+  PAGE:0000000140658B79                 jz      short loc_140658B96
+  PAGE:0000000140658B7B                 mov     rcx, r12
+  PAGE:0000000140658B7E                 call    MmGetImageSectionBasedAddress
+  PAGE:0000000140658B83                 mov     rcx, [r15+520h]
+  PAGE:0000000140658B8A                 cmp     rax, rcx
+  PAGE:0000000140658B8D                 jz      short loc_140658B96
+  PAGE:0000000140658B8F                 sub     rcx, rax
+  PAGE:0000000140658B92                 add     [r13+30h], rcx
+  PAGE:0000000140658B96                 mov     [rsp+768h+var_6C8], r14d
+  PAGE:0000000140658B9E                 test    edi, edi
+  PAGE:0000000140658BA0                 jnz     short loc_140658BA5
+  PAGE:0000000140658BA2                 or      ebx, 2
+  PAGE:0000000140658BA5                 mov     eax, [rsp+768h+arg_40]
+  PAGE:0000000140658BAC                 and     eax, 10h
+  PAGE:0000000140658BAF                 or      eax, 2
+  PAGE:0000000140658BB2                 shl     eax, 2
+  PAGE:0000000140658BB5                 or      ebx, eax
+  PAGE:0000000140658BB7                 mov     [rsp+768h+var_6F4], ebx
+  PAGE:0000000140658BBB                 test    bl, 10h
+  PAGE:0000000140658BBE                 jz      short loc_140658BCD
+  PAGE:0000000140658BC0                 ; P
+  PAGE:0000000140658BC0                 mov     rcx, [rsp+768h+var_5F8]; P
+  PAGE:0000000140658BC8                 call    RtlReleasePrivilege
+  PAGE:0000000140658BCD                 mov     rcx, r15
+  PAGE:0000000140658BD0                 call    PsWow64GetProcessMachine
+  PAGE:0000000140658BD5                 mov     ecx, 14Ch
+  PAGE:0000000140658BDA                 cmp     ax, cx
+  PAGE:0000000140658BDD                 jnz     short loc_140658BE7
+  PAGE:0000000140658BDF                 or      dword ptr [r15+278h], 1
+  PAGE:0000000140658BE7                 mov     r12d, ebx
+  PAGE:0000000140658BEA                 and     r12d, 8
+  PAGE:0000000140658BEE                 mov     [rsp+768h+var_6C4], r12d
+  PAGE:0000000140658BF6                 jz      short loc_140658C1B
+  PAGE:0000000140658BF8                 test    r13, r13
+  PAGE:0000000140658BFB                 jz      short loc_140658C1B
+  PAGE:0000000140658BFD                 mov     r8, r13
+  PAGE:0000000140658C00                 lea     rdx, [rsp+768h+ApcState]
+  PAGE:0000000140658C08                 mov     rcx, r15
+  PAGE:0000000140658C0B                 call    PspSetupReservedUserMappings
+  PAGE:0000000140658C10                 mov     r14d, eax
+  PAGE:0000000140658C13                 test    eax, eax
+  PAGE:0000000140658C15                 js      loc_140657D4D
+  PAGE:0000000140658C1B                 mov     eax, ebx
+  PAGE:0000000140658C1D                 and     eax, 2
+  PAGE:0000000140658C20                 mov     dword ptr [rsp+768h+var_6B0], eax
+  PAGE:0000000140658C27                 jz      loc_140658EDE
+  PAGE:0000000140658C2D                 xor     eax, eax
+  PAGE:0000000140658C2F                 mov     qword ptr [rsp+768h+var_5D8], rax
+  PAGE:0000000140658C37                 or      qword ptr [rsp+768h+var_5D8+8], 0FFFFFFFFFFFFFFFFh
+  PAGE:0000000140658C40                 mov     rcx, r15
+  PAGE:0000000140658C43                 call    PsIsProtectedProcess
+  PAGE:0000000140658C48                 mov     edi, eax
+  PAGE:0000000140658C4A                 mov     rcx, r15
+  PAGE:0000000140658C4D                 call    PsIsProtectedProcessLight
+  PAGE:0000000140658C52                 mov     edx, ebx
+  PAGE:0000000140658C54                 shr     edx, 7
+  PAGE:0000000140658C57                 mov     r8d, 1
+  PAGE:0000000140658C5D                 and     dl, r8b
+  PAGE:0000000140658C60                 and     al, r8b
+  PAGE:0000000140658C63                 shl     al, 4
+  PAGE:0000000140658C66                 or      dl, al
+  PAGE:0000000140658C68                 add     dl, dl
+  PAGE:0000000140658C6A                 and     dil, r8b
+  PAGE:0000000140658C6D                 or      dl, dil
+  PAGE:0000000140658C70                 add     dl, dl
+  PAGE:0000000140658C72                 mov     eax, ebx
+  PAGE:0000000140658C74                 shr     eax, 6
+  PAGE:0000000140658C77                 and     al, r8b
+  PAGE:0000000140658C7A                 or      dl, al
+  PAGE:0000000140658C7C                 mov     al, byte ptr [rsp+768h+var_5D8+3]
+  PAGE:0000000140658C83                 and     al, 0B8h
+  PAGE:0000000140658C85                 or      dl, al
+  PAGE:0000000140658C87                 mov     eax, dword ptr [rsp+768h+TokenInformation]
+  PAGE:0000000140658C8E                 neg     eax
+  PAGE:0000000140658C90                 sbb     cl, cl
+  PAGE:0000000140658C92                 and     cl, 2
+  PAGE:0000000140658C95                 mov     dil, [rsp+768h+var_6EA]
+  PAGE:0000000140658C9A                 and     dil, r8b
+  PAGE:0000000140658C9D                 or      dil, cl
+  PAGE:0000000140658CA0                 shl     dil, 4
+  PAGE:0000000140658CA4                 and     dl, 0CFh
+  PAGE:0000000140658CA7                 or      dil, dl
+  PAGE:0000000140658CAA                 mov     byte ptr [rsp+768h+var_5D8+3], dil
+  PAGE:0000000140658CB2                 cmp     [rsp+768h+var_678], rsi
+  PAGE:0000000140658CBA                 jz      short loc_140658D3B
+  PAGE:0000000140658CBC                 lea     rdi, [r15+550h]
+  PAGE:0000000140658CC3                 lea     r9, [rsp+768h+var_640]
+  PAGE:0000000140658CCB                 mov     r8, rdi
+  PAGE:0000000140658CCE                 lea     rdx, [rsp+768h+var_5D8]
+  PAGE:0000000140658CD6                 mov     rcx, r15
+  PAGE:0000000140658CD9                 call    MmCreatePeb
+  PAGE:0000000140658CDE                 mov     r14d, eax
+  PAGE:0000000140658CE1                 test    eax, eax
+  PAGE:0000000140658CE3                 jns     short loc_140658CED
+  PAGE:0000000140658CE5                 mov     [rdi], rsi
+  PAGE:0000000140658CE8                 jmp     loc_140657D4D
+  PAGE:0000000140658CED                 cmp     qword ptr [rsp+768h+var_640], rsi
+  PAGE:0000000140658CF5                 jz      loc_140658EDE
+  PAGE:0000000140658CFB                 mov     rax, [rsp+768h+var_670]
+  PAGE:0000000140658D03                 lock and dword ptr [rax], 0FFCFFFFFh
+  PAGE:0000000140658D0A                 lea     rax, [rsp+768h+var_620]
+  PAGE:0000000140658D12                 mov     qword ptr [rsp+768h+var_748], rax
+  PAGE:0000000140658D17                 lea     r9, [rsp+768h+var_640]
+  PAGE:0000000140658D1F                 xor     r8d, r8d
+  PAGE:0000000140658D22                 lea     edx, [r8+1]
+  PAGE:0000000140658D26                 mov     r15, [rsp+768h+Object]
+  PAGE:0000000140658D2E                 mov     rcx, r15
+  PAGE:0000000140658D31                 call    PspSetProcessAffinitySafe
+  PAGE:0000000140658D36                 jmp     loc_140658EDE
+  PAGE:0000000140658D3B                 mov     rcx, [rsp+768h+Process]
+  PAGE:0000000140658D43                 mov     rax, [rcx+550h]
+  PAGE:0000000140658D4A                 mov     [rsp+768h+Address], rax
+  PAGE:0000000140658D52                 mov     [r15+550h], rax
+  PAGE:0000000140658D59                 bt      ebx, 0Bh
+  PAGE:0000000140658D5D                 jb      loc_140658EE6
+  PAGE:0000000140658D63                 mov     byte ptr [rsp+768h+var_5D8], r8b
+  PAGE:0000000140658D6B                 ; ApcState
+  PAGE:0000000140658D6B                 lea     rdx, [rsp+768h+ApcState]; ApcState
+  PAGE:0000000140658D73                 ; PROCESS
+  PAGE:0000000140658D73                 mov     rcx, r15; PROCESS
+  PAGE:0000000140658D76                 call    KeStackAttachProcess
+  PAGE:0000000140658D7B                 ; Size
+  PAGE:0000000140658D7B                 mov     edx, 7C8h; Size
+  PAGE:0000000140658D80                 ; ProbeMode
+  PAGE:0000000140658D80                 mov     r8d, 4; ProbeMode
+  PAGE:0000000140658D86                 ; Address
+  PAGE:0000000140658D86                 mov     rcx, [rsp+768h+Address]; Address
+  PAGE:0000000140658D8E                 call    MmSecureVirtualMemory
+  PAGE:0000000140658D93                 test    rax, rax
+  PAGE:0000000140658D96                 jz      short loc_140658DFB
+  PAGE:0000000140658D98                 movups  xmm0, [rsp+768h+var_5D8]
+  PAGE:0000000140658DA0                 mov     rax, [rsp+768h+Address]
+  PAGE:0000000140658DA8                 movdqu  xmmword ptr [rax], xmm0
+  PAGE:0000000140658DAC                 mov     edx, 1C4h
+  PAGE:0000000140658DB1                 lea     r8d, [rdx-78h]
+  PAGE:0000000140658DB5                 jmp     short loc_140658E0A
+  PAGE:0000000140658DB7                 mov     r14d, eax
+  PAGE:0000000140658DBA                 xor     esi, esi
+  PAGE:0000000140658DBC                 mov     edx, 1C4h
+  PAGE:0000000140658DC1                 lea     r8d, [rdx-78h]
+  PAGE:0000000140658DC5                 mov     dil, byte ptr [rsp+768h+var_5D8+3]
+  PAGE:0000000140658DCD                 mov     ebx, [rsp+768h+var_6F4]
+  PAGE:0000000140658DD1                 mov     r15, [rsp+768h+Object]
+  PAGE:0000000140658DD9                 mov     rax, [rsp+768h+var_5C0]
+  PAGE:0000000140658DE1                 mov     [rsp+768h+Process], rax
+  PAGE:0000000140658DE9                 mov     r13, [rsp+768h+var_5B8]
+  PAGE:0000000140658DF1                 mov     r12d, [rsp+768h+var_6C4]
+  PAGE:0000000140658DF9                 jmp     short loc_140658E0A
+  PAGE:0000000140658DFB                 mov     edx, 1C4h
+  PAGE:0000000140658E00                 mov     r14d, 0C0000141h
+  PAGE:0000000140658E06                 lea     r8d, [rdx-78h]
+  PAGE:0000000140658E0A                 test    r14d, r14d
+  PAGE:0000000140658E0D                 js      loc_140658EC8
+  PAGE:0000000140658E13                 mov     rax, [r15+580h]
+  PAGE:0000000140658E1A                 test    rax, rax
+  PAGE:0000000140658E1D                 jz      loc_140658EC8
+  PAGE:0000000140658E23                 movzx   ecx, word ptr [rax+8]
+  PAGE:0000000140658E27                 cmp     cx, r8w
+  PAGE:0000000140658E2B                 jz      short loc_140658E36
+  PAGE:0000000140658E2D                 cmp     cx, dx
+  PAGE:0000000140658E30                 jnz     loc_140658EC8
+  PAGE:0000000140658E36                 mov     rax, [rax]
+  PAGE:0000000140658E39                 mov     [rsp+768h+var_5E8], rax
+  PAGE:0000000140658E41                 ; Size
+  PAGE:0000000140658E41                 mov     edx, 480h; Size
+  PAGE:0000000140658E46                 ; ProbeMode
+  PAGE:0000000140658E46                 mov     r8d, 4; ProbeMode
+  PAGE:0000000140658E4C                 ; Address
+  PAGE:0000000140658E4C                 mov     rcx, rax; Address
+  PAGE:0000000140658E4F                 call    MmSecureVirtualMemory
+  PAGE:0000000140658E54                 test    rax, rax
+  PAGE:0000000140658E57                 jz      short loc_140658EC2
+  PAGE:0000000140658E59                 xor     eax, eax
+  PAGE:0000000140658E5B                 mov     dword ptr [rsp+768h+var_630], eax
+  PAGE:0000000140658E62                 or      dword ptr [rsp+768h+var_630+4], 0FFFFFFFFh
+  PAGE:0000000140658E6A                 mov     byte ptr [rsp+768h+var_630], 1
+  PAGE:0000000140658E72                 mov     byte ptr [rsp+768h+var_630+3], dil
+  PAGE:0000000140658E7A                 mov     rax, [rsp+768h+var_630]
+  PAGE:0000000140658E82                 mov     rcx, [rsp+768h+var_5E8]
+  PAGE:0000000140658E8A                 mov     [rcx], rax
+  PAGE:0000000140658E8D                 jmp     short loc_140658EC8
+  PAGE:0000000140658E8F                 mov     r14d, eax
+  PAGE:0000000140658E92                 xor     esi, esi
+  PAGE:0000000140658E94                 mov     ebx, [rsp+768h+var_6F4]
+  PAGE:0000000140658E98                 mov     r15, [rsp+768h+Object]
+  PAGE:0000000140658EA0                 mov     rax, [rsp+768h+var_5C0]
+  PAGE:0000000140658EA8                 mov     [rsp+768h+Process], rax
+  PAGE:0000000140658EB0                 mov     r13, [rsp+768h+var_5B8]
+  PAGE:0000000140658EB8                 mov     r12d, [rsp+768h+var_6C4]
+  PAGE:0000000140658EC0                 jmp     short loc_140658EC8
+  PAGE:0000000140658EC2                 mov     r14d, 0C0000141h
+  PAGE:0000000140658EC8                 ; ApcState
+  PAGE:0000000140658EC8                 lea     rcx, [rsp+768h+ApcState]; ApcState
+  PAGE:0000000140658ED0                 call    KeUnstackDetachProcess
+  PAGE:0000000140658ED5                 test    r14d, r14d
+  PAGE:0000000140658ED8                 js      loc_140657D4D
+  PAGE:0000000140658EDE                 mov     rcx, [rsp+768h+Process]
+  PAGE:0000000140658EE6                 test    r12d, r12d
+  PAGE:0000000140658EE9                 jz      short loc_140658F5F
+  PAGE:0000000140658EEB                 test    r13, r13
+  PAGE:0000000140658EEE                 jz      short loc_140658F5F
+  PAGE:0000000140658EF0                 mov     r9, r13
+  PAGE:0000000140658EF3                 lea     r8, [rsp+768h+ApcState]
+  PAGE:0000000140658EFB                 mov     rdx, r15
+  PAGE:0000000140658EFE                 call    PspSetupUserProcessAddressSpace
+  PAGE:0000000140658F03                 mov     r14d, eax
+  PAGE:0000000140658F06                 mov     rdi, [rsp+768h+var_628]
+  PAGE:0000000140658F0E                 mov     rcx, r15
+  PAGE:0000000140658F11                 call    MmNewProcessInitialized
+  PAGE:0000000140658F16                 test    r14d, r14d
+  PAGE:0000000140658F19                 js      loc_140657D4D
+  PAGE:0000000140658F1F                 mov     rdx, rdi
+  PAGE:0000000140658F22                 mov     rcx, r15
+  PAGE:0000000140658F25                 call    PspLockProcessExclusive
+  PAGE:0000000140658F2A                 mov     rdx, r15
+  PAGE:0000000140658F2D                 mov     rcx, cs:PspCidTable
+  PAGE:0000000140658F34                 call    ExCreateHandle
+  PAGE:0000000140658F39                 mov     [r15+440h], rax
+  PAGE:0000000140658F40                 test    rax, rax
+  PAGE:0000000140658F43                 jnz     loc_140658FF6
+  PAGE:0000000140658F49                 mov     rdx, rdi
+  PAGE:0000000140658F4C                 mov     rcx, r15
+  PAGE:0000000140658F4F                 call    PspUnlockProcessExclusive
+  PAGE:0000000140658F54                 mov     r14d, 0C000009Ah
+  PAGE:0000000140658F5A                 jmp     loc_140657D4D
+  PAGE:0000000140658F5F                 cmp     dword ptr [rsp+768h+var_6B0], esi
+  PAGE:0000000140658F66                 jz      short loc_140658F06
+  PAGE:0000000140658F68                 bt      ebx, 0Bh
+  PAGE:0000000140658F6C                 jb      short loc_140658F06
+  PAGE:0000000140658F6E                 mov     r14d, esi
+  PAGE:0000000140658F71                 ; ApcState
+  PAGE:0000000140658F71                 lea     rdx, [rsp+768h+ApcState]; ApcState
+  PAGE:0000000140658F79                 ; PROCESS
+  PAGE:0000000140658F79                 mov     rcx, r15; PROCESS
+  PAGE:0000000140658F7C                 call    KeStackAttachProcess
+  PAGE:0000000140658F81                 mov     rdx, r15
+  PAGE:0000000140658F84                 mov     rdi, [rsp+768h+var_628]
+  PAGE:0000000140658F8C                 mov     rcx, rdi
+  PAGE:0000000140658F8F                 call    PspWritePebAffinityInfo
+  PAGE:0000000140658F94                 test    r12d, r12d
+  PAGE:0000000140658F97                 jz      short loc_140658FE4
+  PAGE:0000000140658F99                 mov     rcx, r15
+  PAGE:0000000140658F9C                 call    MmMapApiSetView
+  PAGE:0000000140658FA1                 mov     r14d, eax
+  PAGE:0000000140658FA4                 test    eax, eax
+  PAGE:0000000140658FA6                 js      short loc_140658FE4
+  PAGE:0000000140658FA8                 mov     rcx, r15
+  PAGE:0000000140658FAB                 call    PspMapSiloSharedDataView
+  PAGE:0000000140658FB0                 mov     r14d, eax
+  PAGE:0000000140658FB3                 test    eax, eax
+  PAGE:0000000140658FB5                 js      short loc_140658FE4
+  PAGE:0000000140658FB7                 xor     edx, edx
+  PAGE:0000000140658FB9                 xor     ecx, ecx
+  PAGE:0000000140658FBB                 call    PspPrepareSystemDllInitBlock
+  PAGE:0000000140658FC0                 mov     r14d, eax
+  PAGE:0000000140658FC3                 test    eax, eax
+  PAGE:0000000140658FC5                 js      short loc_140658FE4
+  PAGE:0000000140658FC7                 cmp     [r15+580h], rsi
+  PAGE:0000000140658FCE                 jz      short loc_140658FE4
+  PAGE:0000000140658FD0                 mov     rcx, r15
+  PAGE:0000000140658FD3                 call    PsWow64GetProcessNtdllType
+  PAGE:0000000140658FD8                 xor     edx, edx
+  PAGE:0000000140658FDA                 mov     ecx, eax
+  PAGE:0000000140658FDC                 call    PspPrepareSystemDllInitBlock
+  PAGE:0000000140658FE1                 mov     r14d, eax
+  PAGE:0000000140658FE4                 ; ApcState
+  PAGE:0000000140658FE4                 lea     rcx, [rsp+768h+ApcState]; ApcState
+  PAGE:0000000140658FEC                 call    KeUnstackDetachProcess
+  PAGE:0000000140658FF1                 jmp     loc_140658F0E
+  PAGE:0000000140658FF6                 bt      ebx, 0Ch
+  PAGE:0000000140658FFA                 jnb     loc_140659082
+  PAGE:0000000140659000                 lea     r9, [rsp+768h+var_5A8]
+  PAGE:0000000140659008                 mov     r8, [r15+518h]
+  PAGE:000000014065900F                 xor     edx, edx
+  PAGE:0000000140659011                 xor     ecx, ecx
+  PAGE:0000000140659013                 call    MmGetSectionStrongImageReference
+  PAGE:0000000140659018                 mov     r14d, eax
+  PAGE:000000014065901B                 mov     rcx, r15
+  PAGE:000000014065901E                 test    eax, eax
+  PAGE:0000000140659020                 jns     short loc_14065902F
+  PAGE:0000000140659022                 mov     rdx, rdi
+  PAGE:0000000140659025                 call    PspUnlockProcessExclusive
+  PAGE:000000014065902A                 jmp     loc_140657D4D
+  PAGE:000000014065902F                 mov     rdx, [r13+188h]
+  PAGE:0000000140659036                 mov     eax, [r13+198h]
+  PAGE:000000014065903D                 mov     qword ptr [rsp+768h+var_730], rax
+  PAGE:0000000140659042                 mov     qword ptr [rsp+768h+var_738], rdx
+  PAGE:0000000140659047                 mov     rax, [r15+520h]
+  PAGE:000000014065904E                 mov     [rsp+768h+var_740], rax
+  PAGE:0000000140659053                 mov     rax, [rsp+768h+var_5A8]
+  PAGE:000000014065905B                 mov     qword ptr [rsp+768h+var_748], rax
+  PAGE:0000000140659060                 mov     r9, [r15+440h]
+  PAGE:0000000140659067                 mov     r8, [r15+550h]
+  PAGE:000000014065906E                 mov     rdx, [rdx]
+  PAGE:0000000140659071                 call    KeSecureProcess
+  PAGE:0000000140659076                 mov     r14d, eax
+  PAGE:0000000140659079                 test    eax, eax
+  PAGE:000000014065907B                 jns     short loc_140659082
+  PAGE:000000014065907D                 mov     rcx, r15
+  PAGE:0000000140659080                 jmp     short loc_140659022
+  PAGE:0000000140659082                 call    KeQuerySystemTimeUnsafe
+  PAGE:0000000140659087                 test    rax, rax
+  PAGE:000000014065908A                 jz      short loc_14065909A
+  PAGE:000000014065908C                 lea     rcx, [r15+468h]
+  PAGE:0000000140659093                 call    KeQuerySystemTimePrecise
+  PAGE:0000000140659098                 jmp     short loc_1406590B3
+  PAGE:000000014065909A                 mov     rax, ds:0FFFFF78000000014h
+  PAGE:00000001406590A4                 mov     r15, [rsp+768h+Object]
+  PAGE:00000001406590AC                 mov     [r15+468h], rax
+  PAGE:00000001406590B3                 mov     rax, ds:0FFFFF78000000008h
+  PAGE:00000001406590BD                 mov     [r15+900h], rax
+  PAGE:00000001406590C4                 call    KeQueryUnbiasedInterruptTime
+  PAGE:00000001406590C9                 mov     rcx, [rsp+768h+Object]
+  PAGE:00000001406590D1                 mov     [rcx+908h], rax
+  PAGE:00000001406590D8                 mov     rax, [r15+900h]
+  PAGE:00000001406590DF                 mov     [rcx+918h], rax
+  PAGE:00000001406590E6                 mov     rax, [rsp+768h+var_590]
+  PAGE:00000001406590EE                 mov     [rax], rcx
+  PAGE:00000001406590F1                 mov     r14d, [rsp+768h+var_6C8]
+  PAGE:00000001406590F9                 jmp     loc_140657D64
+  PAGE:00000001406590FE                 mov     rcx, [rsp+768h+var_48]
+  PAGE:0000000140659106                 ; StackCookie
+  PAGE:0000000140659106                 xor     rcx, rsp; StackCookie
+  PAGE:0000000140659109                 call    __security_check_cookie
+  PAGE:000000014065910E                 add     rsp, 730h
+  PAGE:0000000140659115                 pop     r15
+  PAGE:0000000140659117                 pop     r14
+  PAGE:0000000140659119                 pop     r13
+  PAGE:000000014065911B                 pop     r12
+  PAGE:000000014065911D                 pop     rdi
+  PAGE:000000014065911E                 pop     rsi
+  PAGE:000000014065911F                 pop     rbx
+  PAGE:0000000140659120                 retn
+procedure: |-
+  __int64 __fastcall PspAllocateProcess(
+          _EPROCESS *a1,
+          KPROCESSOR_MODE a2,
+          __int64 a3,
+          unsigned __int8 a4,
+          unsigned __int8 a5,
+          unsigned __int8 a6,
+          void *a7,
+          void *a8,
+          int a9,
+          __int64 a10,
+          __int64 a11,
+          int a12,
+          void *a13,
+          __int64 a14,
+          _QWORD *a15)
+  {
+    int v16; // r15d
+    __int64 v18; // r13
+    unsigned int v19; // ebx
+    __int64 result; // rax
+    unsigned int v21; // r14d
+    int MaximumGroupCount; // eax
+    int v23; // ecx
+    int v24; // r9d
+    unsigned int v25; // r12d
+    _EPROCESS *v26; // r15
+    __int64 v27; // r9
+    char *v28; // rcx
+    char v29; // al
+    int v30; // r12d
+    __int64 v31; // r8
+    volatile unsigned __int64 Flink; // rcx
+    unsigned int DefaultHardErrorProcessing; // eax
+    _EPROCESS *v34; // r14
+    int v35; // edx
+    int DefaultPagePriority; // r8d
+    void *v37; // r8
+    int v38; // r9d
+    NTSTATUS SectionInformation; // r14d
+    void *SectionObject; // rax
+    _EWOW64PROCESS *WoW64Process; // rax
+    PVOID v42; // rcx
+    char v43; // r8
+    int v44; // ebx
+    int v45; // eax
+    unsigned __int16 EquivalentMachineCHPE; // ax
+    unsigned __int16 v47; // di
+    __int64 v48; // rcx
+    HANDLE *v49; // r12
+    int v50; // eax
+    int v51; // r14d
+    int ImageFileKeyOption; // eax
+    int v53; // edi
+    int v54; // r12d
+    _EWOW64PROCESS *PoolWithTag; // r10
+    _SYSTEM_DLL_TYPE v56; // eax
+    unsigned __int16 v57; // r11
+    _EWOW64PROCESS *v58; // rax
+    unsigned int v59; // edi
+    KPROCESSOR_MODE v60; // al
+    __int16 v61; // r14
+    bool v62; // sf
+    unsigned __int16 v63; // di
+    volatile signed __int32 *v64; // rdi
+    _EPROCESS *v65; // r12
+    ULONG v66; // r14d
+    char v67; // r12
+    int v68; // edi
+    int v69; // eax
+    int v70; // edx
+    _EPROCESS *v71; // rdx
+    int v72; // r8d
+    __int64 v73; // rdx
+    __int64 v74; // r8
+    __int64 SessionSchedulingGroupByProcess; // rax
+    int v76; // ecx
+    char v77; // r8
+    _DWORD *v78; // r14
+    __int64 v79; // rcx
+    _DWORD *v80; // rcx
+    __int64 v81; // rax
+    unsigned __int8 PriorityClass; // al
+    __int64 v83; // r9
+    __int64 v84; // r8
+    int inited; // eax
+    __int64 v86; // rdx
+    __int64 v87; // r8
+    __int64 v88; // r9
+    int v89; // edi
+    __int16 v90; // r11
+    int v91; // r11d
+    unsigned int v92; // edi
+    unsigned __int64 v93; // rax
+    __int64 ProcessServerSilo; // rax
+    _EPROCESS *v95; // r12
+    __int64 v96; // rdx
+    int v97; // edi
+    __int64 MaximumLength; // rdi
+    _OBJECT_NAME_INFORMATION *v99; // rax
+    PVOID v100; // r12
+    int v101; // eax
+    __int64 ImageSectionBasedAddress; // rax
+    char *SectionBaseAddress; // rcx
+    char IsProtectedProcess; // di
+    char IsProtectedProcessLight; // al
+    char v106; // di
+    _EPROCESS *v107; // rcx
+    _EWOW64PROCESS *v108; // rax
+    unsigned __int16 v109; // cx
+    struct _KTHREAD *v110; // rdi
+    void *v111; // rax
+    unsigned int ProcessNtdllType; // eax
+    _EPROCESS *v113; // rcx
+    ULONGLONG UnbiasedInterruptTime; // rax
+    _QWORD *v115; // rcx
+    int v117; // [rsp+78h] [rbp-6F0h]
+    char v118; // [rsp+7Ch] [rbp-6ECh] BYREF
+    char v119; // [rsp+7Dh] [rbp-6EBh] BYREF
+    char v120[2]; // [rsp+7Eh] [rbp-6EAh] BYREF
+    _EPROCESS *Process; // [rsp+80h] [rbp-6E8h]
+    unsigned int NumberOfBytes; // [rsp+88h] [rbp-6E0h] BYREF
+    unsigned int NumberOfBytes_4; // [rsp+8Ch] [rbp-6DCh]
+    int Machine; // [rsp+90h] [rbp-6D8h]
+    int v125; // [rsp+94h] [rbp-6D4h]
+    __int16 v126; // [rsp+98h] [rbp-6D0h]
+    int v127; // [rsp+9Ch] [rbp-6CCh]
+    int v128; // [rsp+A0h] [rbp-6C8h]
+    unsigned int v129; // [rsp+A4h] [rbp-6C4h]
+    __int64 v130; // [rsp+A8h] [rbp-6C0h] BYREF
+    PVOID Object; // [rsp+B0h] [rbp-6B8h] BYREF
+    __int64 v132; // [rsp+B8h] [rbp-6B0h]
+    int v133; // [rsp+C0h] [rbp-6A8h]
+    PVOID TokenInformation; // [rsp+C4h] [rbp-6A4h] BYREF
+    ULONG SessionId; // [rsp+CCh] [rbp-69Ch] BYREF
+    int v136; // [rsp+D0h] [rbp-698h]
+    int v137; // [rsp+D4h] [rbp-694h]
+    int v138; // [rsp+D8h] [rbp-690h]
+    _KPROCESS *v139; // [rsp+E0h] [rbp-688h]
+    PVOID v140; // [rsp+E8h] [rbp-680h]
+    PVOID v141; // [rsp+F0h] [rbp-678h]
+    $C247E715F78BE7925558EC4F61A0841D *v142; // [rsp+F8h] [rbp-670h]
+    int v143; // [rsp+100h] [rbp-668h]
+    int v144; // [rsp+104h] [rbp-664h]
+    int v145; // [rsp+108h] [rbp-660h]
+    int v146; // [rsp+10Ch] [rbp-65Ch]
+    PVOID Address; // [rsp+110h] [rbp-658h]
+    _EPROCESS *v148; // [rsp+118h] [rbp-650h]
+    PACCESS_TOKEN Token; // [rsp+120h] [rbp-648h]
+    __int128 v150; // [rsp+128h] [rbp-640h] BYREF
+    unsigned __int64 v151; // [rsp+138h] [rbp-630h]
+    struct _KTHREAD *CurrentThread; // [rsp+140h] [rbp-628h]
+    int v153; // [rsp+148h] [rbp-620h] BYREF
+    HANDLE Handle; // [rsp+150h] [rbp-618h] BYREF
+    __int64 v155; // [rsp+158h] [rbp-610h]
+    PVOID v156; // [rsp+160h] [rbp-608h]
+    PADAPTER_OBJECT DmaAdapter; // [rsp+168h] [rbp-600h] BYREF
+    PVOID v158; // [rsp+170h] [rbp-5F8h] BYREF
+    PVOID P; // [rsp+178h] [rbp-5F0h]
+    void **p_SectionObject; // [rsp+180h] [rbp-5E8h]
+    HANDLE KeyHandle; // [rsp+188h] [rbp-5E0h] BYREF
+    __int128 v162; // [rsp+190h] [rbp-5D8h] BYREF
+    __int64 v163; // [rsp+1A0h] [rbp-5C8h]
+    _EPROCESS *v164; // [rsp+1A8h] [rbp-5C0h]
+    __int64 v165; // [rsp+1B0h] [rbp-5B8h]
+    __int64 v166; // [rsp+1C0h] [rbp-5A8h] BYREF
+    unsigned int *p_DefaultHardErrorProcessing; // [rsp+1C8h] [rbp-5A0h]
+    __int64 v168; // [rsp+1D0h] [rbp-598h]
+    _QWORD *v169; // [rsp+1D8h] [rbp-590h]
+    OBJECT_ATTRIBUTES ObjectAttributes; // [rsp+1E0h] [rbp-588h] BYREF
+    OBJECT_ATTRIBUTES v171; // [rsp+210h] [rbp-558h] BYREF
+    __int128 v172; // [rsp+240h] [rbp-528h] BYREF
+    __int64 v173; // [rsp+250h] [rbp-518h]
+    __int128 v174; // [rsp+260h] [rbp-508h] BYREF
+    __int64 v175; // [rsp+270h] [rbp-4F8h]
+    __int128 v176; // [rsp+280h] [rbp-4E8h] BYREF
+    __int64 v177; // [rsp+290h] [rbp-4D8h]
+    __int128 v178; // [rsp+2A0h] [rbp-4C8h] BYREF
+    __int64 v179; // [rsp+2B0h] [rbp-4B8h]
+    __int128 v180; // [rsp+2C0h] [rbp-4A8h] BYREF
+    __int64 v181; // [rsp+2D0h] [rbp-498h]
+    __int128 v182; // [rsp+2E0h] [rbp-488h] BYREF
+    __int64 v183; // [rsp+2F0h] [rbp-478h]
+    __int128 v184; // [rsp+300h] [rbp-468h] BYREF
+    __int64 v185; // [rsp+310h] [rbp-458h]
+    __int128 v186; // [rsp+320h] [rbp-448h] BYREF
+    __int64 v187; // [rsp+330h] [rbp-438h]
+    _DWORD v188[20]; // [rsp+340h] [rbp-428h] BYREF
+    __int128 v189; // [rsp+390h] [rbp-3D8h] BYREF
+    __int64 v190; // [rsp+3A0h] [rbp-3C8h]
+    __int128 v191; // [rsp+3A8h] [rbp-3C0h] BYREF
+    __int64 v192; // [rsp+3B8h] [rbp-3B0h]
+    struct _KAPC_STATE ApcState; // [rsp+3C0h] [rbp-3A8h] BYREF
+    __int128 v194; // [rsp+3F0h] [rbp-378h] BYREF
+    __int128 v195; // [rsp+400h] [rbp-368h]
+    _BYTE v196[176]; // [rsp+410h] [rbp-358h] BYREF
+    _DWORD v197[136]; // [rsp+4C0h] [rbp-2A8h] BYREF
+    _DWORD v198[6]; // [rsp+6E0h] [rbp-88h] BYREF
+    _WORD v199[20]; // [rsp+6F8h] [rbp-70h] BYREF
+
+    v16 = a3;
+    v132 = a3;
+    Process = a1;
+    v164 = a1;
+    v140 = a7;
+    Token = a8;
+    v18 = a11;
+    v165 = a11;
+    v156 = a13;
+    v168 = a14;
+    v169 = a15;
+    v153 = 0;
+    memset(&ApcState, 0, sizeof(ApcState));
+    memset(&ObjectAttributes, 0, sizeof(ObjectAttributes));
+    v150 = 0;
+    KeyHandle = nullptr;
+    memset(v196, 0, 0xA8u);
+    v19 = 0;
+    v189 = 0;
+    v190 = 0;
+    v191 = 0;
+    v192 = 0;
+    v120[0] = 0;
+    memset(&v171, 0, sizeof(v171));
+    Handle = nullptr;
+    Object = nullptr;
+    v119 = 0;
+    v126 = 0;
+    NumberOfBytes = 0;
+    memset(v188, 0, 0x48u);
+    TokenInformation = nullptr;
+    v166 = 0;
+    CurrentThread = KeGetCurrentThread();
+    v139 = CurrentThread->ApcState.Process;
+    v155 = 0;
+    v130 = 0;
+    P = nullptr;
+    v129 = 0;
+    v144 = 0;
+    v125 = 0;
+    v141 = nullptr;
+    v138 = 0;
+    v137 = 0;
+    LOWORD(Machine) = 0;
+    v128 = 0;
+    v146 = 0;
+    v133 = 0;
+    Address = nullptr;
+    v145 = 0;
+    v163 = 0;
+    memset(v197, 0, 0x218u);
+    v117 = a9;
+    if ( (a9 & 0x800) != 0 )
+    {
+      v19 = 1024;
+      if ( (a9 & 0x2000) != 0 )
+      {
+        v19 = 66560;
+        if ( (a9 & 0x4000) != 0 )
+          v19 = 197632;
+      }
+    }
+    v148 = (_EPROCESS *)((unsigned __int64)a1 & -(__int64)((a9 & 0x100) != 0));
+    if ( a11 && (*(_DWORD *)(a11 + 4) & 0x2000) != 0 )
+    {
+      if ( ((unsigned __int64)a1 & -(__int64)((a9 & 0x100) != 0)) != 0 )
+        return 3221225520LL;
+      v155 = KeNodeBlock[*(unsigned __int16 *)(a11 + 250)];
+      v130 = v155;
+      v148 = nullptr;
+    }
+    else if ( a1 )
+    {
+      v148 = (_EPROCESS *)((unsigned __int64)a1 & -(__int64)((a9 & 0x100) != 0));
+      if ( (a1->Flags2 & 0x200000) != 0 )
+      {
+        v148 = a1;
+        v125 = 0x200000;
+      }
+    }
+    if ( a11 && (*(_DWORD *)(a11 + 4) & 0x40000) != 0 )
+      v19 |= 0x1000u;
+    v194 = 0;
+    v195 = 0;
+    v158 = nullptr;
+    v21 = 2624;
+    NumberOfBytes_4 = 0;
+    v142 = nullptr;
+    if ( !PsDisableDiskCounters )
+    {
+      v21 = 2664;
+      v19 |= 0x200u;
+      v142 = ($C247E715F78BE7925558EC4F61A0841D *)2624;
+    }
+    if ( (unsigned __int8)PoEnergyEstimationEnabled() )
+    {
+      NumberOfBytes_4 = (v21 + 7) & 0xFFFFFFF8;
+      v21 = NumberOfBytes_4 + 480;
+      v19 |= 0x2000u;
+      v16 = v132;
+    }
+    MaximumGroupCount = KeQueryMaximumGroupCount();
+    LODWORD(v132) = MaximumGroupCount;
+    v25 = 0;
+    if ( (unsigned __int16)MaximumGroupCount > 1u )
+    {
+      v25 = (v21 + 7) & 0xFFFFFFF8;
+      v21 = 16 * (unsigned __int16)MaximumGroupCount + v25;
+    }
+    LOBYTE(v24) = a2;
+    LOBYTE(v23) = a2;
+    result = ObCreateObject(v23, (_DWORD)PsProcessType, v16, v24, 0, v21, 0, v21, (__int64)&Object);
+    if ( (int)result >= 0 )
+    {
+      v26 = (_EPROCESS *)Object;
+      ObfReferenceObjectWithTag(Object, 0x72437350u);
+      ObfDereferenceObjectWithTag(v26, 0x746C6644u);
+      memset(v26, 0, v21);
+      LpcInitializeProcess(v26);
+      ExInitializePushLock(&v26->RundownProtect.Count);
+      PspInitializeProcessLock(v26);
+      v26->ThreadListHead.Blink = &v26->ThreadListHead;
+      v26->ThreadListHead.Flink = &v26->ThreadListHead;
+      v26->SvmProcessDeviceListHead.Blink = &v26->SvmProcessDeviceListHead;
+      v26->SvmProcessDeviceListHead.Flink = &v26->SvmProcessDeviceListHead;
+      v26->VirtualTimerListHead.Blink = &v26->VirtualTimerListHead;
+      v26->VirtualTimerListHead.Flink = &v26->VirtualTimerListHead;
+      v26->Protection.Level = a4;
+      v26->SignatureLevel = a5;
+      v26->SectionSignatureLevel = a6;
+      v26->EnclaveLock.Value = 0;
+      v26->DynamicEHContinuationTargetsLock.Value = 0;
+      v26->DynamicEHContinuationTargetsTree.Root = nullptr;
+      v26->DynamicEnforcedCetCompatibleRanges.Lock.Value = 0;
+      v26->DynamicEnforcedCetCompatibleRanges.Tree.Root = nullptr;
+      v27 = v19 & 0x400;
+      if ( (v19 & 0x400) != 0 )
+        v26->Flags3 |= 1u;
+      v136 = 32;
+      if ( (v117 & 0x8000) != 0 )
+        v26->Flags3 |= 0x20u;
+      if ( v25 )
+      {
+        v26->Flags3 |= 0x80u;
+        v28 = (char *)v26 + v25;
+        v26->AllowedCpuSets = (unsigned __int64)v28;
+        v26->DefaultCpuSets = (unsigned __int64)&v28[8 * (unsigned int)v132];
+      }
+      v29 = a10;
+      if ( (a10 & 1) != 0 )
+        v26->Flags3 |= 0x1000u;
+      if ( (v29 & 4) != 0 )
+        v26->Flags3 |= 0x800000u;
+      if ( (v29 & 8) != 0 )
+        v26->Flags3 |= 0x8000000u;
+      v30 = v117;
+      v31 = 512;
+      Flink = (__int64)v139[1].Header.WaitListHead.Flink | 2;
+      if ( (v117 & 0x200) != 0 )
+        Flink = (volatile unsigned __int64)v139[1].Header.WaitListHead.Flink;
+      v26->OwnerProcessId = Flink;
+      if ( (v19 & 0x200) != 0 )
+        v26->DiskCounters = (_PROCESS_DISK_COUNTERS *)((char *)v142 + (_QWORD)v26);
+      if ( (v19 & 0x2000) != 0 )
+      {
+        v26->EnergyContext = (struct _PO_PROCESS_ENERGY_CONTEXT *)((char *)v26 + NumberOfBytes_4);
+        PoEnergyContextInitialize();
+      }
+      if ( v18 && ((unsigned int)v31 & *(_DWORD *)(v18 + 4)) != 0 )
+      {
+        DefaultHardErrorProcessing = *(_DWORD *)(v18 + 316);
+        v34 = Process;
+      }
+      else
+      {
+        v34 = Process;
+        if ( Process )
+          DefaultHardErrorProcessing = Process->DefaultHardErrorProcessing;
+        else
+          DefaultHardErrorProcessing = 5;
+      }
+      p_DefaultHardErrorProcessing = &v26->DefaultHardErrorProcessing;
+      v26->DefaultHardErrorProcessing = DefaultHardErrorProcessing;
+      v26->ExitStatus = 259;
+      if ( v34 )
+      {
+        v35 = (v34->Flags >> 27) & 7;
+        DefaultPagePriority = (v34->Flags2 >> 12) & 7;
+        v26->InheritedFromUniqueProcessId = v34->UniqueProcessId;
+      }
+      else
+      {
+        DefaultPagePriority = MmGetDefaultPagePriority(&v26->DefaultHardErrorProcessing, 2, v31, v27);
+      }
+      v132 = (__int64)&v26->___u6;
+      v26->Flags = v26->Flags & 0xC7FFFFFF | (v35 << 27);
+      v142 = &v26->___u5;
+      v26->Flags2 = (DefaultPagePriority << 12) | v26->Flags2 & 0xFFFF8FFF;
+      if ( v156 )
+      {
+        if ( !(unsigned __int8)PsReferencePartitionSafe(v156) )
+        {
+          SectionInformation = -1073740640;
+  LABEL_176:
+          PspRundownSingleProcess((ULONG_PTR)v26);
+          ObfDereferenceObjectWithTag(v26, 0x72437350u);
+  LABEL_177:
+          if ( P )
+            ExFreePoolWithTag(P, 0x73437350u);
+          SeDeleteCodeIntegrityOriginClaimMembers(v197);
+          return (unsigned int)SectionInformation;
+        }
+      }
+      else
+      {
+        v156 = PspSystemPartition;
+        PsReferencePartition(PspSystemPartition);
+      }
+      v26->PartitionObject = v37;
+      if ( !v38 )
+      {
+        v141 = v140;
+        if ( v140 )
+        {
+          if ( (v117 & 0x1000) != 0 )
+          {
+  LABEL_57:
+            SectionInformation = -1073741776;
+            goto LABEL_176;
+          }
+          ObfReferenceObject(v140);
+        }
+        else if ( v34 )
+        {
+          if ( a12 )
+            goto LABEL_57;
+          if ( (unsigned __int8)PsIsSystemProcess(v34) )
+          {
+            SectionInformation = -1073741811;
+            goto LABEL_176;
+          }
+          if ( ExAcquireRundownProtection_0(&v34->RundownProtect) )
+          {
+            SectionObject = v34->SectionObject;
+            v140 = SectionObject;
+            if ( SectionObject )
+              ObfReferenceObject(SectionObject);
+            ExReleaseRundownProtection_0(&v34->RundownProtect);
+          }
+          if ( !v140 )
+          {
+            SectionInformation = -1073741558;
+            goto LABEL_176;
+          }
+          WoW64Process = v34->WoW64Process;
+          if ( WoW64Process )
+          {
+            v19 |= 0x4000u;
+            Machine = WoW64Process->Machine;
+            HIDWORD(TokenInformation) = WoW64Process->NtdllType;
+          }
+          if ( (v34->Flags & 0x20000) != 0 )
+          {
+            v117 |= 8u;
+            a9 = v30 | 8;
+          }
+        }
+      }
+      p_SectionObject = &v26->SectionObject;
+      v42 = v140;
+      v26->SectionObject = v140;
+      LOWORD(NumberOfBytes_4) = 0;
+      if ( v18 )
+      {
+        v26->ServerSilo = *(_EJOB **)(v18 + 464);
+        SectionInformation = MmGetSectionInformation(v42, 4, v18 + 48);
+        if ( SectionInformation < 0 )
+          goto LABEL_176;
+        v43 = *(_BYTE *)(v18 + 99);
+        v44 = v19
+            | (32
+             * (v43 & 4
+              | (4
+               * (v43 & 2
+                | ((*(_DWORD *)(v18 + 112) & 1 | (2 * (*(_DWORD *)(v18 + 112) & 2 | (2 * (*(_DWORD *)(v18 + 112) & 0xF8))))) << 11)))));
+        v138 = *(unsigned __int16 *)(v18 + 86);
+        v137 = *(unsigned __int16 *)(v18 + 84);
+        if ( (v44 & 0x100) != 0 && *(_WORD *)(v18 + 96) == 332 && (v43 & 1) != 0 )
+          v45 = 0x8000;
+        else
+          v45 = 0;
+        v19 = v45 | v44;
+        EquivalentMachineCHPE = RtlWow64GetEquivalentMachineCHPE();
+        v47 = EquivalentMachineCHPE;
+        if ( (*(_WORD *)(v18 + 92) & *(_WORD *)(v18 + 10)) != 0 )
+        {
+          v48 = 3;
+  LABEL_82:
+          SectionInformation = -1073741701;
+  LABEL_83:
+          PspUpdateCreateInfo(v48, v18, 0);
+          goto LABEL_176;
+        }
+        if ( (v19 & 0x8000) == 0 )
+        {
+          if ( (unsigned int)PsWow64IsMachineSupported(EquivalentMachineCHPE) )
+          {
+            v19 |= 0x4000u;
+            LOWORD(Machine) = v47;
+          }
+          if ( (v19 & 0x8000) == 0
+            && (v47 < MEMORY[0xFFFFF7800000002C] || v47 > MEMORY[0xFFFFF7800000002E])
+            && (v19 & 0x4000) == 0 )
+          {
+            v48 = 4;
+            goto LABEL_82;
+          }
+        }
+        if ( v141 )
+        {
+          LOWORD(NumberOfBytes_4) = *(_WORD *)(v18 + 94);
+          v49 = (HANDLE *)(v18 + 192);
+          v50 = RtlOpenImageFileOptionsKey(v18 + 232, 0, v18 + 192);
+          if ( v50 < 0 )
+          {
+            if ( v50 == -1073741772 )
+              *(_BYTE *)(v18 + 8) |= 0x40u;
+            *v49 = nullptr;
+          }
+          ObfReferenceObjectWithTag(*(PVOID *)(v18 + 176), 0x72437350u);
+          v26->ImageFilePointer = *(_FILE_OBJECT **)(v18 + 176);
+          if ( (v19 & 0x4000) != 0 )
+          {
+            v51 = v117;
+          }
+          else
+          {
+            SectionInformation = PspDetectComplusILImage(v18, &a9);
+            if ( SectionInformation < 0 )
+              goto LABEL_176;
+            v51 = a9;
+            LOWORD(v117) = a9;
+            if ( v47 == 332 && (a9 & 8) == 0 )
+            {
+              if ( (unsigned int)PsWow64IsMachineSupported(332) )
+              {
+                Machine = 332;
+  LABEL_105:
+                v19 |= 0x4000u;
+                goto LABEL_108;
+              }
+              if ( (unsigned int)PsWow64IsMachineSupported(452) )
+              {
+                LOWORD(Machine) = 452;
+                goto LABEL_105;
+              }
+              v51 |= 8u;
+              LOWORD(v117) = v51;
+              a9 = v51;
+            }
+          }
+  LABEL_108:
+          if ( *v49 )
+          {
+            if ( *(char *)(v18 + 8) >= 0 )
+            {
+              ImageFileKeyOption = RtlQueryImageFileKeyOption(*v49, 2, (__int64)&NumberOfBytes);
+              if ( ImageFileKeyOption == -2147483643 || ImageFileKeyOption >= 0 && NumberOfBytes == 2 && v126 )
+              {
+                SectionInformation = -1073741767;
+                v48 = 5;
+                goto LABEL_83;
+              }
+            }
+            v127 = 0;
+            if ( (int)RtlQueryImageFileKeyOption(*v49, 4, 0) >= 0 )
+            {
+              if ( v127 )
+              {
+                v51 |= 0x10u;
+                LOWORD(v117) = v51;
+                a9 = v51;
+                if ( (v19 & 0x4000) == 0 )
+                {
+                  ObjectAttributes.Length = 48;
+                  ObjectAttributes.RootDirectory = *v49;
+                  ObjectAttributes.Attributes = 576;
+                  ObjectAttributes.ObjectName = (PUNICODE_STRING)&PspLargePageDLLKeyName;
+                  *(_OWORD *)&ObjectAttributes.SecurityDescriptor = 0;
+                  if ( ZwOpenKey(&KeyHandle, 1u, &ObjectAttributes) >= 0 )
+                  {
+                    v127 = 0;
+                    if ( (int)RtlQueryImageFileKeyOption(KeyHandle, 4, 0) >= 0 && v127 )
+                    {
+                      v51 |= 0x20u;
+                      LOWORD(v117) = v51;
+                      a9 = v51;
+                    }
+                    ObCloseHandle(KeyHandle, 0);
+                  }
+                }
+              }
+            }
+            if ( !v148 )
+            {
+              PspReadIFEONodeOptions(v26, *v49, &v130);
+              v155 = v130;
+            }
+            v143 = 0;
+            if ( (int)RtlQueryImageFileKeyOption(*v49, 4, 0) >= 0 && v143 )
+              v125 |= 0x40u;
+            if ( (unsigned int)RtlQueryImageFileKeyOption(*v49, 0, (__int64)&NumberOfBytes) == -2147483643 )
+            {
+              v53 = NumberOfBytes;
+              if ( NumberOfBytes <= 0xA0 && (NumberOfBytes & 7) == 0 )
+              {
+                P = ExAllocatePoolWithTag(NonPagedPoolNx, NumberOfBytes, 0x73437350u);
+                if ( !P )
+                {
+  LABEL_132:
+                  SectionInformation = -1073741801;
+                  goto LABEL_176;
+                }
+                if ( (int)RtlQueryImageFileKeyOption(*v49, v53, (__int64)&NumberOfBytes) >= 0 && (NumberOfBytes & 7) == 0 )
+                {
+                  v19 |= 0x200000u;
+                  v129 = NumberOfBytes >> 3;
+                }
+              }
+            }
+            v171.Length = 48;
+            v171.RootDirectory = *v49;
+            v171.Attributes = 576;
+            v171.ObjectName = (PUNICODE_STRING)&PspPerfOptionsKeyName;
+            *(_OWORD *)&v171.SecurityDescriptor = 0;
+            if ( ZwOpenKey(&Handle, 1u, &v171) >= 0 )
+            {
+              PspReadIFEOPerfOptions(Handle);
+              ObCloseHandle(Handle, 0);
+            }
+          }
+  LABEL_143:
+          v54 = v144 | 0x20000;
+          if ( (v51 & 8) == 0 )
+            v54 = v144;
+          if ( (v19 & 0x4000) != 0 )
+          {
+            PoolWithTag = (_EWOW64PROCESS *)ExAllocatePoolWithTag(NonPagedPoolNx, 0x10u, 0x50776F57u);
+            v26->WoW64Process = PoolWithTag;
+            if ( !PoolWithTag )
+              goto LABEL_132;
+            v56 = HIDWORD(TokenInformation);
+            v57 = Machine;
+            if ( !HIDWORD(TokenInformation) )
+              v56 = (unsigned int)PspWow64PickBestNtdll(v18, (unsigned __int16)Machine);
+            PoolWithTag->Machine = v57;
+            v26->WoW64Process->NtdllType = v56;
+            v58 = v26->WoW64Process;
+            if ( v58 )
+              v58->Peb = (void *)1;
+          }
+          SectionInformation = SeQueryInformationToken(Token, TokenIsAppContainer, &TokenInformation);
+          if ( SectionInformation < 0 )
+            goto LABEL_176;
+          v59 = 0;
+          v60 = a2;
+          if ( a2 )
+          {
+            if ( v18 && (*(_DWORD *)(v18 + 4) & 0x100) != 0 && *(_BYTE *)(v18 + 248) == 4 )
+            {
+              v198[0] = 14;
+              v59 = 1;
+            }
+            if ( a12 )
+              v198[v59++] = 3;
+            v61 = v117;
+            if ( (v117 & 0x30) != 0 )
+              v198[v59++] = 4;
+            if ( (v117 & 0x80u) != 0 && !(unsigned int)MmIsSessionLeaderProcess(v139) )
+              v198[v59++] = 10;
+            if ( (v117 & 0x8400) != 0 )
+              v198[v59++] = 7;
+            if ( v59 )
+            {
+              v62 = (int)RtlAcquirePrivilege(v198, v59, a12 != 0, &v158) < 0;
+              v60 = a2;
+              if ( !v62 )
+                v19 |= 0x10u;
+            }
+            else
+            {
+              v60 = a2;
+            }
+          }
+          else
+          {
+            v61 = v117;
+          }
+          if ( (v61 & 0x8400) != 0 && !SeSinglePrivilegeCheck(SeTcbPrivilege, v60) )
+            goto LABEL_173;
+          if ( v148 )
+          {
+            KeQueryAffinityProcess(v148, v196, 0, v199);
+            KeFirstGroupAffinityEx(&v150, v196);
+            v130 = KeNodeBlock[(unsigned __int16)v199[WORD4(v150)]];
+          }
+          else
+          {
+            if ( v155 )
+            {
+              v63 = *(_WORD *)(v155 + 144);
+            }
+            else if ( Process )
+            {
+              if ( (Process->Flags2 & 0x100000) != 0 )
+              {
+                v125 |= 0x100000u;
+                v130 = KeNodeBlock[Process->Pcb.IdealGlobalNode];
+                v63 = *(_WORD *)(v130 + 144);
+              }
+              else
+              {
+                v130 = PspSelectNodeForProcess();
+                v63 = *(_WORD *)(v130 + 144);
+                if ( KeForceGroupAwareness && KeQueryActiveGroupCount() > 1u && !v63 )
+                {
+                  v130 = 0;
+                  v63 = 1;
+                }
+              }
+            }
+            else
+            {
+              v63 = 0;
+            }
+            WORD4(v150) = v63;
+            *(_QWORD *)&v150 = qword_140CFC848[v63];
+            if ( !v130 )
+              v130 = KeSelectNodeForAffinity(&v150);
+            LOBYTE(v117) = a9;
+            v26 = (_EPROCESS *)Object;
+          }
+          v64 = (volatile signed __int32 *)v132;
+          *(_DWORD *)v132 |= v54;
+          v142->Flags2 |= v125;
+          v65 = Process;
+          if ( Process )
+          {
+            DmaAdapter = nullptr;
+            v66 = 0;
+            SessionId = 0;
+            v67 = 0;
+            v118 = 0;
+            if ( a12 )
+            {
+              if ( SeSinglePrivilegeCheck(SeAssignPrimaryTokenPrivilege, a2) )
+                v19 |= 4u;
+              SectionInformation = SeIsTokenAssignableToProcess(Token, &v118);
+              if ( SectionInformation < 0 )
+                goto LABEL_174;
+              v68 = (v19 >> 2) & 1;
+              v67 = v118;
+              if ( !v118 && !v68 )
+                goto LABEL_173;
+              SectionInformation = SeQuerySessionIdToken(Token, &SessionId);
+              if ( SectionInformation < 0 )
+                goto LABEL_174;
+              v69 = MmGetSessionIdEx(v139);
+              v66 = SessionId;
+              if ( SessionId != v69 )
+              {
+                if ( !v68 )
+                {
+  LABEL_173:
+                  SectionInformation = -1073741727;
+                  goto LABEL_174;
+                }
+                if ( (v117 & 0x80u) != 0 )
+                {
+                  SectionInformation = -1073741811;
+                  goto LABEL_174;
+                }
+                v19 |= 1u;
+              }
+            }
+            else if ( !v141 )
+            {
+              v66 = MmGetSessionIdEx(Process);
+              SessionId = v66;
+              v19 |= v66 != (unsigned int)MmGetSessionIdEx(v139);
+            }
+            if ( (v19 & 1) != 0 )
+            {
+              SectionInformation = PspAttachSession(v66, &ApcState, &DmaAdapter);
+              if ( SectionInformation < 0 )
+              {
+                LOBYTE(v19) = v19 & 0xFE;
+                goto LABEL_174;
+              }
+              v142->Flags2 |= 0x80u;
+            }
+            if ( !a12 || v67 )
+            {
+              v71 = Process;
+              if ( v67 )
+                v71 = (_EPROCESS *)v139;
+              PspInheritQuota(v26, v71);
+            }
+            else
+            {
+              SectionInformation = PspAssignProcessQuotaBlock(0, v26, Token);
+              if ( SectionInformation < 0 )
+              {
+                if ( (v19 & 1) != 0 )
+                  PspDetachSession(DmaAdapter);
+                goto LABEL_174;
+              }
+            }
+            v72 = PspMaximumWorkingSet;
+            if ( (BYTE4(v194) & 1) != 0 )
+              v72 = DWORD2(v195);
+            v19 |= 32
+                 * (MmCreateProcessAddressSpace(
+                      (_DWORD)v156,
+                      v70,
+                      v72,
+                      BYTE4(v194) & 1,
+                      (unsigned int)*(unsigned __int16 *)(v130 + 146) + 1,
+                      (__int64)v26)
+                  & 1);
+            if ( (v19 & 1) != 0 )
+              PspDetachSession(DmaAdapter);
+            if ( (v19 & 0x20) == 0 )
+              goto LABEL_228;
+            v65 = Process;
+            v64 = (volatile signed __int32 *)v132;
+          }
+          else
+          {
+            PspInheritQuota(v26, 0);
+            v26->Pcb.AddressPolicy = 1;
+            SectionInformation = MmInitializeHandBuiltProcess();
+            if ( SectionInformation < 0 )
+              goto LABEL_174;
+          }
+          HIDWORD(TokenInformation) = v19;
+          _InterlockedOr(v64, 0x40000u);
+          v74 = (*p_DefaultHardErrorProcessing >> 2) & 1 | 2;
+          if ( ((v19 >> 12) & 1) == 0 )
+            v74 = (*p_DefaultHardErrorProcessing >> 2) & 1;
+          v26 = (_EPROCESS *)Object;
+          SessionSchedulingGroupByProcess = MmGetSessionSchedulingGroupByProcess(Object, v73, v74);
+          SectionInformation = KeInitializeProcess(
+                                 v76,
+                                 8,
+                                 (unsigned int)&v150,
+                                 v130,
+                                 SessionSchedulingGroupByProcess,
+                                 v77);
+          if ( SectionInformation < 0 )
+            goto LABEL_174;
+          if ( v18 )
+          {
+            v128 = *(_DWORD *)(v18 + 416);
+            v146 = *(_DWORD *)(v18 + 420);
+            Address = *(PVOID *)(v18 + 440);
+            v145 = *(_DWORD *)(v18 + 448);
+            v163 = *(_QWORD *)(v18 + 208);
+            v78 = *(_DWORD **)(v18 + 424);
+            v133 = *(_DWORD *)(v18 + 432);
+            v79 = *(_QWORD *)(v18 + 176);
+            if ( v79 && (int)SeGetCodeIntegrityOriginClaimForFileObject(v79, v197) >= 0 )
+            {
+              if ( !v197[0] && v78 && v133 == 524 )
+              {
+                v80 = v197;
+                v81 = 4;
+                do
+                {
+                  *(_OWORD *)v80 = *(_OWORD *)v78;
+                  *((_OWORD *)v80 + 1) = *((_OWORD *)v78 + 1);
+                  *((_OWORD *)v80 + 2) = *((_OWORD *)v78 + 2);
+                  *((_OWORD *)v80 + 3) = *((_OWORD *)v78 + 3);
+                  *((_OWORD *)v80 + 4) = *((_OWORD *)v78 + 4);
+                  *((_OWORD *)v80 + 5) = *((_OWORD *)v78 + 5);
+                  *((_OWORD *)v80 + 6) = *((_OWORD *)v78 + 6);
+                  v80 += 32;
+                  *((_OWORD *)v80 - 1) = *((_OWORD *)v78 + 7);
+                  v78 += 32;
+                  --v81;
+                }
+                while ( v81 );
+                *(_QWORD *)v80 = *(_QWORD *)v78;
+                v80[2] = v78[2];
+              }
+              v78 = v197;
+              v133 = 536;
+            }
+          }
+          else
+          {
+            v78 = nullptr;
+          }
+          SectionInformation = PspInitializeProcessSecurity(
+                                 &v65->Pcb,
+                                 v128,
+                                 (v19 >> 11) & 1,
+                                 (v19 >> 12) & 1,
+                                 v146,
+                                 (__int64)v78,
+                                 v133,
+                                 (__int64)Address,
+                                 v145,
+                                 v163,
+                                 v168);
+          if ( SectionInformation < 0 )
+            goto LABEL_174;
+          v26->PriorityClass = 2;
+          if ( v65 )
+          {
+            PriorityClass = v26->PriorityClass;
+            if ( ((v65->PriorityClass - 1) & 0xFB) == 0 )
+              PriorityClass = v65->PriorityClass;
+            v26->PriorityClass = PriorityClass;
+            v83 = v18 ? *(_QWORD *)(v18 + 296) : 0LL;
+            v84 = v18 ? *(unsigned int *)(v18 + 292) : 0LL;
+            inited = ObInitProcess((unsigned __int64)v65 & -(__int64)((a9 & 4) != 0), v26, v84, v83);
+          }
+          else
+          {
+            v26->ObjectTable = (_HANDLE_TABLE *)v139[1].AffinityPadding[8];
+            inited = MmInitializeHandBuiltProcess2((ULONG_PTR)v26);
+          }
+          SectionInformation = inited;
+          if ( inited < 0 )
+            goto LABEL_174;
+          if ( (v194 & 7) != 0 )
+          {
+            LOBYTE(v87) = a2;
+            PspApplyIFEOPerfOptions(v26, &v194, v87);
+          }
+          if ( (v19 & 0x200000) != 0 )
+            KeSetCpuSetsProcess(v26, v129, P, 1);
+          if ( v18 )
+          {
+            if ( (*(_DWORD *)(v18 + 4) & 0x100) != 0 )
+            {
+              LOBYTE(v88) = a2;
+              LOBYTE(v86) = *(_BYTE *)(v18 + 248);
+              SectionInformation = PspSetProcessPriorityClass(v26, v86, 0, v88);
+              if ( SectionInformation < 0 )
+                goto LABEL_174;
+            }
+          }
+          v26->Pcb.BasePriority = PspComputeQuantumAndPriority((_DWORD)v26, 0, (unsigned int)&v119, 0, 0);
+          v26->Pcb.QuantumReset = v119;
+          SectionInformation = 0;
+          v128 = 0;
+          PspReadIFEOMitigationOptions(v18, &v189);
+          v174 = v189;
+          v175 = v190;
+          v176 = PspSystemMitigationOptions;
+          v177 = qword_140CFC9E0;
+          PspInheritMitigationOptions(&v176, &v174, &v189);
+          PspReadIFEOMitigationAuditOptions(v18, &v191);
+          v178 = v191;
+          v179 = v192;
+          v180 = PspSystemMitigationAuditOptions;
+          v181 = qword_140CFCB80;
+          PspInheritMitigationAuditOptions(&v180, &v178, &v191);
+          v89 = (WORD3(v189) & 3) << 16;
+          if ( v18 )
+          {
+            if ( (*(_DWORD *)(v18 + 4) & 0x10000) != 0 )
+            {
+              v182 = *(_OWORD *)(v18 + 360);
+              v183 = *(_QWORD *)(v18 + 376);
+              v184 = v189;
+              v185 = v190;
+              PspInheritMitigationOptions(&v184, &v182, &v189);
+            }
+            if ( (*(_DWORD *)(v18 + 4) & 0x8000000) != 0 )
+            {
+              v172 = *(_OWORD *)(v18 + 488);
+              v173 = *(_QWORD *)(v18 + 504);
+              v186 = v191;
+              v187 = v192;
+              PspInheritMitigationAuditOptions(&v186, &v172, &v191);
+            }
+          }
+          if ( (_DWORD)TokenInformation )
+            LOWORD(v89) = v89 | 4;
+          v90 = v89 | 0x100;
+          if ( (v89 & 4) == 0 )
+            v90 = v89;
+          if ( (v90 & 0xFF00) != 0 )
+            PspHardenMitigationOptions(&v189);
+          if ( !(unsigned __int8)KeIsUserCetAllowed() )
+            *((_QWORD *)&v189 + 1) = *((_QWORD *)&v189 + 1) & 0xCFFFFFFFFFFFFFFFuLL | 0x2000000000000000LL;
+          if ( (NumberOfBytes_4 & 0x4000) == 0 || (v19 & 0x40000) == 0 )
+            v136 = 0;
+          v92 = v91
+              | ((NumberOfBytes_4 & 0x4000) != 0 ? 8 : 0)
+              | ((unsigned __int16)NumberOfBytes_4 >> 4) & 2
+              | ((v19 & 0x180) != 0)
+              | v136
+              | ((v19 & 0x100000 | (v19 >> 1) & 0x7C00000) >> 2);
+          LODWORD(v132) = v19 & 0x400;
+          if ( (v19 & 0x400) != 0 )
+          {
+            *((_QWORD *)&v189 + 1) = *((_QWORD *)&v189 + 1) & 0xCFFFFFFFFFFFFFFCuLL | 0x2000000000000002LL;
+            if ( (a10 & 2) != 0 )
+              v93 = v189 & 0xFFFFFCFFFFCCFFFFuLL | 0x20000220000LL;
+            else
+              v93 = v189 & 0xFFFFFCFFFFCCFFFFuLL | 0x20000110000LL;
+            *(_QWORD *)&v189 = v93;
+          }
+          if ( !v141 && Process && (Process->MitigationFlags2 & 0x4000) == 0 )
+            *((_QWORD *)&v189 + 1) = *((_QWORD *)&v189 + 1) & 0xCFFFFFFFFFFFFFFFuLL | 0x2000000000000000LL;
+          ProcessServerSilo = PsGetProcessServerSilo(v26);
+          if ( !(unsigned __int8)PsIsHostSilo(ProcessServerSilo) )
+            *((_QWORD *)&v189 + 1) = *((_QWORD *)&v189 + 1) & 0xCFFFFFFFFFFFFFFFuLL | 0x2000000000000000LL;
+          if ( (v19 & 0x4000) != 0 )
+            *((_QWORD *)&v189 + 1) = *((_QWORD *)&v189 + 1) & 0xCFFFFFFFFFFFFFFFuLL | 0x2000000000000000LL;
+          v95 = Process;
+          PspApplyMitigationOptions((_DWORD)v26, (_DWORD)Process, (unsigned int)&v189, (unsigned int)&v191, v92);
+          if ( v18 )
+          {
+            PspApplyWin32kFilterOptions(v26, v18);
+            PspApplyComponentFilterOptions();
+            *(_OWORD *)(v18 + 360) = v189;
+            *(_QWORD *)(v18 + 376) = v190;
+            *(_OWORD *)(v18 + 488) = v191;
+            *(_QWORD *)(v18 + 504) = v192;
+          }
+          PsQueryProcessAttributes(v26, 0, v120);
+          v96 = ((_DWORD)TokenInformation != 0) | 2u;
+          if ( (a9 & 0x20000) == 0 )
+            v96 = (_DWORD)TokenInformation != 0;
+          SmProcessCreateNotification(v26, v96);
+          if ( v95 && v95 != (_EPROCESS *)PsInitialSystemProcess && (v95->Flags3 & 0x2000000) != 0 )
+            v26->Flags3 |= 0x2000000u;
+          if ( (a9 & 0x80u) != 0
+            && !(unsigned int)MmIsSessionLeaderProcess(v139)
+            && !SeSinglePrivilegeCheck(SeLoadDriverPrivilege, a2) )
+          {
+            goto LABEL_173;
+          }
+          v97 = v132;
+          if ( (_DWORD)v132 || v141 )
+          {
+            SectionInformation = PspInitializeFullProcessImageName(v18, v26);
+            if ( SectionInformation >= 0 )
+            {
+              if ( (v19 & 0x10000) != 0 )
+              {
+                v101 = MmInitializeProcessAddressSpace((ULONG_PTR)v26, (v19 >> 17) & 1);
+                v100 = v140;
+              }
+              else
+              {
+                v100 = v140;
+                v101 = MmInitializeProcessAddressSpace((ULONG_PTR)v26, 0);
+              }
+              SectionInformation = v101;
+              if ( v101 >= 0 )
+              {
+                if ( v18 )
+                {
+                  ImageSectionBasedAddress = MmGetImageSectionBasedAddress(v100);
+                  SectionBaseAddress = (char *)v26->SectionBaseAddress;
+                  if ( (char *)ImageSectionBasedAddress != SectionBaseAddress )
+                    *(_QWORD *)(v18 + 48) += &SectionBaseAddress[-ImageSectionBasedAddress];
+                }
+                v128 = SectionInformation;
+                if ( !v97 )
+                  LOWORD(v19) = v19 | 2;
+                LOWORD(v19) = (4 * (a9 & 0x10 | 2)) | v19;
+                goto LABEL_323;
+              }
+            }
+          }
+          else
+          {
+            if ( !v95 )
+              goto LABEL_323;
+            v26->SectionBaseAddress = v95->SectionBaseAddress;
+            SectionInformation = MmInitializeProcessAddressSpace((ULONG_PTR)v26, (v19 >> 11) & 1);
+            if ( SectionInformation >= 0 )
+            {
+              LOWORD(v19) = WORD2(TokenInformation) | (4 * (a9 & 0x10)) | 2;
+              MaximumLength = v95->SeAuditProcessCreationInfo.ImageFileName->Name.MaximumLength;
+              v99 = (_OBJECT_NAME_INFORMATION *)ExAllocatePoolWithTag(NonPagedPoolNx, MaximumLength + 16, 0x61506553u);
+              v26->SeAuditProcessCreationInfo.ImageFileName = v99;
+              if ( !v99 )
+              {
+  LABEL_228:
+                SectionInformation = -1073741670;
+                goto LABEL_174;
+              }
+              memmove(v99, v95->SeAuditProcessCreationInfo.ImageFileName, MaximumLength + 16);
+              v26->SeAuditProcessCreationInfo.ImageFileName->Name.Buffer = &v26->SeAuditProcessCreationInfo.ImageFileName[1].Name.Length;
+              v26->Cookie = v95->Cookie; // 0x528 = 1320 = _EPROCESS->Cookie
+              if ( (a9 & 0x1000) != 0 )
+              {
+                *p_SectionObject = nullptr;
+                ObDereferenceObjectWithTag((PADAPTER_OBJECT)v140);
+              }
+  LABEL_323:
+              if ( (v19 & 0x10) != 0 )
+                RtlReleasePrivilege(v158);
+              if ( (unsigned __int16)PsWow64GetProcessMachine(v26) == 332 )
+                *(_DWORD *)&v26->Pcb.__s0 |= 1u;
+              v129 = v19 & 8;
+              if ( (v19 & 8) != 0 )
+              {
+                if ( v18 )
+                {
+                  SectionInformation = PspSetupReservedUserMappings(v26, &ApcState, v18);
+                  if ( SectionInformation < 0 )
+                    goto LABEL_176;
+                }
+              }
+              LODWORD(v132) = v19 & 2;
+              if ( (v19 & 2) != 0 )
+              {
+                *(_QWORD *)&v162 = 0;
+                *((_QWORD *)&v162 + 1) = -1;
+                IsProtectedProcess = PsIsProtectedProcess(v26);
+                IsProtectedProcessLight = PsIsProtectedProcessLight(v26);
+                v106 = BYTE3(v162) & 0x88
+                     | ((v19 & 0x40) != 0)
+                     | (2 * (IsProtectedProcess & 1 | (2 * ((16 * (IsProtectedProcessLight & 1)) | ((v19 & 0x80) != 0)))))
+                     & 0xCF
+                     | (16 * (((_DWORD)TokenInformation != 0 ? 2 : 0) | v120[0] & 1));
+                BYTE3(v162) = v106;
+                if ( v141 )
+                {
+                  SectionInformation = MmCreatePeb(v26, &v162, &v26->Peb, &v150);
+                  if ( SectionInformation < 0 )
+                  {
+                    v26->Peb = nullptr;
+                    goto LABEL_176;
+                  }
+                  if ( (_QWORD)v150 )
+                  {
+                    _InterlockedAnd((volatile signed __int32 *)v142, 0xFFCFFFFF);
+                    v26 = (_EPROCESS *)Object;
+                    PspSetProcessAffinitySafe((_DWORD)Object, 1, 0, (unsigned int)&v150, (__int64)&v153);
+                  }
+                }
+                else
+                {
+                  v107 = Process;
+                  Address = Process->Peb;
+                  v26->Peb = (_PEB *)Address;
+                  if ( (v19 & 0x800) != 0 )
+                  {
+  LABEL_349:
+                    if ( (v19 & 8) != 0 && v18 )
+                    {
+                      SectionInformation = PspSetupUserProcessAddressSpace(v107, v26, &ApcState, v18);
+                    }
+                    else if ( (_DWORD)v132 && (v19 & 0x800) == 0 )
+                    {
+                      SectionInformation = 0;
+                      KeStackAttachProcess(&v26->Pcb, &ApcState);
+                      v110 = CurrentThread;
+                      PspWritePebAffinityInfo(CurrentThread, v26);
+                      if ( (v19 & 8) != 0 )
+                      {
+                        SectionInformation = MmMapApiSetView(v26);
+                        if ( SectionInformation >= 0 )
+                        {
+                          SectionInformation = PspMapSiloSharedDataView(v26);
+                          if ( SectionInformation >= 0 )
+                          {
+                            SectionInformation = PspPrepareSystemDllInitBlock(0, 0);
+                            if ( SectionInformation >= 0 )
+                            {
+                              if ( v26->WoW64Process )
+                              {
+                                ProcessNtdllType = PsWow64GetProcessNtdllType(v26);
+                                SectionInformation = PspPrepareSystemDllInitBlock(ProcessNtdllType, 0);
+                              }
+                            }
+                          }
+                        }
+                      }
+                      KeUnstackDetachProcess(&ApcState);
+  LABEL_353:
+                      MmNewProcessInitialized(v26);
+                      if ( SectionInformation < 0 )
+                        goto LABEL_176;
+                      PspLockProcessExclusive(v26, v110);
+                      v111 = (void *)ExCreateHandle(PspCidTable, v26);
+                      v26->UniqueProcessId = v111;
+                      if ( !v111 )
+                      {
+                        PspUnlockProcessExclusive(v26, v110);
+                        SectionInformation = -1073741670;
+                        goto LABEL_176;
+                      }
+                      if ( (v19 & 0x1000) != 0 )
+                      {
+                        SectionInformation = MmGetSectionStrongImageReference(0, 0, v26->SectionObject, &v166);
+                        v113 = v26;
+                        if ( SectionInformation < 0 )
+                        {
+  LABEL_367:
+                          PspUnlockProcessExclusive(v113, v110);
+                          goto LABEL_176;
+                        }
+                        SectionInformation = KeSecureProcess(
+                                               (_DWORD)v26,
+                                               **(_QWORD **)(v18 + 392),
+                                               v26->Peb,
+                                               v26->UniqueProcessId,
+                                               v166,
+                                               (__int64)v26->SectionBaseAddress,
+                                               *(_QWORD *)(v18 + 392),
+                                               *(unsigned int *)(v18 + 408));
+                        if ( SectionInformation < 0 )
+                        {
+                          v113 = v26;
+                          goto LABEL_367;
+                        }
+                      }
+                      if ( KeQuerySystemTimeUnsafe() )
+                      {
+                        KeQuerySystemTimePrecise(&v26->CreateTime);
+                      }
+                      else
+                      {
+                        v26 = (_EPROCESS *)Object;
+                        *((_QWORD *)Object + 141) = MEMORY[0xFFFFF78000000014];
+                      }
+                      v26->CreateInterruptTime = MEMORY[0xFFFFF78000000008];
+                      UnbiasedInterruptTime = KeQueryUnbiasedInterruptTime();
+                      v115 = Object;
+                      *((_QWORD *)Object + 289) = UnbiasedInterruptTime;
+                      v115[291] = v26->CreateInterruptTime;
+                      *v169 = v115;
+                      SectionInformation = v128;
+                      goto LABEL_177;
+                    }
+                    v110 = CurrentThread;
+                    goto LABEL_353;
+                  }
+                  LOBYTE(v162) = 1;
+                  KeStackAttachProcess(&v26->Pcb, &ApcState);
+                  if ( MmSecureVirtualMemory(Address, 0x7C8u, 4u) )
+                    *(_OWORD *)Address = v162;
+                  else
+                    SectionInformation = -1073741503;
+                  if ( SectionInformation >= 0 )
+                  {
+                    v108 = v26->WoW64Process;
+                    if ( v108 )
+                    {
+                      v109 = v108->Machine;
+                      if ( v109 == 332 || v109 == 452 )
+                      {
+                        p_SectionObject = (void **)v108->Peb;
+                        if ( MmSecureVirtualMemory(p_SectionObject, 0x480u, 4u) )
+                        {
+                          v151 = 0xFFFFFFFF00000001uLL;
+                          BYTE3(v151) = v106;
+                          *p_SectionObject = (void *)v151;
+                        }
+                        else
+                        {
+                          SectionInformation = -1073741503;
+                        }
+                      }
+                    }
+                  }
+                  KeUnstackDetachProcess(&ApcState);
+                  if ( SectionInformation < 0 )
+                    goto LABEL_176;
+                }
+              }
+              v107 = Process;
+              goto LABEL_349;
+            }
+          }
+  LABEL_174:
+          if ( (v19 & 0x10) != 0 )
+            RtlReleasePrivilege(v158);
+          goto LABEL_176;
+        }
+      }
+      else if ( v42 )
+      {
+        SectionInformation = MmGetSectionInformation(v42, 4, v188);
+        if ( SectionInformation < 0 )
+          goto LABEL_176;
+        v19 |= 32
+             * (HIBYTE(v188[12]) & 4
+              | (4 * (HIBYTE(v188[12]) & 2 | ((v188[16] & 1 | (2 * (v188[16] & 2 | (2 * (v188[16] & 0xF8))))) << 11))));
+        LOWORD(NumberOfBytes_4) = HIWORD(v188[11]);
+        v138 = HIWORD(v188[9]);
+        v137 = LOWORD(v188[9]);
+        if ( !v141 )
+        {
+          v144 = 8;
+          v19 |= 0x800u;
+        }
+      }
+      LOBYTE(v51) = v117;
+      goto LABEL_143;
+    }
+    return result;
+  }
