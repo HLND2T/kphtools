@@ -717,6 +717,18 @@ async def _load_llm_decompile_target_details_via_mcp(
     return target_items
 
 
+def _has_all_required_target_details(
+    target_items: list[dict[str, Any]],
+    required_target_func_names: list[str],
+) -> bool:
+    available_names = {
+        str(item.get("func_name", "")).strip()
+        for item in target_items
+        if str(item.get("func_name", "")).strip()
+    }
+    return all(name in available_names for name in required_target_func_names)
+
+
 async def _resolve_direct_call_target_via_mcp(session, insn_va: Any) -> int | None:
     try:
         insn_va_int = _parse_offset_value(insn_va)
@@ -816,20 +828,34 @@ async def resolve_symbol_via_llm_decompile(
             f"{symbol_name}: {', '.join(llm_symbol_names)}",
         )
     else:
+        target_func_names = request.get("target_func_names", [])
+        required_target_func_names = [
+            str(name).strip()
+            for name in request.get("required_target_func_names", target_func_names)
+            if str(name).strip()
+        ]
         target_items = await _load_llm_decompile_target_details_via_mcp(
             session,
-            request.get("target_func_names", []),
+            target_func_names,
             binary_dir=binary_dir,
             image_base=image_base,
             debug=debug,
         )
-        if not target_items and request.get("target_func_names"):
+        if not target_items and target_func_names:
             _debug_log(
                 debug,
                 f"llm_decompile skipped for {symbol_name}: no target function details",
             )
             return None
-
+        if not _has_all_required_target_details(
+            target_items,
+            required_target_func_names,
+        ):
+            _debug_log(
+                debug,
+                f"llm_decompile skipped for {symbol_name}: missing required target function details",
+            )
+            return None
         _debug_log(
             debug,
             f"calling llm_decompile for {symbol_name}: {', '.join(llm_symbol_names)}",

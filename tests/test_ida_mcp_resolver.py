@@ -672,6 +672,162 @@ found_struct_offset:
             payload,
         )
 
+    async def test_resolve_symbol_via_llm_decompile_skips_missing_optional_target(
+        self,
+    ) -> None:
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "_prepare_llm_decompile_request",
+                return_value={
+                    "prepared": True,
+                    "llm_symbol_name": "_HANDLE_TABLE_ENTRY->ObjectPointerBits",
+                    "llm_symbol_names": ["_HANDLE_TABLE_ENTRY->ObjectPointerBits"],
+                    "target_func_names": [
+                        "ObpEnumFindHandleProcedure",
+                        "ExGetHandlePointer",
+                    ],
+                    "required_target_func_names": ["ObpEnumFindHandleProcedure"],
+                    "reference_items": [
+                        {
+                            "func_name": "ObpEnumFindHandleProcedure",
+                            "func_va": "0x1406c6cd0",
+                            "disasm_code": "reference disasm",
+                            "procedure": "",
+                        }
+                    ],
+                    "prompt_template": "{reference_blocks}\n{target_blocks}\n{symbol_name_list}",
+                    "prompt_path": "/tmp/prompt.md",
+                    "reference_paths": ["/tmp/ref.yaml"],
+                    "arch": "amd64",
+                },
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "_load_llm_decompile_target_details_via_mcp",
+                AsyncMock(
+                    return_value=[
+                        {
+                            "func_name": "ObpEnumFindHandleProcedure",
+                            "func_va": "0x1406c6cd0",
+                            "disasm_code": "target disasm",
+                            "procedure": "",
+                        }
+                    ]
+                ),
+            ) as mock_load_targets,
+            patch.object(
+                ida_mcp_resolver,
+                "call_llm_decompile",
+                AsyncMock(
+                    return_value={
+                        "found_call": [],
+                        "found_gv": [],
+                        "found_struct_offset": [
+                            {
+                                "insn_va": "0x1406c6ce2",
+                                "insn_disasm": "sar r8, 10h",
+                                "offset": "0x0",
+                                "bit_offset": "20",
+                                "struct_name": "_HANDLE_TABLE_ENTRY",
+                                "member_name": "ObjectPointerBits",
+                            }
+                        ],
+                    }
+                ),
+            ) as mock_call,
+        ):
+            payload = await ida_mcp_resolver.resolve_symbol_via_llm_decompile(
+                session=AsyncMock(),
+                symbol_name="ObDecodeShift",
+                category="struct_offset",
+                binary_dir="/tmp/amd64/ntoskrnl-required-missing",
+                image_base=0x140000000,
+                llm_decompile_specs=[],
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                struct_metadata={
+                    "struct_name": "_HANDLE_TABLE_ENTRY",
+                    "member_name": "ObjectPointerBits",
+                    "bits": True,
+                },
+            )
+
+        self.assertEqual(
+            {
+                "struct_name": "_HANDLE_TABLE_ENTRY",
+                "member_name": "ObjectPointerBits",
+                "offset": 0,
+                "bit_offset": 20,
+            },
+            payload,
+        )
+        self.assertEqual(
+            ["ObpEnumFindHandleProcedure", "ExGetHandlePointer"],
+            mock_load_targets.await_args.args[1],
+        )
+        mock_call.assert_awaited_once()
+
+    async def test_resolve_symbol_via_llm_decompile_fails_when_required_target_missing(
+        self,
+    ) -> None:
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "_prepare_llm_decompile_request",
+                return_value={
+                    "prepared": True,
+                    "llm_symbol_name": "_HANDLE_TABLE_ENTRY->ObjectPointerBits",
+                    "llm_symbol_names": ["_HANDLE_TABLE_ENTRY->ObjectPointerBits"],
+                    "target_func_names": [
+                        "ObpEnumFindHandleProcedure",
+                        "ExGetHandlePointer",
+                    ],
+                    "required_target_func_names": ["ObpEnumFindHandleProcedure"],
+                    "reference_items": [],
+                    "prompt_template": "{reference_blocks}\n{target_blocks}\n{symbol_name_list}",
+                    "prompt_path": "/tmp/prompt.md",
+                    "reference_paths": ["/tmp/ref.yaml"],
+                    "arch": "amd64",
+                },
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "_load_llm_decompile_target_details_via_mcp",
+                AsyncMock(
+                    return_value=[
+                        {
+                            "func_name": "ExGetHandlePointer",
+                            "func_va": "0x1406c7000",
+                            "disasm_code": "helper disasm",
+                            "procedure": "",
+                        }
+                    ]
+                ),
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "call_llm_decompile",
+                AsyncMock(),
+            ) as mock_call,
+        ):
+            payload = await ida_mcp_resolver.resolve_symbol_via_llm_decompile(
+                session=AsyncMock(),
+                symbol_name="ObDecodeShift",
+                category="struct_offset",
+                binary_dir="/tmp/amd64/ntoskrnl",
+                image_base=0x140000000,
+                llm_decompile_specs=[],
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                struct_metadata={
+                    "struct_name": "_HANDLE_TABLE_ENTRY",
+                    "member_name": "ObjectPointerBits",
+                    "bits": True,
+                },
+            )
+
+        self.assertIsNone(payload)
+        mock_call.assert_not_awaited()
+
     async def test_resolve_symbol_via_llm_decompile_uses_spec_query_name(self) -> None:
         with (
             patch.object(
