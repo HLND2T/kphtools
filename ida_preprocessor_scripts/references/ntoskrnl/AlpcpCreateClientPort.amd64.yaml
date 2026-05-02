@@ -55,7 +55,7 @@ disasm_code: |-
   PAGE:00000001405E6D7B                 jnz     short loc_1405E6D86
   PAGE:00000001405E6D7D                 test    r13, r13
   PAGE:00000001405E6D80                 jz      loc_1405E6E0A
-  PAGE:00000001405E6D86                 lea     rdi, [r14+160h]
+  PAGE:00000001405E6D86                 lea     rdi, [r14+160h] ; 0x160 = 352 = _ALPC_PORT->PortObjectLock
   PAGE:00000001405E6D8D                 ; BugCheckParameter1
   PAGE:00000001405E6D8D                 xor     edx, edx; BugCheckParameter1
   PAGE:00000001405E6D8F                 ; BugCheckParameter2
@@ -144,7 +144,7 @@ disasm_code: |-
   PAGE:00000001405E6EA8                 ; BugCheckParameter2
   PAGE:00000001405E6EA8                 sub     rcx, 10h; BugCheckParameter2
   PAGE:00000001405E6EAC                 call    ExAcquirePushLockExclusiveEx
-  PAGE:00000001405E6EB1                 lea     rdi, [r14+160h]
+  PAGE:00000001405E6EB1                 lea     rdi, [r14+160h] ; 0x160 = 352 = _ALPC_PORT->PortObjectLock
   PAGE:00000001405E6EB8                 ; BugCheckParameter1
   PAGE:00000001405E6EB8                 xor     edx, edx; BugCheckParameter1
   PAGE:00000001405E6EBA                 ; BugCheckParameter2
@@ -304,7 +304,7 @@ disasm_code: |-
   PAGE:00000001407E75C4                 call    ObDereferenceObjectWithTag
   PAGE:00000001407E75C9                 mov     eax, edi
   PAGE:00000001407E75CB                 jmp     loc_1405E7044
-  PAGE:00000001407E75D0                 lea     rdi, [r14+160h]
+  PAGE:00000001407E75D0                 lea     rdi, [r14+160h] ; 0x160 = 352 = _ALPC_PORT->PortObjectLock
   PAGE:00000001407E75D7                 ; BugCheckParameter1
   PAGE:00000001407E75D7                 xor     edx, edx; BugCheckParameter1
   PAGE:00000001407E75D9                 ; BugCheckParameter2
@@ -413,7 +413,7 @@ procedure: |-
         }
         if ( !a9 && !a8 )
           goto LABEL_60;
-        v16 = (volatile signed __int64 *)&v14->PortObjectLock;
+        v16 = (volatile signed __int64 *)&v14->PortObjectLock; // 0x160 = 352 = _ALPC_PORT->PortObjectLock
         ExAcquirePushLockSharedEx((ULONG_PTR)&v14->PortObjectLock, 0);
         if ( ((__int64)v14->OwnerProcess & 1) == 0 )
           pPort_1 = &v14->OwnerProcess->Pcb;

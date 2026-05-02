@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ida_preprocessor_common as preprocessor_common
 
-TARGET_STRUCT_MEMBER_NAMES = ["AlpcHandleTable", "AlpcPortContext"]
+TARGET_STRUCT_MEMBER_NAMES = ["AlpcHandleTable", "AlpcPortContext", "AlpcPortObjectLock"]
 
 LLM_DECOMPILE = [
     (
@@ -14,6 +14,12 @@ LLM_DECOMPILE = [
     (
         "AlpcPortContext",
         "_ALPC_PORT->PortContext",
+        "prompt/call_llm_decompile.md",
+        "references/ntoskrnl/AlpcpCreateClientPort.{arch}.yaml",
+    ),
+    (
+        "AlpcPortObjectLock",
+        "_ALPC_PORT->PortObjectLock",
         "prompt/call_llm_decompile.md",
         "references/ntoskrnl/AlpcpCreateClientPort.{arch}.yaml",
     ),
@@ -32,11 +38,18 @@ STRUCT_METADATA = {
         "member_name": "PortContext",
         "bits": False,
     },
+    "AlpcPortObjectLock": {
+        "symbol_expr": "_ALPC_PORT->PortObjectLock",
+        "struct_name": "_ALPC_PORT",
+        "member_name": "PortObjectLock",
+        "bits": False,
+    },
 }
 
 GENERATE_YAML_DESIRED_FIELDS = {
     "AlpcHandleTable": ["struct_name", "member_name", "offset"],
     "AlpcPortContext": ["struct_name", "member_name", "offset"],
+    "AlpcPortObjectLock": ["struct_name", "member_name", "offset"],
 }
 
 
