@@ -386,7 +386,7 @@ disasm_code: |-
   PAGE:0000000140657498                 call    ExAcquireRundownProtection_0
   PAGE:000000014065749D                 test    al, al
   PAGE:000000014065749F                 jz      short loc_1406574C5
-  PAGE:00000001406574A1                 mov     rax, [r14+518h]
+  PAGE:00000001406574A1                 mov     rax, [r14+518h]; 0x518 = 1304 = _EPROCESS->SectionObject
   PAGE:00000001406574A8                 mov     [rsp+768h+var_680], rax
   PAGE:00000001406574B0                 test    rax, rax
   PAGE:00000001406574B3                 jz      short loc_1406574BD
@@ -415,7 +415,7 @@ disasm_code: |-
   PAGE:0000000140657515                 or      r12d, 8
   PAGE:0000000140657519                 mov     [rsp+768h+var_6F0], r12d
   PAGE:000000014065751E                 mov     [rsp+768h+arg_40], r12d
-  PAGE:0000000140657526                 lea     rax, [r15+518h]
+  PAGE:0000000140657526                 lea     rax, [r15+518h]; 0x518 = 1304 = _EPROCESS->SectionObject
   PAGE:000000014065752D                 mov     [rsp+768h+var_5E8], rax
   PAGE:0000000140657535                 mov     rcx, [rsp+768h+var_680]
   PAGE:000000014065753D                 mov     [rax], rcx
@@ -1925,7 +1925,7 @@ disasm_code: |-
   PAGE:0000000140658FF6                 bt      ebx, 0Ch
   PAGE:0000000140658FFA                 jnb     loc_140659082
   PAGE:0000000140659000                 lea     r9, [rsp+768h+var_5A8]
-  PAGE:0000000140659008                 mov     r8, [r15+518h]
+  PAGE:0000000140659008                 mov     r8, [r15+518h]; 0x518 = 1304 = _EPROCESS->SectionObject
   PAGE:000000014065900F                 xor     edx, edx
   PAGE:0000000140659011                 xor     ecx, ecx
   PAGE:0000000140659013                 call    MmGetSectionStrongImageReference
@@ -2430,7 +2430,7 @@ procedure: |-
           }
           if ( ExAcquireRundownProtection_0(&v34->RundownProtect) )
           {
-            SectionObject = v34->SectionObject;
+            SectionObject = v34->SectionObject; // 0x518 = 1304 = _EPROCESS->SectionObject
             v140 = SectionObject;
             if ( SectionObject )
               ObfReferenceObject(SectionObject);
@@ -2455,9 +2455,9 @@ procedure: |-
           }
         }
       }
-      p_SectionObject = &v26->SectionObject;
+      p_SectionObject = &v26->SectionObject; // 0x518 = 1304 = _EPROCESS->SectionObject
       v42 = v140;
-      v26->SectionObject = v140;
+      v26->SectionObject = v140; // 0x518 = 1304 = _EPROCESS->SectionObject
       LOWORD(NumberOfBytes_4) = 0;
       if ( v18 )
       {

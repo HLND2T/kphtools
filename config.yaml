@@ -87,15 +87,13 @@ modules:
   - name: find-MmControlAreaLock
     expected_output:
     - MmControlAreaLock.yaml
-  - name: find-EpSectionObject
+  - name: find-EpCookie-AND-EpSectionObject
     expected_output:
+    - EpCookie.yaml
     - EpSectionObject.yaml
   - name: find-EpProtection
     expected_output:
     - EpProtection.yaml
-  - name: find-EpCookie
-    expected_output:
-    - EpCookie.yaml
   - name: find-EpBreakOnTermination
     expected_output:
     - EpBreakOnTermination.yaml
