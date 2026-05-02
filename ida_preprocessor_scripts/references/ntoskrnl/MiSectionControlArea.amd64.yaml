@@ -1,0 +1,40 @@
+func_name: MiSectionControlArea
+func_va: '0x1402bd7e0'
+disasm_code: |-
+  .text:00000001402BD7E0                 mov     rdx, [rcx+28h] ; 0x28 = 40 = _SECTION->u1.ControlArea
+  .text:00000001402BD7E4                 mov     rax, rdx
+  .text:00000001402BD7E7                 and     rax, 0FFFFFFFFFFFFFFFCh
+  .text:00000001402BD7EB                 test    dl, 1
+  .text:00000001402BD7EE                 jnz     loc_1404533E0
+  .text:00000001402BD7F4                 test    dl, 2
+  .text:00000001402BD7F7                 jnz     short loc_1402BD7FB
+  .text:00000001402BD7F9                 retn
+  .text:00000001402BD7FB                 mov     rax, [rax+28h] ; 0x28 = 40 = _CONTROL_AREA->NumberOfMappedViews
+  .text:00000001402BD7FF                 mov     rax, [rax]
+  .text:00000001402BD802                 retn
+  .text:00000001404533E0                 mov     rax, [rax+28h] ; 0x28 = 40 = _CONTROL_AREA->NumberOfMappedViews
+  .text:00000001404533E4                 mov     rax, [rax+10h]
+  .text:00000001404533E8                 retn
+procedure: |-
+  // 00000000 struct _SECTION // sizeof=0x40
+  // 00000000 {
+  // 00000018     unsigned __int64 StartingVpn;
+  // 00000020     unsigned __int64 EndingVpn;
+  // 00000028     union { _CONTROL_AREA *ControlArea; ... } u1;
+  // 00000030     unsigned __int64 SizeOfSection;
+  // 0000003C     unsigned __int8 InitialPageProtection;
+  // 0000003D     unsigned __int8 SessionId;
+  // 00000040 };
+  _CONTROL_AREA *__fastcall MiSectionControlArea(_SECTION *a1)
+  {
+    _CONTROL_AREA *ControlArea; // rdx
+    _CONTROL_AREA *result; // rax
+
+    ControlArea = a1->u1.ControlArea; // 0x28 = 40 = _SECTION->u1.ControlArea
+    result = (_CONTROL_AREA *)((unsigned __int64)ControlArea & 0xFFFFFFFFFFFFFFFCuLL);
+    if ( ((unsigned __int8)ControlArea & 1) != 0 )
+      return *(_CONTROL_AREA **)(result->NumberOfMappedViews + 16); // 0x28 = 40 = _CONTROL_AREA->NumberOfMappedViews
+    if ( ((unsigned __int8)ControlArea & 2) != 0 )
+      return *(_CONTROL_AREA **)result->NumberOfMappedViews; // 0x28 = 40 = _CONTROL_AREA->NumberOfMappedViews
+    return result;
+  }

@@ -4,13 +4,22 @@ import ida_preprocessor_common as preprocessor_common
 
 TARGET_STRUCT_MEMBER_NAMES = ["MmSectionControlArea"]
 
+LLM_DECOMPILE = [
+    (
+        "MmSectionControlArea",
+        "_SECTION->u1.ControlArea",
+        "prompt/call_llm_decompile.md",
+        "references/ntoskrnl/MiSectionControlArea.{arch}.yaml",
+    ),
+]
+
 STRUCT_METADATA = {
     "MmSectionControlArea": {
-        "symbol_expr": "_SECTION->u1.ControlArea,_SECTION_OBJECT->Segment",
+        "symbol_expr": "_SECTION->u1.ControlArea", # or _SECTION_OBJECT->Segment in older version of Windows 10.
         "struct_name": "_SECTION",
         "member_name": "u1.ControlArea",
         "bits": False,
-    }
+    },
 }
 
 GENERATE_YAML_DESIRED_FIELDS = {
@@ -29,5 +38,6 @@ async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, 
         llm_config=llm_config,
         struct_member_names=TARGET_STRUCT_MEMBER_NAMES,
         struct_metadata=STRUCT_METADATA,
+        llm_decompile_specs=LLM_DECOMPILE,
         generate_yaml_desired_fields=GENERATE_YAML_DESIRED_FIELDS,
     )
