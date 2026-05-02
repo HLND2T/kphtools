@@ -56,23 +56,13 @@ modules:
   - name: find-KtKernelStack
     expected_output:
     - KtKernelStack.yaml
-  - name: find-KtReadOperationCount
+  - name: find-KtReadOperationCount-AND-KtWriteOperationCount-AND-KtOtherOperationCount-AND-KtReadTransferCount-AND-KtWriteTransferCount-AND-KtOtherTransferCount
     expected_output:
     - KtReadOperationCount.yaml
-  - name: find-KtWriteOperationCount
-    expected_output:
     - KtWriteOperationCount.yaml
-  - name: find-KtOtherOperationCount
-    expected_output:
     - KtOtherOperationCount.yaml
-  - name: find-KtReadTransferCount
-    expected_output:
     - KtReadTransferCount.yaml
-  - name: find-KtWriteTransferCount
-    expected_output:
     - KtWriteTransferCount.yaml
-  - name: find-KtOtherTransferCount
-    expected_output:
     - KtOtherTransferCount.yaml
   - name: find-MmSectionControlArea
     expected_output:
