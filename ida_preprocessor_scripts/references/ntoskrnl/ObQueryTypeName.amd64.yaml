@@ -1,0 +1,86 @@
+func_name: ObQueryTypeName
+func_va: '0x1408de0c0'
+disasm_code: |-
+  PAGE:00000001408DE0C0                 mov     [rsp+arg_0], rbx
+  PAGE:00000001408DE0C5                 mov     [rsp+arg_8], rsi
+  PAGE:00000001408DE0CA                 mov     [rsp+arg_10], rdi
+  PAGE:00000001408DE0CF                 push    r14
+  PAGE:00000001408DE0D1                 sub     rsp, 20h
+  PAGE:00000001408DE0D5                 mov     rdi, rdx
+  PAGE:00000001408DE0D8                 lea     rax, [rcx-30h]
+  PAGE:00000001408DE0DC                 shr     rax, 8
+  PAGE:00000001408DE0E0                 movzx   r10d, al
+  PAGE:00000001408DE0E4                 movzx   eax, byte ptr [rcx-18h]
+  PAGE:00000001408DE0E8                 xor     r10, rax
+  PAGE:00000001408DE0EB                 movzx   eax, byte ptr cs:ObHeaderCookie
+  PAGE:00000001408DE0F2                 xor     r10, rax
+  PAGE:00000001408DE0F5                 lea     rdx, ObTypeIndexTable
+  PAGE:00000001408DE0FC                 mov     rdx, [rdx+r10*8]
+  PAGE:00000001408DE100                 movzx   esi, word ptr [rdx+10h] ; 0x10 = 16 = _OBJECT_TYPE->Name.Length
+  PAGE:00000001408DE104                 lea     eax, [rsi+12h]
+  PAGE:00000001408DE107                 mov     [r9], eax
+  PAGE:00000001408DE10A                 cmp     r8d, eax
+  PAGE:00000001408DE10D                 jnb     short loc_1408DE116
+  PAGE:00000001408DE10F                 mov     eax, 0C0000004h
+  PAGE:00000001408DE114                 jmp     short loc_1408DE152
+  PAGE:00000001408DE116                 mov     ebx, eax
+  PAGE:00000001408DE118                 add     rbx, rdi
+  PAGE:00000001408DE11B                 mov     r14d, 2
+  PAGE:00000001408DE121                 sub     rbx, r14
+  PAGE:00000001408DE124                 xor     eax, eax
+  PAGE:00000001408DE126                 mov     [rbx], ax
+  PAGE:00000001408DE129                 movzx   r8d, word ptr [rdx+10h] ; 0x10 = 16 = _OBJECT_TYPE->Name.Length
+  PAGE:00000001408DE12E                 sub     rbx, r8
+  PAGE:00000001408DE131                 mov     rdx, [rdx+18h] ; 0x18 = 24 = _OBJECT_TYPE->Name.Buffer
+  PAGE:00000001408DE135                 mov     rcx, rbx
+  PAGE:00000001408DE138                 call    memmove
+  PAGE:00000001408DE13D                 mov     [rdi], si
+  PAGE:00000001408DE140                 add     si, r14w
+  PAGE:00000001408DE144                 mov     [rdi+2], si
+  PAGE:00000001408DE148                 mov     [rdi+8], rbx
+  PAGE:00000001408DE14C                 jmp     short $+2
+  PAGE:00000001408DE14E                 xor     eax, eax
+  PAGE:00000001408DE150                 jmp     short $+2
+  PAGE:00000001408DE152                 mov     rbx, [rsp+28h+arg_0]
+  PAGE:00000001408DE157                 mov     rsi, [rsp+28h+arg_8]
+  PAGE:00000001408DE15C                 mov     rdi, [rsp+28h+arg_10]
+  PAGE:00000001408DE161                 add     rsp, 20h
+  PAGE:00000001408DE165                 pop     r14
+  PAGE:00000001408DE167                 retn
+procedure: |-
+  // 00000000 struct _OBJECT_TYPE // sizeof=0xD8
+  // 00000000 {
+  // 00000000     _LIST_ENTRY TypeList;    // 0x0 = 0
+  // 00000010     _UNICODE_STRING Name;   // 0x10 = 16  (_UNICODE_STRING: Length@+0, MaximumLength@+2, Buffer@+8)
+  // 00000020     void *DefaultObject;    // 0x20 = 32
+  // 00000028     unsigned __int8 Index;  // 0x28 = 40
+  // 0000002C     unsigned int TotalNumberOfObjects;
+  // 000000B8     _EX_PUSH_LOCK TypeLock; // 0xb8 = 184
+  // 000000C0     unsigned int Key;       // 0xc0 = 192
+  // 000000C8     _LIST_ENTRY CallbackList; // 0xc8 = 200
+  // 000000D8 };
+  __int64 __fastcall ObQueryTypeName(__int64 a1, __int64 a2, unsigned int a3, _DWORD *a4)
+  {
+    _OBJECT_TYPE *ObjectType; // rdx
+    int Length; // esi
+    _WORD *v8; // rbx
+    size_t v9; // r8
+    char *v10; // rbx
+
+    ObjectType = (_OBJECT_TYPE *)ObTypeIndexTable[(unsigned __int8)ObHeaderCookie
+                                                ^ *(unsigned __int8 *)(a1 - 24)
+                                                ^ (unsigned __int64)(unsigned __int8)((unsigned __int16)(a1 - 48) >> 8)];
+    Length = ObjectType->Name.Length; // 0x10 = 16 = _OBJECT_TYPE->Name (Name is _UNICODE_STRING at offset 0x10; Length field is at 0x10+0)
+    *a4 = Length + 18;
+    if ( a3 < Length + 18 )
+      return 3221225476LL;
+    v8 = (_WORD *)(a2 + (unsigned int)(Length + 18) - 2);
+    *v8 = 0;
+    v9 = ObjectType->Name.Length; // 0x10 = 16 = _OBJECT_TYPE->Name.Length
+    v10 = (char *)v8 - v9;
+    memmove(v10, ObjectType->Name.Buffer, v9); // 0x18 = 24 = _OBJECT_TYPE->Name.Buffer
+    *(_WORD *)a2 = Length;
+    *(_WORD *)(a2 + 2) = Length + 2;
+    *(_QWORD *)(a2 + 8) = v10;
+    return 0;
+  }
