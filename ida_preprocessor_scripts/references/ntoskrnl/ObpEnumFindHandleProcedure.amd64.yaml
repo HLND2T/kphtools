@@ -7,8 +7,8 @@ disasm_code: |-
   PAGE:00000001406C6CD9                 mov     r10, rcx
   PAGE:00000001406C6CDC                 mov     rax, [r9]
   PAGE:00000001406C6CDF                 mov     r8, r11
-  PAGE:00000001406C6CE2                 sar     r8, 10h
-  PAGE:00000001406C6CE6                 and     r8, 0FFFFFFFFFFFFFFF0h
+  PAGE:00000001406C6CE2                 sar     r8, 10h ; 0x10 = 16, first step of ObDecodeShift: (VolatileLowValue >> 16) & ~0xF = ObjectPointerBits (ObDecodeShift = 0x14 = 20)
+  PAGE:00000001406C6CE6                 and     r8, 0FFFFFFFFFFFFFFF0h ; clears lower 4 bits: combined with sar 16 equals >> 20 = _HANDLE_TABLE_ENTRY->ObjectPointerBits (ObDecodeShift = 0x14 = 20)
   PAGE:00000001406C6CEA                 test    rax, rax
   PAGE:00000001406C6CED                 jz      short loc_1406C6D19
   PAGE:00000001406C6CEF                 cmp     rax, r8
@@ -16,7 +16,7 @@ disasm_code: |-
   PAGE:00000001406C6CF4                 xor     bl, bl
   PAGE:00000001406C6CF6                 mov     ecx, 1
   PAGE:00000001406C6CFB                 lock xadd [rdx], rcx
-  PAGE:00000001406C6D00                 lea     rcx, [r10+30h]; 0x30 = 48 = _HANDLE_TABLE->HandleContentionEvent
+  PAGE:00000001406C6D00                 lea     rcx, [r10+30h] ; 0x30 = 48 = _HANDLE_TABLE->HandleContentionEvent
   PAGE:00000001406C6D04                 lock or [rsp+28h+var_28], 0
   PAGE:00000001406C6D09                 cmp     qword ptr [rcx], 0
   PAGE:00000001406C6D0D                 jnz     short loc_1406C6D8D
@@ -46,7 +46,7 @@ disasm_code: |-
   PAGE:00000001406C6D5A                 jmp     short loc_1406C6CF6
   PAGE:00000001406C6D5C                 mov     eax, [rdx+8]
   PAGE:00000001406C6D5F                 mov     r8d, eax
-  PAGE:00000001406C6D62                 sar     r11, 11h
+  PAGE:00000001406C6D62                 sar     r11, 11h ; 0x11 = 17 = _HANDLE_TABLE_ENTRY->Attributes (bit offset, ObAttributesShift = 0x11 = 17)
   PAGE:00000001406C6D66                 and     r8d, 1FFFFFFh
   PAGE:00000001406C6D6D                 and     r11d, 7
   PAGE:00000001406C6D71                 bt      eax, 19h
@@ -64,35 +64,50 @@ disasm_code: |-
   PAGE:00000001406C6D99                 or      r11d, 8
   PAGE:00000001406C6D9D                 jmp     short loc_1406C6D77
 procedure: |-
+  // 00000000 struct $32CC4987E53F1E217602E82975918B96 // sizeof=0x8
+  // 00000000 {                                       // XREF: _HANDLE_TABLE_ENTRY.__s4/r
+  // 00000000.0   unsigned __int64 Unlocked : 1;
+  // 00000000.1   unsigned __int64 RefCnt : 16;
+  // 00000000.17  unsigned __int64 Attributes : 3;    // ObAttributesShift = 0x11 = 17
+  // 00000000.20  unsigned __int64 ObjectPointerBits : 44; // ObDecodeShift = 0x14 = 20
+  // 00000008 };
+  //
+  // 00000000 union _HANDLE_TABLE_ENTRY // sizeof=0x10
+  // 00000000 {
+  // 00000000     $32CC4987E53F1E217602E82975918B96 __s4; // (and other union variants)
+  // 00000000 };
   __int64 __fastcall ObpEnumFindHandleProcedure(
           _HANDLE_TABLE *HandleTable,
-          _HANDLE_TABLE_ENTRY *HandleTableEntry,
+          __int64 HandleTableEntry,
           __int64 Handle,
           _QWORD *EnumParameter)
   {
     unsigned __int8 v5; // bl
     __int64 v7; // rbx
     _DWORD *v8; // rcx
-    __int64 v9; // r11
+    __int64 Attributes; // r11
     signed __int32 v10[10]; // [rsp+0h] [rbp-28h] BYREF
 
-    if ( !*EnumParameter || *EnumParameter == ((HandleTableEntry->VolatileLowValue >> 16) & 0xFFFFFFFFFFFFFFF0uLL) )
+    // Object pointer is recovered as: (VolatileLowValue >> 16) & ~0xF
+    //   = (VolatileLowValue >> 20) << 4
+    //   = VolatileLowValue >> ObDecodeShift << 4   (ObDecodeShift = 0x14 = 20 = _HANDLE_TABLE_ENTRY->ObjectPointerBits bit offset)
+    if ( !*EnumParameter || *EnumParameter == ((*(__int64 *)HandleTableEntry >> 16) & 0xFFFFFFFFFFFFFFF0uLL) ) // 0x14 = 20 = _HANDLE_TABLE_ENTRY->ObjectPointerBits (ObDecodeShift)
     {
       v7 = EnumParameter[1];
       if ( !v7
         || v7 == ObTypeIndexTable[(unsigned __int8)ObHeaderCookie
-                                ^ *(unsigned __int8 *)(((HandleTableEntry->VolatileLowValue >> 16) & 0xFFFFFFFFFFFFFFF0uLL)
+                                ^ *(unsigned __int8 *)(((*(__int64 *)HandleTableEntry >> 16) & 0xFFFFFFFFFFFFFFF0uLL)
                                                      + 0x18)
-                                ^ (unsigned __int64)(unsigned __int8)((unsigned __int16)(WORD1(HandleTableEntry->VolatileLowValue)
+                                ^ (unsigned __int64)(unsigned __int8)((unsigned __int16)(WORD1(*(_QWORD *)HandleTableEntry)
                                                                                        & 0xFFF0) >> 8)] )
       {
         v8 = (_DWORD *)EnumParameter[2];
         if ( !v8 )
           goto LABEL_11;
-        v9 = (HandleTableEntry->LowValue >> 17) & 7;
-        if ( (*(_DWORD *)(&HandleTableEntry->__s4 + 1) & 0x2000000) != 0 )
-          LOBYTE(v9) = v9 | 8;
-        if ( *v8 == (v9 & 7) && v8[1] == (*(_DWORD *)(&HandleTableEntry->__s4 + 1) & 0x1FFFFFF) )
+        Attributes = (*(__int64 *)HandleTableEntry >> 17) & 7; // 0x11 = 17 = _HANDLE_TABLE_ENTRY->Attributes (ObAttributesShift)
+        if ( (*(_DWORD *)(HandleTableEntry + 8) & 0x2000000) != 0 )
+          LOBYTE(Attributes) = Attributes | 8;
+        if ( *v8 == (Attributes & 7) && v8[1] == (*(_DWORD *)(HandleTableEntry + 8) & 0x1FFFFFF) )
   LABEL_11:
           v5 = 1;
         else
@@ -107,7 +122,7 @@ procedure: |-
     {
       v5 = 0;
     }
-    _InterlockedExchangeAdd64(&HandleTableEntry->VolatileLowValue, 1u);
+    _InterlockedExchangeAdd64((volatile signed __int64 *)HandleTableEntry, 1u);
     _InterlockedOr(v10, 0);
     if ( HandleTable->HandleContentionEvent.Value ) // 0x30 = 48 = _HANDLE_TABLE->HandleContentionEvent
       ExfUnblockPushLock(&HandleTable->HandleContentionEvent, 0); // 0x30 = 48 = _HANDLE_TABLE->HandleContentionEvent

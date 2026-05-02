@@ -20,12 +20,10 @@ modules:
   - name: find-OtIndex
     expected_output:
     - OtIndex.yaml
-  - name: find-ObDecodeShift
-    expected_output:
-    - ObDecodeShift.yaml
-  - name: find-ObAttributesShift
+  - name: find-ObAttributesShift-AND-ObDecodeShift
     expected_output:
     - ObAttributesShift.yaml
+    - ObDecodeShift.yaml
   - name: find-AlpcHandleTable-AND-AlpcPortContext-AND-AlpcPortObjectLock
     expected_output:
     - AlpcHandleTable.yaml
