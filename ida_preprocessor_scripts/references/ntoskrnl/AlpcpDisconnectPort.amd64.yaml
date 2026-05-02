@@ -1,0 +1,387 @@
+func_name: AlpcpDisconnectPort
+func_va: '0x1405e4110'
+disasm_code: |-
+  PAGE:00000001405E4110                 mov     [rsp-28h+arg_8], rbx
+  PAGE:00000001405E4115                 mov     [rsp-28h+arg_10], rsi
+  PAGE:00000001405E411A                 mov     [rsp-28h+arg_18], rdi
+  PAGE:00000001405E411F                 push    rbp
+  PAGE:00000001405E4120                 push    r12
+  PAGE:00000001405E4122                 push    r13
+  PAGE:00000001405E4124                 push    r14
+  PAGE:00000001405E4126                 push    r15
+  PAGE:00000001405E4128                 mov     rbp, rsp
+  PAGE:00000001405E412B                 sub     rsp, 40h
+  PAGE:00000001405E412F                 mov     r12, [rcx+10h]
+  PAGE:00000001405E4133                 mov     ebx, edx
+  PAGE:00000001405E4135                 mov     rsi, rcx
+  PAGE:00000001405E4138                 xorps   xmm0, xmm0
+  PAGE:00000001405E413B                 ; BugCheckParameter1
+  PAGE:00000001405E413B                 xor     edx, edx; BugCheckParameter1
+  PAGE:00000001405E413D                 movups  [rbp+var_10], xmm0
+  PAGE:00000001405E4141                 ; BugCheckParameter2
+  PAGE:00000001405E4141                 lea     rcx, [r12-10h]; BugCheckParameter2
+  PAGE:00000001405E4146                 call    ExAcquirePushLockExclusiveEx
+  PAGE:00000001405E414B                 lea     rdi, [rsi+160h] ; 0x160 = 352 = _ALPC_PORT->PortObjectLock
+  PAGE:00000001405E4152                 ; BugCheckParameter1
+  PAGE:00000001405E4152                 xor     edx, edx; BugCheckParameter1
+  PAGE:00000001405E4154                 ; BugCheckParameter2
+  PAGE:00000001405E4154                 mov     rcx, rdi; BugCheckParameter2
+  PAGE:00000001405E4157                 call    ExAcquirePushLockExclusiveEx
+  PAGE:00000001405E415C                 test    bl, 1
+  PAGE:00000001405E415F                 jnz     loc_1405E436F
+  PAGE:00000001405E4165                 mov     eax, [rsi+1A0h] ; 0x1A0 = 416 = _ALPC_PORT->u1.State
+  PAGE:00000001405E416B                 or      rbx, 0FFFFFFFFFFFFFFFFh
+  PAGE:00000001405E416F                 mov     r13b, 6
+  PAGE:00000001405E4172                 test    al, 20h
+  PAGE:00000001405E4174                 jnz     loc_1405E4330
+  PAGE:00000001405E417A                 or      eax, 20h
+  PAGE:00000001405E417D                 mov     [rsi+1A0h], eax ; 0x1A0 = 416 = _ALPC_PORT->u1.State
+  PAGE:00000001405E4183                 mov     rax, rbx
+  PAGE:00000001405E4186                 lock xadd [rdi], rax
+  PAGE:00000001405E418B                 and     al, r13b
+  PAGE:00000001405E418E                 cmp     al, 2
+  PAGE:00000001405E4190                 jz      loc_1405E4423
+  PAGE:00000001405E4196                 ; BugCheckParameter2
+  PAGE:00000001405E4196                 mov     rcx, rdi; BugCheckParameter2
+  PAGE:00000001405E4199                 call    KeAbPostRelease
+  PAGE:00000001405E419E                 mov     ecx, [rsi+1A0h] ; 0x1A0 = 416 = _ALPC_PORT->u1.State
+  PAGE:00000001405E41A4                 mov     eax, ecx
+  PAGE:00000001405E41A6                 and     al, r13b
+  PAGE:00000001405E41A9                 cmp     al, 2
+  PAGE:00000001405E41AB                 jz      loc_1405E437C
+  PAGE:00000001405E41B1                 shr     ecx, 1
+  PAGE:00000001405E41B3                 xor     edi, edi
+  PAGE:00000001405E41B5                 and     ecx, 3
+  PAGE:00000001405E41B8                 sub     ecx, 1
+  PAGE:00000001405E41BB                 jz      loc_1405E438F
+  PAGE:00000001405E41C1                 cmp     ecx, 1
+  PAGE:00000001405E41C4                 jnz     loc_1405E4322
+  PAGE:00000001405E41CA                 mov     r15, [r12]
+  PAGE:00000001405E41CE                 mov     r14, rsi
+  PAGE:00000001405E41D1                 mov     [rbp+arg_0], r14
+  PAGE:00000001405E41D5                 test    r15, r15
+  PAGE:00000001405E41D8                 jz      short loc_1405E41EA
+  PAGE:00000001405E41DA                 mov     rcx, r15
+  PAGE:00000001405E41DD                 call    ObReferenceObjectSafe
+  PAGE:00000001405E41E2                 neg     al
+  PAGE:00000001405E41E4                 sbb     rcx, rcx
+  PAGE:00000001405E41E7                 and     r15, rcx
+  PAGE:00000001405E41EA                 test    r14, r14
+  PAGE:00000001405E41ED                 jz      short loc_1405E4206
+  PAGE:00000001405E41EF                 mov     rcx, r14
+  PAGE:00000001405E41F2                 call    ObReferenceObjectSafe
+  PAGE:00000001405E41F7                 neg     al
+  PAGE:00000001405E41F9                 sbb     rcx, rcx
+  PAGE:00000001405E41FC                 and     rcx, r14
+  PAGE:00000001405E41FF                 mov     r14, rcx
+  PAGE:00000001405E4202                 mov     [rbp+arg_0], rcx
+  PAGE:00000001405E4206                 mov     rax, rbx
+  PAGE:00000001405E4209                 lock xadd [r12-10h], rax
+  PAGE:00000001405E4210                 and     al, r13b
+  PAGE:00000001405E4213                 cmp     al, 2
+  PAGE:00000001405E4215                 jz      loc_1405E4430
+  PAGE:00000001405E421B                 ; BugCheckParameter2
+  PAGE:00000001405E421B                 lea     rcx, [r12-10h]; BugCheckParameter2
+  PAGE:00000001405E4220                 call    KeAbPostRelease
+  PAGE:00000001405E4225                 test    r15, r15
+  PAGE:00000001405E4228                 jz      loc_1405E42F4
+  PAGE:00000001405E422E                 lea     rax, [rbp+var_10]
+  PAGE:00000001405E4232                 mov     qword ptr [rbp+var_10+8], rax
+  PAGE:00000001405E4236                 lea     rax, [rbp+var_10]
+  PAGE:00000001405E423A                 mov     qword ptr [rbp+var_10], rax
+  PAGE:00000001405E423E                 lea     rax, [rbp+var_10]
+  PAGE:00000001405E4242                 mov     r9d, 1
+  PAGE:00000001405E4248                 lea     r8, [r15+90h]
+  PAGE:00000001405E424F                 mov     [rsp+40h+var_20], rax
+  PAGE:00000001405E4254                 mov     rdx, r15
+  PAGE:00000001405E4257                 mov     rcx, rsi
+  PAGE:00000001405E425A                 call    AlpcpCancelMessagesByRequestor
+  PAGE:00000001405E425F                 mov     edi, eax
+  PAGE:00000001405E4261                 lea     r8, [r15+0A0h]
+  PAGE:00000001405E4268                 lea     rax, [rbp+var_10]
+  PAGE:00000001405E426C                 mov     r9d, 2
+  PAGE:00000001405E4272                 mov     rdx, r15
+  PAGE:00000001405E4275                 mov     [rsp+40h+var_20], rax
+  PAGE:00000001405E427A                 mov     rcx, rsi
+  PAGE:00000001405E427D                 call    AlpcpCancelMessagesByRequestor
+  PAGE:00000001405E4282                 or      edi, eax
+  PAGE:00000001405E4284                 lea     r8, [r15+0B8h]
+  PAGE:00000001405E428B                 lea     rax, [rbp+var_10]
+  PAGE:00000001405E428F                 mov     r9d, 3
+  PAGE:00000001405E4295                 mov     rdx, r15
+  PAGE:00000001405E4298                 mov     [rsp+40h+var_20], rax
+  PAGE:00000001405E429D                 mov     rcx, rsi
+  PAGE:00000001405E42A0                 call    AlpcpCancelMessagesByRequestor
+  PAGE:00000001405E42A5                 or      edi, eax
+  PAGE:00000001405E42A7                 lea     r8, [r15+0D0h]
+  PAGE:00000001405E42AE                 lea     rax, [rbp+var_10]
+  PAGE:00000001405E42B2                 mov     r9d, 4
+  PAGE:00000001405E42B8                 mov     rdx, r15
+  PAGE:00000001405E42BB                 mov     [rsp+40h+var_20], rax
+  PAGE:00000001405E42C0                 mov     rcx, rsi
+  PAGE:00000001405E42C3                 call    AlpcpCancelMessagesByRequestor
+  PAGE:00000001405E42C8                 or      eax, edi
+  PAGE:00000001405E42CA                 jnz     loc_1405E423E
+  PAGE:00000001405E42D0                 ; DmaAdapter
+  PAGE:00000001405E42D0                 mov     rcx, r15; DmaAdapter
+  PAGE:00000001405E42D3                 call    ObDereferenceObjectWithTag
+  PAGE:00000001405E42D8                 mov     r14, [rbp+arg_0]
+  PAGE:00000001405E42DC                 or      rbx, 0FFFFFFFFFFFFFFFFh
+  PAGE:00000001405E42E0                 xor     r12d, r12d
+  PAGE:00000001405E42E3                 mov     rdi, qword ptr [rbp+var_10]
+  PAGE:00000001405E42E7                 lea     rax, [rbp+var_10]
+  PAGE:00000001405E42EB                 cmp     rdi, rax
+  PAGE:00000001405E42EE                 jnz     loc_1405E439A
+  PAGE:00000001405E42F4                 test    r14, r14
+  PAGE:00000001405E42F7                 jz      short loc_1405E4301
+  PAGE:00000001405E42F9                 ; DmaAdapter
+  PAGE:00000001405E42F9                 mov     rcx, r14; DmaAdapter
+  PAGE:00000001405E42FC                 call    ObDereferenceObjectWithTag
+  PAGE:00000001405E4301                 xor     eax, eax
+  PAGE:00000001405E4303                 lea     r11, [rsp+40h+var_s0]
+  PAGE:00000001405E4308                 mov     rbx, [r11+38h]
+  PAGE:00000001405E430C                 mov     rsi, [r11+40h]
+  PAGE:00000001405E4310                 mov     rdi, [r11+48h]
+  PAGE:00000001405E4314                 mov     rsp, r11
+  PAGE:00000001405E4317                 pop     r15
+  PAGE:00000001405E4319                 pop     r14
+  PAGE:00000001405E431B                 pop     r13
+  PAGE:00000001405E431D                 pop     r12
+  PAGE:00000001405E431F                 pop     rbp
+  PAGE:00000001405E4320                 retn
+  PAGE:00000001405E4322                 mov     r15, [r12+10h]
+  PAGE:00000001405E4327                 mov     r14, [r12]
+  PAGE:00000001405E432B                 jmp     loc_1405E41D1
+  PAGE:00000001405E4330                 mov     rax, rbx
+  PAGE:00000001405E4333                 lock xadd [rdi], rax
+  PAGE:00000001405E4338                 and     al, r13b
+  PAGE:00000001405E433B                 cmp     al, 2
+  PAGE:00000001405E433D                 jz      loc_1405E443F
+  PAGE:00000001405E4343                 ; BugCheckParameter2
+  PAGE:00000001405E4343                 mov     rcx, rdi; BugCheckParameter2
+  PAGE:00000001405E4346                 call    KeAbPostRelease
+  PAGE:00000001405E434B                 lock xadd [r12-10h], rbx
+  PAGE:00000001405E4352                 and     bl, r13b
+  PAGE:00000001405E4355                 cmp     bl, 2
+  PAGE:00000001405E4358                 jz      loc_1405E444C
+  PAGE:00000001405E435E                 ; BugCheckParameter2
+  PAGE:00000001405E435E                 lea     rcx, [r12-10h]; BugCheckParameter2
+  PAGE:00000001405E4363                 call    KeAbPostRelease
+  PAGE:00000001405E4368                 mov     eax, 0C0000037h
+  PAGE:00000001405E436D                 jmp     short loc_1405E4303
+  PAGE:00000001405E436F                 bts     dword ptr [rsi+1A0h], 7 ; 0x1A0 = 416 = _ALPC_PORT->u1.State
+  PAGE:00000001405E4377                 jmp     loc_1405E4165
+  PAGE:00000001405E437C                 mov     rcx, rsi
+  PAGE:00000001405E437F                 call    AlpcpWalkConnectionList
+  PAGE:00000001405E4384                 mov     ecx, [rsi+1A0h] ; 0x1A0 = 416 = _ALPC_PORT->u1.State
+  PAGE:00000001405E438A                 jmp     loc_1405E41B1
+  PAGE:00000001405E438F                 mov     r15, rdi
+  PAGE:00000001405E4392                 mov     r14, rdi
+  PAGE:00000001405E4395                 jmp     loc_1405E41D1
+  PAGE:00000001405E439A                 mov     rax, [rdi]
+  PAGE:00000001405E439D                 lea     rcx, [rbp+var_10]
+  PAGE:00000001405E43A1                 mov     qword ptr [rbp+var_10], rax
+  PAGE:00000001405E43A5                 add     rdi, 0FFFFFFFFFFFFFFB0h
+  PAGE:00000001405E43A9                 mov     [rax+8], rcx
+  PAGE:00000001405E43AD                 ; BugCheckParameter2
+  PAGE:00000001405E43AD                 mov     rcx, rdi; BugCheckParameter2
+  PAGE:00000001405E43B0                 call    AlpcpLockForCachedReferenceBlob
+  PAGE:00000001405E43B5                 test    r14, r14
+  PAGE:00000001405E43B8                 jz      loc_1407E738A
+  PAGE:00000001405E43BE                 lea     r15, [r14+160h]
+  PAGE:00000001405E43C5                 ; BugCheckParameter1
+  PAGE:00000001405E43C5                 xor     edx, edx; BugCheckParameter1
+  PAGE:00000001405E43C7                 ; BugCheckParameter2
+  PAGE:00000001405E43C7                 mov     rcx, r15; BugCheckParameter2
+  PAGE:00000001405E43CA                 call    ExAcquirePushLockSharedEx
+  PAGE:00000001405E43CF                 mov     eax, [r14+1A0h] ; 0x1A0 = 416 = _ALPC_PORT->u1.State
+  PAGE:00000001405E43D6                 test    al, 40h
+  PAGE:00000001405E43D8                 jnz     loc_1407E7364
+  PAGE:00000001405E43DE                 mov     eax, 1
+  PAGE:00000001405E43E3                 lock xadd [rsi+190h], eax ; 0x190 = 400 = _ALPC_PORT->SequenceNo
+  PAGE:00000001405E43EB                 inc     eax
+  PAGE:00000001405E43ED                 mov     rdx, rdi
+  PAGE:00000001405E43F0                 mov     [rdi+48h], eax
+  PAGE:00000001405E43F3                 mov     rcx, r14
+  PAGE:00000001405E43F6                 mov     rax, [rsi+38h]
+  PAGE:00000001405E43FA                 mov     [rdi+80h], rax
+  PAGE:00000001405E4401                 mov     [rdi+38h], rsi
+  PAGE:00000001405E4405                 mov     [rdi+40h], r14
+  PAGE:00000001405E4409                 call    AlpcpInsertMessageCanceledQueue
+  PAGE:00000001405E440E                 mov     rcx, r14
+  PAGE:00000001405E4411                 call    AlpcpSignalPortAndUnlock
+  PAGE:00000001405E4416                 ; BugCheckParameter2
+  PAGE:00000001405E4416                 mov     rcx, rdi; BugCheckParameter2
+  PAGE:00000001405E4419                 call    AlpcpUnlockMessage
+  PAGE:00000001405E441E                 jmp     loc_1405E42E3
+  PAGE:00000001405E4423                 mov     rcx, rdi
+  PAGE:00000001405E4426                 call    ExfTryToWakePushLock
+  PAGE:00000001405E442B                 jmp     loc_1405E4196
+  PAGE:00000001405E4430                 lea     rcx, [r12-10h]
+  PAGE:00000001405E4435                 call    ExfTryToWakePushLock
+  PAGE:00000001405E443A                 jmp     loc_1405E421B
+  PAGE:00000001405E443F                 mov     rcx, rdi
+  PAGE:00000001405E4442                 call    ExfTryToWakePushLock
+  PAGE:00000001405E4447                 jmp     loc_1405E4343
+  PAGE:00000001405E444C                 lea     rcx, [r12-10h]
+  PAGE:00000001405E4451                 call    ExfTryToWakePushLock
+  PAGE:00000001405E4456                 jmp     loc_1405E435E
+  PAGE:00000001407E7364                 add     [rdi-1Eh], bx
+  PAGE:00000001407E7368                 mov     eax, 11h
+  PAGE:00000001407E736D                 lock cmpxchg [r15], r12
+  PAGE:00000001407E7372                 jz      short loc_1407E737C
+  PAGE:00000001407E7374                 mov     rcx, r15
+  PAGE:00000001407E7377                 call    ExfReleasePushLockShared
+  PAGE:00000001407E737C                 ; BugCheckParameter2
+  PAGE:00000001407E737C                 mov     rcx, r15; BugCheckParameter2
+  PAGE:00000001407E737F                 call    KeAbPostRelease
+  PAGE:00000001407E7384                 nop
+  PAGE:00000001407E7385                 jmp     loc_1405E4416
+  PAGE:00000001407E738A                 add     [rdi-1Eh], bx
+  PAGE:00000001407E738E                 jmp     loc_1405E4416
+procedure: |-
+  __int64 __fastcall AlpcpDisconnectPort(_ALPC_PORT *Port, char a2)
+  {
+    _ALPC_COMMUNICATION_INFO *CommunicationInfo; // r12
+    _EX_PUSH_LOCK *p_PortObjectLock; // rdi
+    unsigned int State; // eax
+    unsigned int v7; // ecx
+    int v8; // ecx
+    unsigned __int64 ConnectionPort; // r15
+    unsigned __int64 v10; // r14
+    int v11; // edi
+    int v12; // edi
+    int v13; // edi
+    __int64 v14; // rdi
+    _KALPC_MESSAGE *v16; // rdi
+    __int128 v17; // [rsp+30h] [rbp-10h] BYREF
+    _ALPC_PORT *v18; // [rsp+70h] [rbp+30h]
+
+    CommunicationInfo = Port->CommunicationInfo;
+    v17 = 0;
+    ExAcquirePushLockExclusiveEx((ULONG_PTR)&CommunicationInfo[-1].HandleTable.Flags, 0);
+    p_PortObjectLock = &Port->PortObjectLock;
+    ExAcquirePushLockExclusiveEx((ULONG_PTR)&Port->PortObjectLock, 0);
+    if ( (a2 & 1) != 0 )
+      Port->u1.State |= 0x80u;
+    State = Port->u1.State;
+    if ( (State & 0x20) != 0 )
+    {
+      if ( (_InterlockedExchangeAdd64((volatile signed __int64 *)p_PortObjectLock, 0xFFFFFFFFFFFFFFFFuLL) & 6) == 2 )
+        ExfTryToWakePushLock(&Port->PortObjectLock);
+      KeAbPostRelease((ULONG_PTR)&Port->PortObjectLock);
+      if ( (_InterlockedExchangeAdd64(
+              (volatile signed __int64 *)&CommunicationInfo[-1].HandleTable.Flags,
+              0xFFFFFFFFFFFFFFFFuLL)
+          & 6) == 2 )
+        ExfTryToWakePushLock(&CommunicationInfo[-1].HandleTable.Flags);
+      KeAbPostRelease((ULONG_PTR)&CommunicationInfo[-1].HandleTable.Flags);
+      return 3221225527LL;
+    }
+    else
+    {
+      Port->u1.State = State | 0x20;
+      if ( (_InterlockedExchangeAdd64((volatile signed __int64 *)p_PortObjectLock, 0xFFFFFFFFFFFFFFFFuLL) & 6) == 2 )
+        ExfTryToWakePushLock(&Port->PortObjectLock);
+      KeAbPostRelease((ULONG_PTR)&Port->PortObjectLock);
+      v7 = Port->u1.State;
+      if ( (v7 & 6) == 2 )
+      {
+        AlpcpWalkConnectionList(Port);
+        v7 = Port->u1.State;
+      }
+      v8 = ((v7 >> 1) & 3) - 1;
+      if ( v8 )
+      {
+        if ( v8 == 1 )
+        {
+          ConnectionPort = (unsigned __int64)CommunicationInfo->ConnectionPort;
+          v10 = (unsigned __int64)Port;
+        }
+        else
+        {
+          ConnectionPort = (unsigned __int64)CommunicationInfo->ClientCommunicationPort;
+          v10 = (unsigned __int64)CommunicationInfo->ConnectionPort;
+        }
+      }
+      else
+      {
+        ConnectionPort = 0;
+        v10 = 0;
+      }
+      v18 = (_ALPC_PORT *)v10;
+      if ( ConnectionPort )
+        ConnectionPort &= -(__int64)((unsigned __int8)ObReferenceObjectSafe(ConnectionPort) != 0);
+      if ( v10 )
+      {
+        v10 &= -(__int64)((unsigned __int8)ObReferenceObjectSafe(v10) != 0);
+        v18 = (_ALPC_PORT *)v10;
+      }
+      if ( (_InterlockedExchangeAdd64(
+              (volatile signed __int64 *)&CommunicationInfo[-1].HandleTable.Flags,
+              0xFFFFFFFFFFFFFFFFuLL)
+          & 6) == 2 )
+        ExfTryToWakePushLock(&CommunicationInfo[-1].HandleTable.Flags);
+      KeAbPostRelease((ULONG_PTR)&CommunicationInfo[-1].HandleTable.Flags);
+      if ( ConnectionPort )
+      {
+        *((_QWORD *)&v17 + 1) = &v17;
+        *(_QWORD *)&v17 = &v17;
+        do
+        {
+          v11 = AlpcpCancelMessagesByRequestor((_DWORD)Port, ConnectionPort, (int)ConnectionPort + 144, 1, (__int64)&v17);
+          v12 = AlpcpCancelMessagesByRequestor((_DWORD)Port, ConnectionPort, (int)ConnectionPort + 160, 2, (__int64)&v17)
+              | v11;
+          v13 = AlpcpCancelMessagesByRequestor((_DWORD)Port, ConnectionPort, (int)ConnectionPort + 184, 3, (__int64)&v17)
+              | v12;
+        }
+        while ( v13
+              | (unsigned int)AlpcpCancelMessagesByRequestor(
+                                (_DWORD)Port,
+                                ConnectionPort,
+                                (int)ConnectionPort + 208,
+                                4,
+                                (__int64)&v17) );
+        ObDereferenceObjectWithTag((PADAPTER_OBJECT)ConnectionPort);
+        v10 = (unsigned __int64)v18;
+        while ( 1 )
+        {
+          v14 = v17;
+          if ( (__int128 *)v17 == &v17 )
+            break;
+          *(_QWORD *)&v17 = *(_QWORD *)v17;
+          v16 = (_KALPC_MESSAGE *)(v14 - 80);
+          *(_QWORD *)(v17 + 8) = &v17;
+          AlpcpLockForCachedReferenceBlob((ULONG_PTR)v16);
+          if ( v18 )
+          {
+            ExAcquirePushLockSharedEx((ULONG_PTR)&v18->PortObjectLock, 0);
+            if ( (v18->u1.State & 0x40) != 0 )
+            {
+              --WORD1(v16[-1].PortMessage.DoNotUseThisField);
+              if ( _InterlockedCompareExchange64((volatile signed __int64 *)&v18->PortObjectLock, 0, 17) != 17 )
+                ExfReleasePushLockShared(&v18->PortObjectLock);
+              KeAbPostRelease((ULONG_PTR)&v18->PortObjectLock);
+            }
+            else
+            {
+              v16->CancelSequenceNo = _InterlockedIncrement(&Port->SequenceNo); // 0x190 = 400 = _ALPC_PORT->SequenceNo
+              v16->MessageAttributes.CancelPortContext = Port->PortContext;
+              v16->CancelSequencePort = Port;
+              v16->CancelQueuePort = v18;
+              AlpcpInsertMessageCanceledQueue(v18, v16);
+              AlpcpSignalPortAndUnlock(v18);
+            }
+          }
+          else
+          {
+            --WORD1(v16[-1].PortMessage.DoNotUseThisField);
+          }
+          AlpcpUnlockMessage((ULONG_PTR)v16);
+        }
+      }
+      if ( v10 )
+        ObDereferenceObjectWithTag((PADAPTER_OBJECT)v10);
+      return 0;
+    }
+  }
