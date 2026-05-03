@@ -168,11 +168,14 @@ async def _extract_candidates_from_matches(
         if not isinstance(item, Mapping):
             continue
         try:
+            segment = str(item.get("segment", ""))
+            if segment not in _ALLOWED_SEGMENTS:
+                continue
             parsed.append(
                 {
                     "func_va": _parse_int_value(item["func_va"]),
                     "func_rva": _parse_int_value(item["func_rva"]),
-                    "segment": str(item.get("segment", "")),
+                    "segment": segment,
                 }
             )
         except (KeyError, TypeError, ValueError):
