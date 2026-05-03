@@ -188,7 +188,10 @@ class TestUpdateSymbols(unittest.TestCase):
 
             binaries = update_symbols.scan_symbol_directory(root)
 
-        self.assertEqual([valid_binary], binaries)
+        self.assertEqual(
+            [empty_version_binary, valid_binary, invalid_sha_binary],
+            binaries,
+        )
 
     def test_find_data_entry_matches_hash_attribute(self) -> None:
         sha256 = "b" * 64

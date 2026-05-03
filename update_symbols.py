@@ -124,11 +124,7 @@ def scan_symbol_directory(symboldir: Path) -> list[Path]:
         for version_dir in sorted(path for path in arch_dir.iterdir() if path.is_dir()):
             for sha_dir in sorted(path for path in version_dir.iterdir() if path.is_dir()):
                 for binary_path in sorted(path for path in sha_dir.iterdir() if path.is_file()):
-                    try:
-                        parse_file_path_info(root, binary_path)
-                    except ValueError:
-                        continue
-                    else:
+                    if version_dir.name.startswith(f"{binary_path.name}."):
                         binaries.append(binary_path)
     return binaries
 
