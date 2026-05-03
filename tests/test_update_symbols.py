@@ -158,7 +158,7 @@ class TestUpdateSymbols(unittest.TestCase):
         self.assertEqual(sha256, info.sha256)
         self.assertEqual(binary_path.resolve(), info.binary_path)
 
-    def test_scan_symbol_directory_returns_only_valid_binary_layouts(self) -> None:
+    def test_scan_symbol_directory_returns_matching_candidates_without_validation(self) -> None:
         valid_sha = "d" * 64
         invalid_sha = "not-a-sha256"
 
@@ -192,6 +192,56 @@ class TestUpdateSymbols(unittest.TestCase):
             [empty_version_binary, valid_binary, invalid_sha_binary],
             binaries,
         )
+
+    def test_parse_file_path_info_rejects_invalid_sha_directory(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            binary_path = (
+                root / "amd64" / "ntoskrnl.exe.10.0.1" / "not-a-sha256" / "ntoskrnl.exe"
+            )
+            binary_path.parent.mkdir(parents=True)
+            binary_path.write_bytes(b"binary")
+
+            with self.assertRaises(ValueError):
+                update_symbols.parse_file_path_info(root, binary_path)
+
+    def test_parse_file_path_info_rejects_missing_version(self) -> None:
+        sha256 = "e" * 64
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            binary_path = root / "amd64" / "ntoskrnl.exe." / sha256 / "ntoskrnl.exe"
+            binary_path.parent.mkdir(parents=True)
+            binary_path.write_bytes(b"binary")
+
+            with self.assertRaises(ValueError):
+                update_symbols.parse_file_path_info(root, binary_path)
+
+    def test_parse_file_path_info_rejects_version_file_mismatch(self) -> None:
+        sha256 = "f" * 64
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            binary_path = root / "amd64" / "ntoskrnl.exe.10.0.1" / sha256 / "other.exe"
+            binary_path.parent.mkdir(parents=True)
+            binary_path.write_bytes(b"binary")
+
+            with self.assertRaises(ValueError):
+                update_symbols.parse_file_path_info(root, binary_path)
+
+    def test_parse_file_path_info_rejects_path_outside_symboldir(self) -> None:
+        with TemporaryDirectory() as symboldir, TemporaryDirectory() as outside_dir:
+            root = Path(symboldir)
+            binary_path = (
+                Path(outside_dir)
+                / "amd64"
+                / "ntoskrnl.exe.10.0.1"
+                / ("1" * 64)
+                / "ntoskrnl.exe"
+            )
+            binary_path.parent.mkdir(parents=True)
+            binary_path.write_bytes(b"binary")
+
+            with self.assertRaises(ValueError):
+                update_symbols.parse_file_path_info(root, binary_path)
 
     def test_find_data_entry_matches_hash_attribute(self) -> None:
         sha256 = "b" * 64
@@ -230,6 +280,24 @@ class TestUpdateSymbols(unittest.TestCase):
 
         self.assertIsNotNone(data_elem)
         self.assertEqual("0", data_elem.get("fields"))
+
+    def test_find_data_entry_matches_sha256_when_hash_mismatches(self) -> None:
+        sha256 = "d" * 64
+        root = update_symbols.ET.fromstring(
+            f'<kphdyn><data arch="amd64" file="ntoskrnl.exe" '
+            f'version="10.0.1" hash="deadbeef" sha256="{sha256}" /></kphdyn>'
+        )
+        info = update_symbols.FilePathInfo(
+            arch="amd64",
+            file="ntoskrnl.exe",
+            version="10.0.1",
+            sha256=sha256,
+            binary_path=Path("ntoskrnl.exe"),
+        )
+
+        data_elem = update_symbols.find_data_entry(root, info)
+
+        self.assertIsNotNone(data_elem)
 
     def test_export_xml_reuses_existing_fields_id(self) -> None:
         tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring(XML_TEXT))

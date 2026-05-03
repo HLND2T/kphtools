@@ -119,6 +119,7 @@ def scan_symbol_directory(symboldir: Path) -> list[Path]:
     if not root.is_dir():
         return []
 
+    # 仅做轻量候选枚举；严格布局校验由 parse_file_path_info 负责。
     binaries: list[Path] = []
     for arch_dir in sorted(path for path in root.iterdir() if path.is_dir()):
         for version_dir in sorted(path for path in arch_dir.iterdir() if path.is_dir()):
@@ -129,15 +130,22 @@ def scan_symbol_directory(symboldir: Path) -> list[Path]:
     return binaries
 
 
+def _data_hash_matches(data_elem: ET.Element, sha256: str) -> bool:
+    target = sha256.lower()
+    for attr_name in ("hash", "sha256"):
+        value = data_elem.get(attr_name)
+        if value and value.lower() == target:
+            return True
+    return False
+
+
 def find_data_entry(root: ET.Element, info: FilePathInfo) -> ET.Element | None:
     for data_elem in root.findall("data"):
-        existing_hash = data_elem.get("hash") or data_elem.get("sha256")
         if (
             data_elem.get("arch") == info.arch
             and data_elem.get("file") == info.file
             and data_elem.get("version") == info.version
-            and existing_hash
-            and existing_hash.lower() == info.sha256
+            and _data_hash_matches(data_elem, info.sha256)
         ):
             return data_elem
     return None
