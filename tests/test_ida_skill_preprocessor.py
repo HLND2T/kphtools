@@ -541,6 +541,57 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
             mock_common.await_args.kwargs["func_metadata"],
         )
 
+    async def test_alpcp_init_system_script_dispatches_func_xrefs(self) -> None:
+        with patch(
+            "ida_preprocessor_common.preprocess_common_skill",
+            new=AsyncMock(return_value=ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS),
+        ) as mock_common:
+            status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
+                session=AsyncMock(),
+                skill=SkillSpec(
+                    name="find-AlpcpInitSystem",
+                    expected_output=["AlpcpInitSystem.yaml"],
+                    expected_input=[],
+                ),
+                symbol=SymbolSpec(
+                    name="AlpcpInitSystem",
+                    category="func",
+                    data_type="uint32",
+                ),
+                binary_dir=Path("/tmp"),
+                pdb_path=None,
+                debug=False,
+                llm_config=None,
+            )
+
+        self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
+        self.assertEqual(
+            ["AlpcpInitSystem"],
+            mock_common.await_args.kwargs["func_names"],
+        )
+        self.assertEqual(
+            [
+                {
+                    "func_name": "AlpcpInitSystem",
+                    "xref_strings": [],
+                    "xref_unicode_strings": ["FULLMATCH:ALPC Port"],
+                    "xref_gvs": [],
+                    "xref_signatures": ["41 B8 41 6C 49 6E", "41 6C 4D 73"],
+                    "xref_funcs": [],
+                    "exclude_funcs": [],
+                    "exclude_strings": [],
+                    "exclude_unicode_strings": [],
+                    "exclude_gvs": [],
+                    "exclude_signatures": [],
+                }
+            ],
+            mock_common.await_args.kwargs["func_xrefs"],
+        )
+        self.assertEqual(
+            {"AlpcpInitSystem": ["func_name", "func_rva"]},
+            mock_common.await_args.kwargs["generate_yaml_desired_fields"],
+        )
+
     async def test_missing_script_returns_failed(self) -> None:
         status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
             session=AsyncMock(),
