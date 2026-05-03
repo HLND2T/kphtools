@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from ida_skill_preprocessor import (
+    PREPROCESS_STATUS_FAILED as _PREPROCESS_STATUS_FAILED,
     PREPROCESS_STATUS_SUCCESS,
     preprocess_single_skill_via_mcp,
 )
@@ -55,6 +56,7 @@ SUPPORTED_ARCHES = ("amd64", "arm64")
 DEFAULT_ARCH = ",".join(SUPPORTED_ARCHES)
 DEFAULT_SYMBOL_DIR = "symbols"
 DEFAULT_LLM_MODEL = "gpt-4o"
+PREPROCESS_STATUS_FAILED = _PREPROCESS_STATUS_FAILED
 
 
 def _field(item: Any, name: str, default: Any = None) -> Any:
@@ -141,6 +143,16 @@ def _required_output_symbol_names(skill: Any) -> set[str]:
     }
 
 
+def _has_preprocessor_only_required_outputs(
+    skill: Any,
+    symbol_map: dict[str, Any],
+) -> bool:
+    return any(
+        symbol_name not in symbol_map
+        for symbol_name in _required_output_symbol_names(skill)
+    )
+
+
 async def _preprocess_skill_outputs(
     *,
     skill_name: str,
@@ -211,6 +223,12 @@ async def _process_one_skill(
     if not expected_outputs and optional_outputs:
         _debug_log(debug, f"skipping {skill_name}; optional outputs not generated")
         return True
+    if _has_preprocessor_only_required_outputs(skill, symbol_map):
+        _debug_log(
+            debug,
+            f"required preprocessor-only outputs failed for {skill_name}; not falling back",
+        )
+        return False
 
     skill_max_retries = _field(skill, "max_retries") or 3
     _debug_log(debug, f"falling back to run_skill for {skill_name}")
