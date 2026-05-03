@@ -396,6 +396,7 @@ async def process_binary_dir(
     if activity is not None and "did_work" not in activity:
         activity["did_work"] = False
 
+    resolved_pdb_path = Path(pdb_path) if pdb_path is not None else None
     skill_map = {_field(skill, "name"): skill for skill in skills}
     symbol_map = {_field(symbol, "name"): symbol for symbol in symbols}
 
@@ -418,7 +419,7 @@ async def process_binary_dir(
                 skill=skill,
                 symbol=symbol_map[symbol_name],
                 binary_dir=Path(binary_dir),
-                pdb_path=Path(pdb_path),
+                pdb_path=resolved_pdb_path,
                 debug=debug,
                 llm_config=llm_config,
             )
@@ -733,9 +734,10 @@ def _iter_binary_dirs(symboldir: Path, arch: str, config):
                     if not sha_dir.is_dir():
                         continue
                     pdb_candidates = sorted(sha_dir.glob("*.pdb"))
-                    if not pdb_candidates:
+                    if not pdb_candidates and not (sha_dir / module_path).is_file():
                         continue
-                    yield module, sha_dir, pdb_candidates[0]
+                    pdb_path = pdb_candidates[0] if pdb_candidates else None
+                    yield module, sha_dir, pdb_path
 
 
 def _resolve_binary_path(module, binary_dir: Path) -> Path:
@@ -766,6 +768,7 @@ def _format_close_cancelled_message(stage: str, exc: BaseException) -> str:
 
 async def _process_module_binary(module, binary_dir, pdb_path, args):
     binary_path = _resolve_binary_path(module, Path(binary_dir))
+    resolved_pdb_path = Path(pdb_path) if pdb_path is not None else None
     session = LazyIdalibSession(
         binary_path,
         host="127.0.0.1",
@@ -775,7 +778,7 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
     try:
         ok = await process_binary_dir(
             binary_dir=Path(binary_dir),
-            pdb_path=Path(pdb_path),
+            pdb_path=resolved_pdb_path,
             skills=module.skills,
             symbols=module.symbols,
             agent=args.agent,

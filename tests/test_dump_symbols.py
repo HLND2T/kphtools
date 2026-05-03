@@ -387,6 +387,70 @@ class TestDumpSymbols(unittest.TestCase):
         )
         mock_run_skill.assert_not_called()
 
+    def test_iter_binary_dirs_includes_binary_without_pdb(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            symboldir = Path(temp_dir)
+            sha_dir = (
+                symboldir
+                / "amd64"
+                / "ntoskrnl.exe.10.0.26100.8246"
+                / "701238de5ba76f55ed65a874d16447dc491ab8d73abf513aee9a403bbeaf332b"
+            )
+            sha_dir.mkdir(parents=True)
+            (sha_dir / "ntoskrnl.exe").write_text("", encoding="utf-8")
+            module = SimpleNamespace(path=["ntoskrnl.exe"])
+            config = SimpleNamespace(modules=[module])
+
+            candidates = list(dump_symbols._iter_binary_dirs(symboldir, "amd64", config))
+
+        self.assertEqual([(module, sha_dir, None)], candidates)
+
+    def test_process_binary_dir_passes_missing_pdb_to_preprocessor(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            config = {
+                "skills": [
+                    {
+                        "name": "find-EpObjectTable",
+                        "expected_output": ["EpObjectTable.yaml"],
+                    }
+                ],
+                "symbols": [
+                    {
+                        "name": "EpObjectTable",
+                        "category": "struct_offset",
+                        "data_type": "uint16",
+                    }
+                ],
+            }
+            preprocess_mock = AsyncMock(
+                return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS
+            )
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=None,
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                    )
+                )
+
+        self.assertTrue(ok)
+        self.assertIsNone(preprocess_mock.await_args.kwargs["pdb_path"])
+        mock_run_skill.assert_not_called()
+
     def test_process_binary_returns_false_immediately_when_run_skill_fails(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
