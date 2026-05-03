@@ -4,6 +4,9 @@ modules:
   - ntoskrnl.exe
   - ntkrla57.exe
   skills:
+  - name: find-AlpcpInitSystem
+    expected_output:
+    - AlpcpInitSystem.yaml
   - name: find-EgeGuid-AND-EreGuidEntry
     expected_output:
     - EgeGuid.yaml
@@ -39,14 +42,10 @@ modules:
     - AlpcConnectionPort.yaml
     - AlpcServerCommunicationPort.yaml
     - AlpcClientCommunicationPort.yaml
-
   - name: find-AlpcSequenceNo-AND-AlpcState
     expected_output:
     - AlpcSequenceNo.yaml
     - AlpcState.yaml
-  - name: find-AlpcpInitSystem
-    expected_output:
-    - AlpcpInitSystem.yaml
   - name: find-KtInitialStack-AND-KtStackBase-AND-KtStackLimit
     expected_output:
     - KtInitialStack.yaml
@@ -106,6 +105,7 @@ modules:
   - name: find-CmpEnumerateCallback
     expected_output:
     - CmpEnumerateCallback.yaml
+
   symbols:
   - name: EgeGuid
     category: struct_offset
