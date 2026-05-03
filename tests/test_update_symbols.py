@@ -158,6 +158,38 @@ class TestUpdateSymbols(unittest.TestCase):
         self.assertEqual(sha256, info.sha256)
         self.assertEqual(binary_path.resolve(), info.binary_path)
 
+    def test_scan_symbol_directory_returns_only_valid_binary_layouts(self) -> None:
+        valid_sha = "d" * 64
+        invalid_sha = "not-a-sha256"
+
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            valid_binary = (
+                root / "amd64" / "ntoskrnl.exe.10.0.1" / valid_sha / "ntoskrnl.exe"
+            )
+            invalid_sha_binary = (
+                root / "amd64" / "ntoskrnl.exe.10.0.2" / invalid_sha / "ntoskrnl.exe"
+            )
+            empty_version_binary = (
+                root / "amd64" / "ntoskrnl.exe." / valid_sha / "ntoskrnl.exe"
+            )
+            nonmatching_file = (
+                root / "amd64" / "ntoskrnl.exe.10.0.3" / valid_sha / "other.exe"
+            )
+
+            for path in (
+                valid_binary,
+                invalid_sha_binary,
+                empty_version_binary,
+                nonmatching_file,
+            ):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"binary")
+
+            binaries = update_symbols.scan_symbol_directory(root)
+
+        self.assertEqual([valid_binary], binaries)
+
     def test_find_data_entry_matches_hash_attribute(self) -> None:
         sha256 = "b" * 64
         root = update_symbols.ET.fromstring(
