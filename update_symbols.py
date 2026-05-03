@@ -190,23 +190,49 @@ def _version_sort_key(version: str) -> tuple[int, tuple[int, ...] | str]:
     return (1, version)
 
 
+def _collect_file_order(children: list[ET.Element]) -> dict[str, int]:
+    order: dict[str, int] = {}
+    for elem in children:
+        if elem.tag != "data":
+            continue
+        file_name = elem.get("file")
+        if file_name and file_name not in order:
+            order[file_name] = len(order)
+    return order
+
+
+def _data_sort_key_for_values(
+    arch: str,
+    version: str,
+    file_name: str,
+    file_order: dict[str, int],
+) -> tuple[str, tuple[int, tuple[int, ...] | str], int, str]:
+    return (
+        arch,
+        _version_sort_key(version),
+        file_order.get(file_name, len(file_order)),
+        file_name,
+    )
+
+
 def find_insert_position(root: ET.Element, info: FilePathInfo) -> int:
     children = list(root)
-    new_key = _version_sort_key(info.version)
-    last_group_index: int | None = None
+    file_order = _collect_file_order(children)
+    new_key = _data_sort_key_for_values(
+        info.arch, info.version, info.file, file_order
+    )
 
     for index, elem in enumerate(children):
         if elem.tag != "data":
             continue
-        if elem.get("arch") != info.arch or elem.get("file") != info.file:
-            continue
-        last_group_index = index
-        existing_key = _version_sort_key(elem.get("version", ""))
+        existing_key = _data_sort_key_for_values(
+            elem.get("arch", ""),
+            elem.get("version", ""),
+            elem.get("file", ""),
+            file_order,
+        )
         if existing_key > new_key:
             return index
-
-    if last_group_index is not None:
-        return last_group_index + 1
 
     for index, elem in enumerate(children):
         if elem.tag == "fields":

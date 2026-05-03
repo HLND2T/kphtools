@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import update_symbols
 
@@ -362,6 +362,69 @@ class TestUpdateSymbols(unittest.TestCase):
         insert_index = update_symbols.find_insert_position(root, info)
 
         self.assertEqual(1, insert_index)
+
+    def test_find_insert_position_orders_across_files_by_arch_and_version(self) -> None:
+        root = update_symbols.ET.fromstring(
+            '<kphdyn>'
+            '<data arch="amd64" file="ntoskrnl.exe" version="10.0.14393.0" hash="a">1</data>'
+            '<data arch="amd64" file="lxcore.sys" version="10.0.14393.0" hash="b">14</data>'
+            '<data arch="amd64" file="lxcore.sys" version="10.0.14393.51" hash="c">14</data>'
+            '<data arch="amd64" file="ntoskrnl.exe" version="10.0.14393.82" hash="d">2</data>'
+            '<data arch="amd64" file="ntoskrnl.exe" version="10.0.14393.206" hash="e">2</data>'
+            '<data arch="amd64" file="lxcore.sys" version="10.0.14393.206" hash="f">14</data>'
+            '<fields id="1" />'
+            '</kphdyn>'
+        )
+        info = update_symbols.FilePathInfo(
+            arch="amd64",
+            file="lxcore.sys",
+            version="10.0.14393.100",
+            sha256="1" * 64,
+            binary_path=Path("lxcore.sys"),
+        )
+
+        self.assertEqual(4, update_symbols.find_insert_position(root, info))
+
+    def test_calculate_sha256_returns_lowercase_digest(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_path = Path(temp_dir) / "binary.bin"
+            binary_path.write_bytes(b"abc")
+
+            digest = update_symbols._calculate_sha256(binary_path)
+
+        self.assertEqual(
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            digest,
+        )
+
+    def test_parse_pe_info_raises_hash_mismatch_without_loading_pe(self) -> None:
+        with patch.object(
+            update_symbols, "_calculate_sha256", return_value="a" * 64
+        ) as calc_mock, patch("update_symbols.pefile.PE") as pe_ctor:
+            with self.assertRaises(update_symbols.HashMismatchError):
+                update_symbols.parse_pe_info(Path("ntoskrnl.exe"), "b" * 64)
+
+        calc_mock.assert_called_once_with(Path("ntoskrnl.exe"))
+        pe_ctor.assert_not_called()
+
+    def test_parse_pe_info_returns_metadata_and_closes_pe(self) -> None:
+        mock_pe = Mock()
+        mock_pe.FILE_HEADER = SimpleNamespace(TimeDateStamp=0x10)
+        mock_pe.OPTIONAL_HEADER = SimpleNamespace(SizeOfImage=0x20)
+        mock_pe.close = Mock()
+
+        with patch.object(
+            update_symbols, "_calculate_sha256", return_value="c" * 64
+        ) as calc_mock, patch("update_symbols.pefile.PE", return_value=mock_pe) as pe_ctor:
+            result = update_symbols.parse_pe_info(Path("ntoskrnl.exe"), "C" * 64)
+
+        self.assertEqual(
+            {"timestamp": "0x10", "size": "0x20", "sha256": "c" * 64},
+            result,
+        )
+        calc_mock.assert_called_once_with(Path("ntoskrnl.exe"))
+        pe_ctor.assert_called_once_with("ntoskrnl.exe", fast_load=True)
+        mock_pe.close.assert_called_once_with()
 
     def test_export_xml_reuses_existing_fields_id(self) -> None:
         tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring(XML_TEXT))
