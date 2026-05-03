@@ -44,6 +44,9 @@ modules:
     expected_output:
     - AlpcSequenceNo.yaml
     - AlpcState.yaml
+  - name: find-AlpcpInitSystem
+    expected_output:
+    - AlpcpInitSystem.yaml
   - name: find-KtInitialStack-AND-KtStackBase-AND-KtStackLimit
     expected_output:
     - KtInitialStack.yaml
@@ -167,6 +170,9 @@ modules:
   - name: AlpcState
     category: struct_offset
     data_type: uint16
+  - name: AlpcpInitSystem
+    category: func
+    data_type: uint32
   - name: KtInitialStack
     category: struct_offset
     data_type: uint16
