@@ -20,6 +20,7 @@ def _tool_result(payload):
 
 class TestGenericFuncXrefs(unittest.IsolatedAsyncioTestCase):
     async def test_preprocess_func_symbol_uses_xref_after_pdb_miss(self) -> None:
+        session = AsyncMock()
         with (
             patch.object(
                 generic_func,
@@ -39,7 +40,7 @@ class TestGenericFuncXrefs(unittest.IsolatedAsyncioTestCase):
             ) as mock_xrefs,
         ):
             payload = await generic_func.preprocess_func_symbol(
-                session=AsyncMock(),
+                session=session,
                 symbol_name="AlpcpInitSystem",
                 metadata={"alias": ["AlpcpInitSystem"]},
                 pdb_path="/tmp/ntkrnlmp.pdb",
@@ -63,6 +64,20 @@ class TestGenericFuncXrefs(unittest.IsolatedAsyncioTestCase):
             "AlpcpInitSystem",
         )
         mock_xrefs.assert_awaited_once()
+        self.assertIs(session, mock_xrefs.await_args.kwargs["session"])
+        self.assertEqual(
+            "AlpcpInitSystem",
+            mock_xrefs.await_args.kwargs["symbol_name"],
+        )
+        self.assertEqual(
+            "/tmp/bin",
+            mock_xrefs.await_args.kwargs["binary_dir"],
+        )
+        self.assertEqual(
+            0x140000000,
+            mock_xrefs.await_args.kwargs["image_base"],
+        )
+        self.assertIs(True, mock_xrefs.await_args.kwargs["debug"])
         self.assertEqual(
             {"xref_unicode_strings": ["FULLMATCH:ALPC Port"]},
             mock_xrefs.await_args.kwargs["func_xref"],
