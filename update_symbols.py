@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import os
 from pathlib import Path
 from typing import Any
@@ -61,6 +62,85 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error("-symboldir cannot be empty")
 
     return args
+
+
+_SHA256_HEX = frozenset("0123456789abcdef")
+
+
+@dataclass(frozen=True)
+class FilePathInfo:
+    arch: str
+    file: str
+    version: str
+    sha256: str
+    binary_path: Path
+
+
+def _is_sha256(value: str) -> bool:
+    return len(value) == 64 and all(char in _SHA256_HEX for char in value.lower())
+
+
+def parse_file_path_info(symboldir: Path, binary_path: Path) -> FilePathInfo:
+    root = Path(symboldir).resolve()
+    path = Path(binary_path).resolve()
+    try:
+        relative = path.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(f"path is outside symboldir: {binary_path}") from exc
+
+    parts = relative.parts
+    if len(parts) != 4:
+        raise ValueError(f"expected arch/file.version/sha256/file: {relative}")
+
+    arch, version_dir, sha256, file_name = parts
+    sha256 = sha256.lower()
+    if not _is_sha256(sha256):
+        raise ValueError(f"invalid sha256 directory: {sha256}")
+
+    prefix = f"{file_name}."
+    if not version_dir.startswith(prefix):
+        raise ValueError(f"version directory does not match file name: {version_dir}")
+
+    version = version_dir[len(prefix) :]
+    if not version:
+        raise ValueError(f"missing version in directory: {version_dir}")
+
+    return FilePathInfo(
+        arch=arch,
+        file=file_name,
+        version=version,
+        sha256=sha256,
+        binary_path=path,
+    )
+
+
+def scan_symbol_directory(symboldir: Path) -> list[Path]:
+    root = Path(symboldir)
+    if not root.is_dir():
+        return []
+
+    binaries: list[Path] = []
+    for arch_dir in sorted(path for path in root.iterdir() if path.is_dir()):
+        for version_dir in sorted(path for path in arch_dir.iterdir() if path.is_dir()):
+            for sha_dir in sorted(path for path in version_dir.iterdir() if path.is_dir()):
+                for binary_path in sorted(path for path in sha_dir.iterdir() if path.is_file()):
+                    if version_dir.name.startswith(f"{binary_path.name}."):
+                        binaries.append(binary_path)
+    return binaries
+
+
+def find_data_entry(root: ET.Element, info: FilePathInfo) -> ET.Element | None:
+    for data_elem in root.findall("data"):
+        existing_hash = data_elem.get("hash") or data_elem.get("sha256")
+        if (
+            data_elem.get("arch") == info.arch
+            and data_elem.get("file") == info.file
+            and data_elem.get("version") == info.version
+            and existing_hash
+            and existing_hash.lower() == info.sha256
+        ):
+            return data_elem
+    return None
 
 
 def fallback_value(data_type: str) -> int:

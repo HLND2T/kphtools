@@ -136,6 +136,66 @@ class TestUpdateSymbols(unittest.TestCase):
 
         self.assertEqual(0x8, values["ObDecodeShift"])
 
+    def test_parse_file_path_info_parses_symbol_directory_layout(self) -> None:
+        sha256 = "a" * 64
+
+        with TemporaryDirectory() as temp_dir:
+            binary_path = (
+                Path(temp_dir)
+                / "amd64"
+                / "ntoskrnl.exe.10.0.1"
+                / sha256
+                / "ntoskrnl.exe"
+            )
+            binary_path.parent.mkdir(parents=True)
+            binary_path.write_bytes(b"binary")
+
+            info = update_symbols.parse_file_path_info(Path(temp_dir), binary_path)
+
+        self.assertEqual("amd64", info.arch)
+        self.assertEqual("ntoskrnl.exe", info.file)
+        self.assertEqual("10.0.1", info.version)
+        self.assertEqual(sha256, info.sha256)
+        self.assertEqual(binary_path.resolve(), info.binary_path)
+
+    def test_find_data_entry_matches_hash_attribute(self) -> None:
+        sha256 = "b" * 64
+        root = update_symbols.ET.fromstring(
+            f'<kphdyn><data arch="amd64" file="ntoskrnl.exe" '
+            f'version="10.0.1" hash="{sha256}">1</data></kphdyn>'
+        )
+        info = update_symbols.FilePathInfo(
+            arch="amd64",
+            file="ntoskrnl.exe",
+            version="10.0.1",
+            sha256=sha256,
+            binary_path=Path("ntoskrnl.exe"),
+        )
+
+        data_elem = update_symbols.find_data_entry(root, info)
+
+        self.assertIsNotNone(data_elem)
+        self.assertEqual("1", data_elem.text)
+
+    def test_find_data_entry_matches_legacy_sha256_attribute(self) -> None:
+        sha256 = "c" * 64
+        root = update_symbols.ET.fromstring(
+            f'<kphdyn><data arch="amd64" file="ntoskrnl.exe" '
+            f'version="10.0.1" sha256="{sha256}" fields="0" /></kphdyn>'
+        )
+        info = update_symbols.FilePathInfo(
+            arch="amd64",
+            file="ntoskrnl.exe",
+            version="10.0.1",
+            sha256=sha256,
+            binary_path=Path("ntoskrnl.exe"),
+        )
+
+        data_elem = update_symbols.find_data_entry(root, info)
+
+        self.assertIsNotNone(data_elem)
+        self.assertEqual("0", data_elem.get("fields"))
+
     def test_export_xml_reuses_existing_fields_id(self) -> None:
         tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring(XML_TEXT))
         config = self._build_config()
