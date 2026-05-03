@@ -72,6 +72,16 @@ class TestUpdateSymbols(unittest.TestCase):
         self.assertEqual("env.xml", args.xml)
         self.assertEqual("env-symbols", args.symboldir)
 
+    def test_parse_args_rejects_empty_environment_xml(self) -> None:
+        with patch.dict(os.environ, {"KPHTOOLS_XML": ""}, clear=True):
+            with self.assertRaises(SystemExit):
+                update_symbols.parse_args(["-syncfile"])
+
+    def test_parse_args_rejects_empty_environment_symboldir(self) -> None:
+        with patch.dict(os.environ, {"KPHTOOLS_SYMBOLDIR": ""}, clear=True):
+            with self.assertRaises(SystemExit):
+                update_symbols.parse_args(["-syncfile"])
+
     def test_collect_yaml_values_uses_real_and_fallback_values(self) -> None:
         symbol_specs = [
             {"name": "EpObjectTable", "category": "struct_offset", "data_type": "uint16"},

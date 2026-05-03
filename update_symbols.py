@@ -44,11 +44,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     args = parser.parse_args(argv)
 
     env_xml = os.getenv("KPHTOOLS_XML")
-    if env_xml:
+    if env_xml is not None:
         args.xml = env_xml
 
     env_symboldir = os.getenv("KPHTOOLS_SYMBOLDIR")
-    if env_symboldir:
+    if env_symboldir is not None:
         args.symboldir = env_symboldir
 
     if not args.xml:
