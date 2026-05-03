@@ -87,6 +87,7 @@ def _skill_output_names(skill: Any) -> list[str]:
     return _unique_strings(
         _string_list(skill, "expected_output")
         + _string_list(skill, "optional_output")
+        + _string_list(skill, "preprocessor_only_output")
     )
 
 
@@ -127,32 +128,35 @@ def _skill_output_paths(
     binary_dir: str | Path,
     skill: Any,
 ) -> tuple[list[str], list[str]]:
-    expected_outputs = _artifact_paths(
+    required_outputs = _artifact_paths(
         binary_dir,
-        _string_list(skill, "expected_output"),
+        _unique_strings(
+            _string_list(skill, "expected_output")
+            + _string_list(skill, "preprocessor_only_output")
+        ),
     )
     optional_outputs = _artifact_paths(
         binary_dir,
         _string_list(skill, "optional_output"),
     )
-    return expected_outputs, optional_outputs
+    return required_outputs, optional_outputs
 
 
 def _required_output_symbol_names(skill: Any) -> set[str]:
     return {
         symbol_name_from_artifact_name(path)
-        for path in _string_list(skill, "expected_output")
+        for path in _unique_strings(
+            _string_list(skill, "expected_output")
+            + _string_list(skill, "preprocessor_only_output")
+        )
     }
 
 
-def _has_preprocessor_only_required_outputs(
-    skill: Any,
-    symbol_map: dict[str, Any],
-) -> bool:
-    return any(
-        symbol_name not in symbol_map
-        for symbol_name in _required_output_symbol_names(skill)
-    )
+def _preprocessor_only_output_symbol_names(skill: Any) -> set[str]:
+    return {
+        symbol_name_from_artifact_name(path)
+        for path in _string_list(skill, "preprocessor_only_output")
+    }
 
 
 async def _preprocess_skill_outputs(
@@ -165,10 +169,10 @@ async def _preprocess_skill_outputs(
     debug: bool,
     llm_config: dict[str, Any] | None,
     session: Any,
-    has_required_outputs: bool,
-) -> bool:
-    preprocessed_all = has_required_outputs
+) -> tuple[bool, set[str]]:
     required_symbol_names = _required_output_symbol_names(skill)
+    preprocessor_only_symbol_names = _preprocessor_only_output_symbol_names(skill)
+    failed_required_symbol_names: set[str] = set()
     for symbol_name in _output_symbol_names(skill):
         status = await preprocess_single_skill_via_mcp(
             session=session,
@@ -180,11 +184,15 @@ async def _preprocess_skill_outputs(
             llm_config=llm_config,
         )
         _debug_log(debug, f"preprocess status for {skill_name}/{symbol_name}: {status}")
-        if status != PREPROCESS_STATUS_SUCCESS and symbol_name in required_symbol_names:
-            if status == PREPROCESS_STATUS_ABSENT_OK and symbol_name not in symbol_map:
+        if status == PREPROCESS_STATUS_SUCCESS or symbol_name not in required_symbol_names:
+            continue
+        if symbol_name in preprocessor_only_symbol_names:
+            if status == PREPROCESS_STATUS_ABSENT_OK:
                 continue
-            return False
-    return preprocessed_all
+        failed_required_symbol_names.add(symbol_name)
+    if not required_symbol_names:
+        return False, failed_required_symbol_names
+    return not failed_required_symbol_names, failed_required_symbol_names
 
 
 async def _process_one_skill(
@@ -201,8 +209,8 @@ async def _process_one_skill(
     activity: dict[str, bool] | None,
 ) -> bool:
     _debug_log(debug, f"skill {skill_name} started")
-    expected_outputs, optional_outputs = _skill_output_paths(binary_dir, skill)
-    if not force and _should_skip_for_existing_outputs(expected_outputs, optional_outputs):
+    required_outputs, optional_outputs = _skill_output_paths(binary_dir, skill)
+    if not force and _should_skip_for_existing_outputs(required_outputs, optional_outputs):
         _debug_log(debug, f"skipping {skill_name}; expected outputs already exist")
         return True
     if _should_skip_for_existing_artifacts(binary_dir, skill):
@@ -211,7 +219,7 @@ async def _process_one_skill(
     if activity is not None:
         activity["did_work"] = True
 
-    preprocessed_all = await _preprocess_skill_outputs(
+    preprocessed_all, failed_required_symbol_names = await _preprocess_skill_outputs(
         skill_name=skill_name,
         skill=skill,
         symbol_map=symbol_map,
@@ -220,14 +228,15 @@ async def _process_one_skill(
         debug=debug,
         llm_config=llm_config,
         session=session,
-        has_required_outputs=bool(expected_outputs),
     )
     if preprocessed_all:
         return True
-    if not expected_outputs and optional_outputs:
+    if not required_outputs and optional_outputs:
         _debug_log(debug, f"skipping {skill_name}; optional outputs not generated")
         return True
-    if _has_preprocessor_only_required_outputs(skill, symbol_map):
+    if failed_required_symbol_names.issubset(
+        _preprocessor_only_output_symbol_names(skill)
+    ):
         _debug_log(
             debug,
             f"required preprocessor-only outputs failed for {skill_name}; not falling back",
@@ -240,7 +249,7 @@ async def _process_one_skill(
         skill_name,
         agent=agent,
         debug=debug,
-        expected_yaml_paths=expected_outputs,
+        expected_yaml_paths=required_outputs,
         max_retries=skill_max_retries,
     )
 

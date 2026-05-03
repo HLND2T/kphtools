@@ -13,7 +13,7 @@ modules:
     expected_output:
     - AlpcpDeletePort.yaml
   - name: find-NtSecureConnectPort
-    expected_output:
+    preprocessor_only_output:
     - NtSecureConnectPort.yaml
   - name: find-EgeGuid-AND-EreGuidEntry
     expected_output:

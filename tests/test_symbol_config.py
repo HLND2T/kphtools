@@ -113,6 +113,7 @@ class TestSymbolConfig(unittest.TestCase):
         skill = config.modules[0].skills[0]
         self.assertEqual(["Required.yaml"], skill.expected_output)
         self.assertEqual(["Optional.yaml"], skill.optional_output)
+        self.assertEqual([], skill.preprocessor_only_output)
         self.assertEqual(["Substitute.yaml"], skill.skip_if_exists)
         self.assertEqual(["InputAmd64.yaml"], skill.expected_input_amd64)
         self.assertEqual(["InputArm64.yaml"], skill.expected_input_arm64)
@@ -145,7 +146,36 @@ class TestSymbolConfig(unittest.TestCase):
         skill = config.modules[0].skills[0]
         self.assertEqual([], skill.expected_output)
         self.assertEqual(["Optional.yaml"], skill.optional_output)
+        self.assertEqual([], skill.preprocessor_only_output)
         self.assertEqual(["Optional"], skill.produced_symbols)
+
+    def test_load_config_rejects_unknown_skill_output_symbol(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-MissingSymbol
+                            expected_output: [MissingSymbol.yaml]
+                        symbols:
+                          - name: EpObjectTable
+                            category: struct_offset
+                            data_type: uint16
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "skill output references unknown symbol: MissingSymbol",
+            ):
+                symbol_config.load_config(config_path)
 
     def test_load_config_rejects_agent_skill_override(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -402,7 +432,7 @@ class TestSymbolConfig(unittest.TestCase):
                         path: [ntoskrnl.exe]
                         skills:
                           - name: find-NtSecureConnectPort
-                            expected_output: [NtSecureConnectPort.yaml]
+                            preprocessor_only_output: [NtSecureConnectPort.yaml]
                         symbols:
                           - name: EpObjectTable
                             category: struct_offset
@@ -415,10 +445,14 @@ class TestSymbolConfig(unittest.TestCase):
 
             config = symbol_config.load_config(config_path)
 
+        skill = config.modules[0].skills[0]
+        self.assertEqual([], skill.expected_output)
+        self.assertEqual([], skill.optional_output)
         self.assertEqual(
-            ["NtSecureConnectPort"],
-            config.modules[0].skills[0].produced_symbols,
+            ["NtSecureConnectPort.yaml"],
+            skill.preprocessor_only_output,
         )
+        self.assertEqual(["NtSecureConnectPort"], skill.produced_symbols)
         self.assertEqual(
             {"EpObjectTable"},
             {symbol.name for symbol in config.modules[0].symbols},
@@ -475,7 +509,7 @@ class TestSymbolConfig(unittest.TestCase):
                 """,
             ),
             (
-                "expected_output or optional_output must be a non-empty list",
+                "expected_output, optional_output, or preprocessor_only_output must be a non-empty list",
                 """
                 modules:
                   - name: ntoskrnl

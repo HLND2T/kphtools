@@ -430,7 +430,7 @@ class TestDumpSymbols(unittest.TestCase):
                 "skills": [
                     {
                         "name": "find-NtSecureConnectPort",
-                        "expected_output": ["NtSecureConnectPort.yaml"],
+                        "preprocessor_only_output": ["NtSecureConnectPort.yaml"],
                     }
                 ],
                 "symbols": [],
@@ -474,7 +474,7 @@ class TestDumpSymbols(unittest.TestCase):
                 "skills": [
                     {
                         "name": "find-NtSecureConnectPort",
-                        "expected_output": ["NtSecureConnectPort.yaml"],
+                        "preprocessor_only_output": ["NtSecureConnectPort.yaml"],
                     }
                 ],
                 "symbols": [],
@@ -518,7 +518,7 @@ class TestDumpSymbols(unittest.TestCase):
                 "skills": [
                     {
                         "name": "find-NtSecureConnectPort",
-                        "expected_output": ["NtSecureConnectPort.yaml"],
+                        "preprocessor_only_output": ["NtSecureConnectPort.yaml"],
                     }
                 ],
                 "symbols": [],
@@ -554,6 +554,79 @@ class TestDumpSymbols(unittest.TestCase):
             preprocess_mock.await_args.kwargs["symbol"],
         )
         mock_run_skill.assert_not_called()
+
+    def test_process_binary_falls_back_when_regular_required_output_fails_in_mixed_skill(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            config = {
+                "skills": [
+                    {
+                        "name": "find-RegularAndHelper",
+                        "expected_output": ["Regular.yaml"],
+                        "preprocessor_only_output": ["Helper.yaml"],
+                    }
+                ],
+                "symbols": [
+                    {
+                        "name": "Regular",
+                        "category": "func",
+                        "data_type": "uint32",
+                    }
+                ],
+            }
+
+            async def preprocess_side_effect(**kwargs: object) -> str:
+                symbol = kwargs["symbol"]
+                if not isinstance(symbol, dict):
+                    raise AssertionError("symbol must be a dict")
+                if symbol["name"] == "Regular":
+                    return dump_symbols.PREPROCESS_STATUS_FAILED
+                if symbol["name"] == "Helper":
+                    return dump_symbols.PREPROCESS_STATUS_SUCCESS
+                raise AssertionError(f"unexpected symbol: {symbol['name']}")
+
+            preprocess_mock = AsyncMock(side_effect=preprocess_side_effect)
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                    )
+                )
+
+        self.assertTrue(ok)
+        self.assertEqual(
+            ["Regular", "Helper"],
+            [
+                invocation.kwargs["symbol"]["name"]
+                for invocation in preprocess_mock.await_args_list
+            ],
+        )
+        mock_run_skill.assert_called_once_with(
+            "find-RegularAndHelper",
+            agent="codex",
+            debug=False,
+            expected_yaml_paths=[
+                str(binary_dir / "Regular.yaml"),
+                str(binary_dir / "Helper.yaml"),
+            ],
+            max_retries=3,
+        )
 
     def test_process_binary_preprocesses_optional_output_symbol(self) -> None:
         with TemporaryDirectory() as temp_dir:

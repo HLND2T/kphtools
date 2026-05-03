@@ -14,6 +14,7 @@ class SkillSpec:
     expected_input: list[str]
     max_retries: int | None = None
     optional_output: list[str] = field(default_factory=list)
+    preprocessor_only_output: list[str] = field(default_factory=list)
     skip_if_exists: list[str] = field(default_factory=list)
     expected_input_amd64: list[str] = field(default_factory=list)
     expected_input_arm64: list[str] = field(default_factory=list)
@@ -22,7 +23,11 @@ class SkillSpec:
     def produced_symbols(self) -> list[str]:
         return [
             symbol_name_from_artifact_name(item)
-            for item in self.expected_output + self.optional_output
+            for item in (
+                self.expected_output
+                + self.optional_output
+                + self.preprocessor_only_output
+            )
         ]
 
 
@@ -54,6 +59,7 @@ _ALLOWED_SKILL_FIELDS = frozenset(
         "expected_input_arm64",
         "expected_output",
         "optional_output",
+        "preprocessor_only_output",
         "skip_if_exists",
         "max_retries",
     }
@@ -145,8 +151,14 @@ def _load_skill(entry: dict[str, Any]) -> SkillSpec:
     _reject_unknown_fields(entry, _ALLOWED_SKILL_FIELDS, "skill")
     expected_output = _require_string_list(entry.get("expected_output", []), "expected_output")
     optional_output = _require_string_list(entry.get("optional_output", []), "optional_output")
-    if not expected_output and not optional_output:
-        raise ValueError("expected_output or optional_output must be a non-empty list")
+    preprocessor_only_output = _require_string_list(
+        entry.get("preprocessor_only_output", []),
+        "preprocessor_only_output",
+    )
+    if not expected_output and not optional_output and not preprocessor_only_output:
+        raise ValueError(
+            "expected_output, optional_output, or preprocessor_only_output must be a non-empty list"
+        )
     expected_input = _require_string_list(entry.get("expected_input", []), "expected_input")
     expected_input_amd64 = _require_string_list(
         entry.get("expected_input_amd64", []),
@@ -165,6 +177,10 @@ def _load_skill(entry: dict[str, Any]) -> SkillSpec:
         expected_output=[_validate_expected_output_name(item) for item in expected_output],
         optional_output=[
             _validate_artifact_name(item, "optional_output") for item in optional_output
+        ],
+        preprocessor_only_output=[
+            _validate_artifact_name(item, "preprocessor_only_output")
+            for item in preprocessor_only_output
         ],
         expected_input=expected_input,
         expected_input_amd64=expected_input_amd64,
@@ -207,6 +223,14 @@ def load_config(path: str | Path) -> ConfigSpec:
 
         symbols = [_load_symbol(_require_mapping(item, "symbol")) for item in symbol_items]
         skills = [_load_skill(_require_mapping(item, "skill")) for item in skill_items]
+        symbol_names = {symbol.name for symbol in symbols}
+        for skill in skills:
+            for output_name in skill.expected_output + skill.optional_output:
+                symbol_name = symbol_name_from_artifact_name(output_name)
+                if symbol_name not in symbol_names:
+                    raise ValueError(
+                        f"skill output references unknown symbol: {symbol_name}"
+                    )
 
         modules.append(
             ModuleSpec(
