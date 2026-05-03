@@ -20,8 +20,9 @@ NtAPI 表项提取 helper，让未来新增类似 NtAPI 时只需要编写薄脚
 3. 每个 NtAPI 脚本独立声明特征码，公共 helper 只负责共享搜索和判定逻辑。
 4. 解析顺序为 PDB public symbol 优先；PDB 缺失或解析失败后，再使用特征码 fallback。
 5. 输出 YAML 保持函数类契约：`func_name` 与 `func_rva`，并由 artifact writer 添加 `category: func`。
-6. 更新 `config.yaml`，让默认 ntoskrnl workflow 能生成 `NtSecureConnectPort.yaml`。
-7. 放宽配置测试，不再要求每个配置 skill 都有 `.claude/skills/<skill>/SKILL.md`。
+6. 更新 `config.yaml` 的 `skills`，让默认 ntoskrnl workflow 能生成 `NtSecureConnectPort.yaml`。
+7. 不在 `config.yaml` 的 `symbols` 中新增 `NtSecureConnectPort`，避免 XML 同步追加该符号。
+8. 放宽配置测试，不再要求每个配置 skill 都有 `.claude/skills/<skill>/SKILL.md`。
 
 ## 非目标
 
@@ -30,6 +31,7 @@ NtAPI 表项提取 helper，让未来新增类似 NtAPI 时只需要编写薄脚
 3. 不新增 `.claude/skills/find-NtSecureConnectPort/SKILL.md`。
 4. 不改变现有 struct/gv/func PDB、xref、LLM decompile 路径。
 5. 不引入新的 YAML 字段或依赖。
+6. 不把 `NtSecureConnectPort` 加入 XML 导出符号清单。
 
 ## 架构
 
@@ -131,15 +133,26 @@ helper 不负责：
   - NtSecureConnectPort.yaml
 ```
 
-`symbols` 新增：
+`symbols` 不新增 `NtSecureConnectPort`。
 
-```yaml
-- name: NtSecureConnectPort
-  category: func
-  data_type: uint32
-```
+这需要把配置语义拆清楚：
+
+- `module.symbols` 是 XML/export inventory，只列出需要进入 `kphdyn.xml` 的符号。
+- `skill.expected_output` 是 preprocessor artifact inventory，可以包含不进入 XML 的中间产物或辅助产物。
+- `NtSecureConnectPort.yaml` 属于 preprocessor-only artifact，不参与 `update_symbols.py` 的 XML 字段收集。
 
 新增 skill 不依赖 `AlpcpInitSystem` 或 `AlpcpDeletePort` 的输出。
+
+## 配置加载与 dump 行为
+
+当前 `symbol_config.load_config()` 会要求所有 `skill.expected_output` 都能在
+`module.symbols` 中找到同名 `SymbolSpec`。这个约束需要放宽：
+
+1. `load_config()` 不再因为 `expected_output` 缺少同名 `SymbolSpec` 而失败。
+2. `dump_symbols.py` 处理缺少 `SymbolSpec` 的输出时，按 artifact 文件名构造轻量 symbol 对象，至少包含 `name`。
+3. `find-NtSecureConnectPort.py` 和 `_extract_ntapi.py` 只依赖 `symbol.name`，不依赖 `symbol.category` 或 `symbol.data_type`。
+4. 现有依赖 `symbol.category` 的通用 preprocessor 不受影响；它们的输出仍应保留在 `module.symbols` 中。
+5. `update_symbols.py` 继续只遍历 `module.symbols`，因此不会读取或导出 `NtSecureConnectPort.yaml`。
 
 ## 测试设计
 
@@ -152,7 +165,10 @@ helper 不负责：
 5. 候选 VA 在其他段时拒绝。
 6. 有效候选非唯一时失败。
 7. `find-NtSecureConnectPort.py` 能把 `NTAPI_SIGNATURES` 和 desired fields 传给 helper。
-8. `tests/test_ida_skill_preprocessor.py` 的仓库配置检查只要求脚本存在，不再要求 `.claude/skills/<skill>/SKILL.md` 存在。
+8. `symbol_config.load_config()` 允许 `skill.expected_output` 中存在不属于 `module.symbols` 的 artifact。
+9. `dump_symbols.py` 能对缺少 `SymbolSpec` 的 preprocessor-only artifact 调用对应脚本。
+10. `update_symbols.py` 不会把不在 `module.symbols` 中的 `NtSecureConnectPort.yaml` 导出到 XML。
+11. `tests/test_ida_skill_preprocessor.py` 的仓库配置检查只要求脚本存在，不再要求 `.claude/skills/<skill>/SKILL.md` 存在。
 
 按仓库规则，代码完成后不主动运行完整 test/build。建议实现完成后按需执行定向测试：
 
@@ -163,9 +179,11 @@ python -m unittest tests.test_ida_skill_preprocessor tests.test_extract_ntapi
 ## 验收标准
 
 1. `find-NtSecureConnectPort.py` 存在并可由 `ida_skill_preprocessor` 加载。
-2. `config.yaml` 中包含 `find-NtSecureConnectPort` skill 和 `NtSecureConnectPort` func symbol。
-3. 有 PDB public symbol 时优先使用 PDB 结果。
-4. PDB 缺失或解析失败时，使用特征码 `5D 53 26 88 09 00 00 00` 的后 8 字节 VA。
-5. 只有 VA 位于 `PAGE` 或 `.text` 段时才接受候选。
-6. `NtSecureConnectPort.yaml` 输出 `category: func`、`func_name` 和 `func_rva`。
-7. 不新增 `.claude/skills/find-NtSecureConnectPort/SKILL.md`。
+2. `config.yaml` 中包含 `find-NtSecureConnectPort` skill。
+3. `config.yaml` 的 `symbols` 中不包含 `NtSecureConnectPort`。
+4. 有 PDB public symbol 时优先使用 PDB 结果。
+5. PDB 缺失或解析失败时，使用特征码 `5D 53 26 88 09 00 00 00` 的后 8 字节 VA。
+6. 只有 VA 位于 `PAGE` 或 `.text` 段时才接受候选。
+7. `NtSecureConnectPort.yaml` 输出 `category: func`、`func_name` 和 `func_rva`。
+8. `update_symbols.py` 不会把 `NtSecureConnectPort` 追加到 XML。
+9. 不新增 `.claude/skills/find-NtSecureConnectPort/SKILL.md`。
