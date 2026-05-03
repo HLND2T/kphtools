@@ -1,6 +1,6 @@
 import io
 import os
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -385,6 +385,97 @@ class TestUpdateSymbols(unittest.TestCase):
         )
 
         self.assertEqual(4, update_symbols.find_insert_position(root, info))
+
+    def test_syncfile_main_adds_missing_entries_and_skips_existing(self) -> None:
+        existing_sha = "1" * 64
+        missing_sha = "2" * 64
+
+        with TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            xml_path = temp_path / "kphdyn.xml"
+            symboldir = temp_path / "symbols"
+
+            xml_path.write_text(
+                f'<kphdyn>'
+                f'<data arch="amd64" file="ntoskrnl.exe" version="10.0.1" '
+                f'hash="{existing_sha}" timestamp="0x1" size="0x2">1</data>'
+                f'<fields id="1" />'
+                f'</kphdyn>',
+                encoding="utf-8",
+            )
+
+            existing_binary = (
+                symboldir
+                / "amd64"
+                / "ntoskrnl.exe.10.0.1"
+                / existing_sha
+                / "ntoskrnl.exe"
+            )
+            missing_binary = (
+                symboldir
+                / "amd64"
+                / "ntoskrnl.exe.10.0.2"
+                / missing_sha
+                / "ntoskrnl.exe"
+            )
+            existing_binary.parent.mkdir(parents=True)
+            missing_binary.parent.mkdir(parents=True)
+            existing_binary.write_bytes(b"existing")
+            missing_binary.write_bytes(b"missing")
+
+            def fake_parse_pe_info(binary_path: Path, expected_sha256: str) -> dict[str, str]:
+                self.assertEqual(missing_binary.resolve(), binary_path)
+                self.assertEqual(missing_sha, expected_sha256)
+                return {
+                    "timestamp": "0x10",
+                    "size": "0x20",
+                    "sha256": expected_sha256,
+                }
+
+            output = io.StringIO()
+            args = SimpleNamespace(
+                xml=str(xml_path),
+                symboldir=str(symboldir),
+                outxml=None,
+            )
+            with (
+                patch.object(update_symbols, "parse_pe_info", side_effect=fake_parse_pe_info) as pe_mock,
+                redirect_stdout(output),
+            ):
+                exit_code = update_symbols.syncfile_main(args)
+
+            self.assertEqual(0, exit_code)
+            self.assertEqual(1, pe_mock.call_count)
+            self.assertIn("added=1", output.getvalue())
+            self.assertIn("existing=1", output.getvalue())
+
+            root = update_symbols.ET.parse(xml_path).getroot()
+            data_elems = root.findall("data")
+            self.assertEqual(2, len(data_elems))
+            self.assertEqual("fields", list(root)[2].tag)
+
+            info = update_symbols.FilePathInfo(
+                arch="amd64",
+                file="ntoskrnl.exe",
+                version="10.0.2",
+                sha256=missing_sha,
+                binary_path=missing_binary.resolve(),
+            )
+            new_elem = update_symbols.find_data_entry(root, info)
+            self.assertIsNotNone(new_elem)
+            self.assertEqual("0", new_elem.text)
+            self.assertIsNone(new_elem.get("fields"))
+
+    def test_main_syncfile_dispatch_does_not_load_configyaml(self) -> None:
+        with (
+            patch.object(update_symbols, "syncfile_main", return_value=0) as sync_mock,
+            patch.object(update_symbols, "load_config") as load_config_mock,
+        ):
+            exit_code = update_symbols.main(["-syncfile"])
+
+        self.assertEqual(0, exit_code)
+        sync_mock.assert_called_once()
+        load_config_mock.assert_not_called()
 
     def test_calculate_sha256_returns_lowercase_digest(self) -> None:
         with TemporaryDirectory() as temp_dir:

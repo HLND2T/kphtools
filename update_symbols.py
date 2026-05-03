@@ -11,7 +11,7 @@
     -symboldir   符号产物根目录，默认 `symbols`。脚本会扫描
                  `{symboldir}/{arch}/{binary}.{version}/{sha256}/`。
     -configyaml  符号配置文件路径，默认 `config.yaml`。
-    -syncfile    预留兼容参数；当前版本会解析该参数，但主流程未使用。
+    -syncfile    纯同步模式：扫描符号目录并补齐 XML 中缺失的 `<data>0</data>`。
     -outxml      输出 XML 路径；省略时直接覆盖 `-xml`。
 
 环境变量:
@@ -75,6 +75,17 @@ class FilePathInfo:
     version: str
     sha256: str
     binary_path: Path
+
+
+@dataclass
+class SyncStats:
+    scanned: int = 0
+    existing: int = 0
+    added: int = 0
+    invalid_path: int = 0
+    hash_mismatch: int = 0
+    pe_error: int = 0
+    skipped: int = 0
 
 
 def _is_sha256(value: str) -> bool:
@@ -395,8 +406,75 @@ def export_xml(tree: ET.ElementTree, config: Any, symboldir: Path) -> ET.Element
     return tree
 
 
+def _print_sync_stats(stats: SyncStats) -> None:
+    print(
+        "syncfile: "
+        f"scanned={stats.scanned} "
+        f"existing={stats.existing} "
+        f"added={stats.added} "
+        f"invalid_path={stats.invalid_path} "
+        f"hash_mismatch={stats.hash_mismatch} "
+        f"pe_error={stats.pe_error} "
+        f"skipped={stats.skipped}"
+    )
+
+
+def syncfile_main(args: argparse.Namespace) -> int:
+    xml_path = Path(args.xml)
+    symboldir = Path(args.symboldir)
+    out_path = Path(args.outxml) if args.outxml else xml_path
+
+    if not xml_path.exists():
+        print(f"Error: XML file not found: {xml_path}")
+        return 1
+    if not symboldir.is_dir():
+        print(f"Error: Symbol directory not found: {symboldir}")
+        return 1
+
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    stats = SyncStats()
+
+    for binary_path in scan_symbol_directory(symboldir):
+        try:
+            info = parse_file_path_info(symboldir, binary_path)
+        except ValueError as exc:
+            stats.invalid_path += 1
+            print(f"Warning: skipping invalid symbol path {binary_path}: {exc}")
+            continue
+
+        stats.scanned += 1
+        if find_data_entry(root, info) is not None:
+            stats.existing += 1
+            continue
+
+        try:
+            pe_info = parse_pe_info(info.binary_path, info.sha256)
+        except HashMismatchError as exc:
+            stats.hash_mismatch += 1
+            print(f"Warning: {exc}")
+            continue
+        except (OSError, pefile.PEFormatError, ValueError) as exc:
+            stats.pe_error += 1
+            print(f"Warning: failed to parse PE {info.binary_path}: {exc}")
+            continue
+
+        data_elem = create_data_entry(info, pe_info)
+        root.insert(find_insert_position(root, info), data_elem)
+        stats.added += 1
+
+    if stats.added:
+        tree.write(out_path, encoding="utf-8", xml_declaration=True)
+
+    _print_sync_stats(stats)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.syncfile:
+        return syncfile_main(args)
+
     config = load_config(args.configyaml)
     tree = ET.parse(args.xml)
     export_xml(tree, config, Path(args.symboldir))
