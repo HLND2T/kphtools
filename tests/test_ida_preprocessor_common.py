@@ -294,75 +294,172 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
                 payload,
             )
 
+    def test_normalize_func_xrefs_accepts_none(self) -> None:
+        self.assertEqual({}, ida_preprocessor_common._normalize_func_xrefs(None))
+
+    def test_normalize_func_xrefs_fills_missing_fields_and_converts_tuples(
+        self,
+    ) -> None:
+        normalized = ida_preprocessor_common._normalize_func_xrefs(
+            [
+                {
+                    "func_name": "AlpcpInitSystem",
+                    "xref_unicode_strings": ("FULLMATCH:ALPC Port",),
+                    "exclude_funcs": ("KeBugCheckEx",),
+                }
+            ]
+        )
+
+        self.assertEqual(
+            {
+                "AlpcpInitSystem": {
+                    "xref_strings": [],
+                    "xref_unicode_strings": ["FULLMATCH:ALPC Port"],
+                    "xref_gvs": [],
+                    "xref_signatures": [],
+                    "xref_funcs": [],
+                    "exclude_funcs": ["KeBugCheckEx"],
+                    "exclude_strings": [],
+                    "exclude_unicode_strings": [],
+                    "exclude_gvs": [],
+                    "exclude_signatures": [],
+                }
+            },
+            normalized,
+        )
+
+    def test_normalize_func_xrefs_rejects_invalid_shapes(self) -> None:
+        invalid_cases = {
+            "top_level_non_iterable": 123,
+            "top_level_string": "AlpcpInitSystem",
+            "non_mapping_item": [123],
+            "duplicate_func_name": [
+                {
+                    "func_name": "AlpcpInitSystem",
+                    "xref_unicode_strings": ["FULLMATCH:ALPC Port"],
+                },
+                {
+                    "func_name": "AlpcpInitSystem",
+                    "xref_strings": ["ALPC Port"],
+                },
+            ],
+            "scalar_list_field": [
+                {
+                    "func_name": "AlpcpInitSystem",
+                    "xref_unicode_strings": "FULLMATCH:ALPC Port",
+                }
+            ],
+            "empty_positive_sources": [
+                {
+                    "func_name": "AlpcpInitSystem",
+                    "exclude_funcs": ["KeBugCheckEx"],
+                }
+            ],
+        }
+
+        for case_name, func_xrefs in invalid_cases.items():
+            with self.subTest(case_name=case_name):
+                self.assertIsNone(
+                    ida_preprocessor_common._normalize_func_xrefs(func_xrefs)
+                )
+
     async def test_preprocess_common_skill_rejects_unknown_func_xrefs_key(
         self,
     ) -> None:
         with TemporaryDirectory() as temp_dir:
-            status = await ida_preprocessor_common.preprocess_common_skill(
-                session=AsyncMock(),
-                skill=SimpleNamespace(name="find-AlpcpInitSystem"),
-                symbol=SimpleNamespace(
-                    name="AlpcpInitSystem",
-                    category="func",
-                    data_type="uint32",
-                ),
-                binary_dir=Path(temp_dir),
-                pdb_path=None,
-                debug=True,
-                llm_config=None,
-                func_names=["AlpcpInitSystem"],
-                func_xrefs=[
-                    {
-                        "func_name": "AlpcpInitSystem",
-                        "xref_unicode_strings": ["FULLMATCH:ALPC Port"],
-                        "unknown": [],
-                    }
-                ],
-                generate_yaml_desired_fields={
-                    "AlpcpInitSystem": ["func_name", "func_rva"]
-                },
-            )
+            with (
+                patch.object(
+                    ida_preprocessor_common,
+                    "preprocess_func_symbol",
+                    new=AsyncMock(return_value=None),
+                ) as mock_pdb_preprocess,
+                patch.object(
+                    ida_preprocessor_common,
+                    "resolve_symbol_via_llm_decompile",
+                    new=AsyncMock(return_value=None),
+                ) as mock_llm,
+            ):
+                status = await ida_preprocessor_common.preprocess_common_skill(
+                    session=AsyncMock(),
+                    skill=SimpleNamespace(name="find-AlpcpInitSystem"),
+                    symbol=SimpleNamespace(
+                        name="AlpcpInitSystem",
+                        category="func",
+                        data_type="uint32",
+                    ),
+                    binary_dir=Path(temp_dir),
+                    pdb_path=None,
+                    debug=True,
+                    llm_config=None,
+                    func_names=["AlpcpInitSystem"],
+                    func_xrefs=[
+                        {
+                            "func_name": "AlpcpInitSystem",
+                            "xref_unicode_strings": ["FULLMATCH:ALPC Port"],
+                            "unknown": [],
+                        }
+                    ],
+                    generate_yaml_desired_fields={
+                        "AlpcpInitSystem": ["func_name", "func_rva"]
+                    },
+                )
 
         self.assertEqual(ida_preprocessor_common.PREPROCESS_STATUS_FAILED, status)
+        mock_pdb_preprocess.assert_not_awaited()
+        mock_llm.assert_not_awaited()
 
     async def test_preprocess_common_skill_rejects_empty_func_xrefs_sources(
         self,
     ) -> None:
         with TemporaryDirectory() as temp_dir:
-            status = await ida_preprocessor_common.preprocess_common_skill(
-                session=AsyncMock(),
-                skill=SimpleNamespace(name="find-AlpcpInitSystem"),
-                symbol=SimpleNamespace(
-                    name="AlpcpInitSystem",
-                    category="func",
-                    data_type="uint32",
-                ),
-                binary_dir=Path(temp_dir),
-                pdb_path=None,
-                debug=True,
-                llm_config=None,
-                func_names=["AlpcpInitSystem"],
-                func_xrefs=[
-                    {
-                        "func_name": "AlpcpInitSystem",
-                        "xref_strings": [],
-                        "xref_unicode_strings": [],
-                        "xref_gvs": [],
-                        "xref_signatures": [],
-                        "xref_funcs": [],
-                        "exclude_funcs": [],
-                        "exclude_strings": [],
-                        "exclude_unicode_strings": [],
-                        "exclude_gvs": [],
-                        "exclude_signatures": [],
-                    }
-                ],
-                generate_yaml_desired_fields={
-                    "AlpcpInitSystem": ["func_name", "func_rva"]
-                },
-            )
+            with (
+                patch.object(
+                    ida_preprocessor_common,
+                    "preprocess_func_symbol",
+                    new=AsyncMock(return_value=None),
+                ) as mock_pdb_preprocess,
+                patch.object(
+                    ida_preprocessor_common,
+                    "resolve_symbol_via_llm_decompile",
+                    new=AsyncMock(return_value=None),
+                ) as mock_llm,
+            ):
+                status = await ida_preprocessor_common.preprocess_common_skill(
+                    session=AsyncMock(),
+                    skill=SimpleNamespace(name="find-AlpcpInitSystem"),
+                    symbol=SimpleNamespace(
+                        name="AlpcpInitSystem",
+                        category="func",
+                        data_type="uint32",
+                    ),
+                    binary_dir=Path(temp_dir),
+                    pdb_path=None,
+                    debug=True,
+                    llm_config=None,
+                    func_names=["AlpcpInitSystem"],
+                    func_xrefs=[
+                        {
+                            "func_name": "AlpcpInitSystem",
+                            "xref_strings": [],
+                            "xref_unicode_strings": [],
+                            "xref_gvs": [],
+                            "xref_signatures": [],
+                            "xref_funcs": [],
+                            "exclude_funcs": [],
+                            "exclude_strings": [],
+                            "exclude_unicode_strings": [],
+                            "exclude_gvs": [],
+                            "exclude_signatures": [],
+                        }
+                    ],
+                    generate_yaml_desired_fields={
+                        "AlpcpInitSystem": ["func_name", "func_rva"]
+                    },
+                )
 
         self.assertEqual(ida_preprocessor_common.PREPROCESS_STATUS_FAILED, status)
+        mock_pdb_preprocess.assert_not_awaited()
+        mock_llm.assert_not_awaited()
 
     async def test_preprocess_common_skill_routes_func_xrefs_without_pdb(
         self,
