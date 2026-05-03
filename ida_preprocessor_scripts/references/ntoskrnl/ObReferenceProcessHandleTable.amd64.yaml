@@ -1,0 +1,45 @@
+func_name: ObReferenceProcessHandleTable
+func_va: '0x14061aac4'
+disasm_code: |-
+  PAGE:000000014061AAC4                 mov     [rsp+arg_0], rbx
+  PAGE:000000014061AAC9                 mov     [rsp+arg_8], rsi
+  PAGE:000000014061AACE                 push    rdi
+  PAGE:000000014061AACF                 sub     rsp, 20h
+  PAGE:000000014061AAD3                 lea     rdi, [rcx+458h]; 0x458 = 1112 = _EPROCESS->RundownProtect
+  PAGE:000000014061AADA                 mov     rsi, rcx
+  PAGE:000000014061AADD                 ; RunRef
+  PAGE:000000014061AADD                 mov     rcx, rdi; RunRef
+  PAGE:000000014061AAE0                 xor     ebx, ebx
+  PAGE:000000014061AAE2                 call    ExAcquireRundownProtection_0
+  PAGE:000000014061AAE7                 test    al, al
+  PAGE:000000014061AAE9                 jz      short loc_14061AAFB
+  PAGE:000000014061AAEB                 mov     rbx, [rsi+570h]; 0x570 = 1392 = _EPROCESS->ObjectTable
+  PAGE:000000014061AAF2                 test    rbx, rbx
+  PAGE:000000014061AAF5                 jz      loc_1407F2FD6
+  PAGE:000000014061AAFB                 mov     rsi, [rsp+28h+arg_8]
+  PAGE:000000014061AB00                 mov     rax, rbx
+  PAGE:000000014061AB03                 mov     rbx, [rsp+28h+arg_0]
+  PAGE:000000014061AB08                 add     rsp, 20h
+  PAGE:000000014061AB0C                 pop     rdi
+  PAGE:000000014061AB0D                 retn
+  PAGE:00000001407F2FD6                 ; RunRef
+  PAGE:00000001407F2FD6                 mov     rcx, rdi; RunRef
+  PAGE:00000001407F2FD9                 call    ExReleaseRundownProtection_0
+  PAGE:00000001407F2FDE                 nop
+  PAGE:00000001407F2FDF                 jmp     loc_14061AAFB
+procedure: |-
+  _HANDLE_TABLE *__fastcall ObReferenceProcessHandleTable(_EPROCESS *a1)
+  {
+    struct _EX_RUNDOWN_REF *p_RundownProtect; // rdi
+    _HANDLE_TABLE *ObjectTable; // rbx
+
+    p_RundownProtect = &a1->RundownProtect; // 0x458 = 1112 = _EPROCESS->RundownProtect
+    ObjectTable = nullptr;
+    if ( ExAcquireRundownProtection_0(&a1->RundownProtect) )
+    {
+      ObjectTable = a1->ObjectTable; // 0x570 = 1392 = _EPROCESS->ObjectTable
+      if ( !ObjectTable )
+        ExReleaseRundownProtection_0(p_RundownProtect);
+    }
+    return ObjectTable;
+  }

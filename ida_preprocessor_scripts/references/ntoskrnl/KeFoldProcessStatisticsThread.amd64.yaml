@@ -1,0 +1,107 @@
+func_name: KeFoldProcessStatisticsThread
+func_va: '0x1402943cc'
+disasm_code: |-
+  .text:00000001402943CC                 sub     rsp, 28h
+  .text:00000001402943D0                 mov     eax, [rcx+28Ch]
+  .text:00000001402943D6                 mov     r10, [rcx+220h] ; 0x220 = 544 = _KTHREAD->Process
+  .text:00000001402943DD                 add     [r10+37Ch], eax
+  .text:00000001402943E4                 mov     eax, [rcx+2DCh]
+  .text:00000001402943EA                 add     [r10+380h], eax
+  .text:00000001402943F1                 mov     eax, [rcx+84h] ; 0x84 = 132 = _KTHREAD->ReadyTime
+  .text:00000001402943F7                 add     [r10+384h], eax
+  .text:00000001402943FE                 mov     rax, [rcx+48h] ; 0x48 = 72 = _KTHREAD->CycleTime
+  .text:0000000140294402                 add     [r10+360h], rax
+  .text:0000000140294409                 mov     rax, [rcx+3E0h] ; 0x3E0 = 992 = _KTHREAD->KernelWaitTime
+  .text:0000000140294410                 add     [r10+3E8h], rax
+  .text:0000000140294417                 mov     rax, [rcx+3E8h] ; 0x3E8 = 1000 = _KTHREAD->UserWaitTime
+  .text:000000014029441E                 add     [r10+3F0h], rax
+  .text:0000000140294425                 mov     eax, [rcx+154h]
+  .text:000000014029442B                 add     [r10+368h], rax
+  .text:0000000140294432                 mov     rax, [rcx+380h] ; 0x380 = 896 = _KTHREAD->ReadOperationCount
+  .text:0000000140294439                 lock xadd [r10+610h], rax
+  .text:0000000140294442                 mov     rax, [rcx+388h] ; 0x388 = 904 = _KTHREAD->WriteOperationCount
+  .text:0000000140294449                 lock xadd [r10+618h], rax
+  .text:0000000140294452                 mov     rax, [rcx+390h] ; 0x390 = 912 = _KTHREAD->OtherOperationCount
+  .text:0000000140294459                 lock xadd [r10+620h], rax
+  .text:0000000140294462                 mov     rax, [rcx+398h] ; 0x398 = 920 = _KTHREAD->ReadTransferCount
+  .text:0000000140294469                 lock xadd [r10+628h], rax
+  .text:0000000140294472                 mov     rax, [rcx+3A0h] ; 0x3A0 = 928 = _KTHREAD->WriteTransferCount
+  .text:0000000140294479                 lock xadd [r10+630h], rax
+  .text:0000000140294482                 mov     rax, [rcx+3A8h] ; 0x3A8 = 936 = _KTHREAD->OtherTransferCount
+  .text:0000000140294489                 lock xadd [r10+638h], rax
+  .text:0000000140294492                 mov     r11, [rcx+5F8h]
+  .text:0000000140294499                 test    r11, r11
+  .text:000000014029449C                 jz      short loc_1402944F7
+  .text:000000014029449E                 mov     r10, [r10+8E8h]
+  .text:00000001402944A5                 lea     rdx, [r11+0C0h]
+  .text:00000001402944AC                 lea     rcx, [r10+110h]
+  .text:00000001402944B3                 call    RtlTimelineBitmapMerge
+  .text:00000001402944B8                 sub     r11, r10
+  .text:00000001402944BB                 mov     ecx, 4
+  .text:00000001402944C0                 mov     edx, 2
+  .text:00000001402944C5                 mov     rax, [r11+r10]
+  .text:00000001402944C9                 add     [r10], rax
+  .text:00000001402944CC                 mov     rax, [r11+r10+40h]
+  .text:00000001402944D1                 add     [r10+90h], rax
+  .text:00000001402944D8                 mov     rax, [r11+r10+80h]
+  .text:00000001402944E0                 add     [r10+0D0h], rax
+  .text:00000001402944E7                 add     r10, 8
+  .text:00000001402944EB                 sub     rdx, 1
+  .text:00000001402944EF                 jnz     short loc_1402944C5
+  .text:00000001402944F1                 sub     rcx, 1
+  .text:00000001402944F5                 jnz     short loc_1402944C0
+  .text:00000001402944F7                 add     rsp, 28h
+  .text:00000001402944FB                 retn
+procedure: |-
+  signed __int64 __fastcall KeFoldProcessStatisticsThread(_ETHREAD *a1)
+  {
+    _EPROCESS *Process; // r10
+    signed __int64 result; // rax
+    _THREAD_ENERGY_VALUES *EnergyValues; // r11
+    _QWORD *v4; // r10
+    __int64 v5; // r11
+    __int64 v6; // r11
+    __int64 v7; // rcx
+    __int64 v8; // rdx
+
+    Process = (_EPROCESS *)a1->Tcb.Process; // 0x220 = 544 = _KTHREAD->Process
+    Process->Pcb.KernelTime += a1->Tcb.SchedulerApc.SpareLong0;
+    Process->Pcb.UserTime += a1->Tcb.UserTime;
+    Process->Pcb.ReadyTime += a1->Tcb.ReadyTime; // 0x84 = 132 = _KTHREAD->ReadyTime
+    Process->Pcb.CycleTime += a1->Tcb.CycleTime; // 0x48 = 72 = _KTHREAD->CycleTime
+    Process->Pcb.KernelWaitTime += a1->Tcb.KernelWaitTime; // 0x3E0 = 992 = _KTHREAD->KernelWaitTime
+    Process->Pcb.UserWaitTime += a1->Tcb.UserWaitTime; // 0x3E8 = 1000 = _KTHREAD->UserWaitTime
+    Process->Pcb.ContextSwitches += a1->Tcb.ContextSwitches;
+    _InterlockedExchangeAdd64((volatile signed __int64 *)&Process->ReadOperationCount, a1->Tcb.ReadOperationCount); // 0x380 = 896 = _KTHREAD->ReadOperationCount
+    _InterlockedExchangeAdd64((volatile signed __int64 *)&Process->WriteOperationCount, a1->Tcb.WriteOperationCount); // 0x388 = 904 = _KTHREAD->WriteOperationCount
+    _InterlockedExchangeAdd64((volatile signed __int64 *)&Process->OtherOperationCount, a1->Tcb.OtherOperationCount); // 0x390 = 912 = _KTHREAD->OtherOperationCount
+    _InterlockedExchangeAdd64((volatile signed __int64 *)&Process->ReadTransferCount, a1->Tcb.ReadTransferCount); // 0x398 = 920 = _KTHREAD->ReadTransferCount
+    _InterlockedExchangeAdd64((volatile signed __int64 *)&Process->WriteTransferCount, a1->Tcb.WriteTransferCount); // 0x3A0 = 928 = _KTHREAD->WriteTransferCount
+    result = _InterlockedExchangeAdd64(
+               (volatile signed __int64 *)&Process->OtherTransferCount,
+               a1->Tcb.OtherTransferCount); // 0x3A8 = 936 = _KTHREAD->OtherTransferCount
+    EnergyValues = a1->EnergyValues;
+    if ( EnergyValues )
+    {
+      RtlTimelineBitmapMerge((char *)Process->EnergyContext + 272, &EnergyValues->CpuTimeline);
+      v6 = v5 - (_QWORD)v4;
+      v7 = 4;
+      do
+      {
+        v8 = 2;
+        do
+        {
+          *v4 += *(_QWORD *)((char *)v4 + v6);
+          v4[18] += *(_QWORD *)((char *)v4 + v6 + 64);
+          result = *(_QWORD *)((char *)v4 + v6 + 128);
+          v4[26] += result;
+          ++v4;
+          --v8;
+        }
+        while ( v8 );
+        --v7;
+      }
+      while ( v7 );
+    }
+    return result;
+  }

@@ -1,0 +1,284 @@
+func_name: PspTerminateAllThreads
+func_va: '0x1406c4d40'
+disasm_code: |-
+  PAGE:00000001406C4D40                 mov     [rsp+arg_10], rbx
+  PAGE:00000001406C4D45                 push    rbp
+  PAGE:00000001406C4D46                 push    rsi
+  PAGE:00000001406C4D47                 push    rdi
+  PAGE:00000001406C4D48                 push    r12
+  PAGE:00000001406C4D4A                 push    r13
+  PAGE:00000001406C4D4C                 push    r14
+  PAGE:00000001406C4D4E                 push    r15
+  PAGE:00000001406C4D50                 sub     rsp, 30h
+  PAGE:00000001406C4D54                 test    dword ptr [rcx+464h], 2000h ; 0x464 = 1124 = _EPROCESS->Flags, bit 13 (0x2000) = BreakOnTermination
+  PAGE:00000001406C4D5E                 mov     esi, r9d
+  PAGE:00000001406C4D61                 mov     r15d, r8d
+  PAGE:00000001406C4D64                 mov     r14, rdx
+  PAGE:00000001406C4D67                 mov     rdi, rcx
+  PAGE:00000001406C4D6A                 jnz     loc_14081FCFA
+  PAGE:00000001406C4D70                 mov     r13, [r14+0B8h]
+  PAGE:00000001406C4D77                 xor     edx, edx
+  PAGE:00000001406C4D79                 mov     rcx, rdi
+  PAGE:00000001406C4D7C                 call    PspGetPreviousProcessThread
+  PAGE:00000001406C4D81                 mov     ecx, esi
+  PAGE:00000001406C4D83                 mov     ebx, esi
+  PAGE:00000001406C4D85                 shr     ebx, 1
+  PAGE:00000001406C4D87                 and     esi, 4
+  PAGE:00000001406C4D8A                 and     ebx, 1
+  PAGE:00000001406C4D8D                 and     ecx, 1
+  PAGE:00000001406C4D90                 add     ecx, ecx
+  PAGE:00000001406C4D92                 mov     rbp, rax
+  PAGE:00000001406C4D95                 or      ebx, ecx
+  PAGE:00000001406C4D97                 mov     r12d, 122h
+  PAGE:00000001406C4D9D                 or      ebx, esi
+  PAGE:00000001406C4D9F                 mov     eax, 0C000010Ah
+  PAGE:00000001406C4DA4                 mov     esi, r12d
+  PAGE:00000001406C4DA7                 test    rbp, rbp
+  PAGE:00000001406C4DAA                 jz      loc_1406C4EB2
+  PAGE:00000001406C4DB0                 test    bl, 1
+  PAGE:00000001406C4DB3                 jnz     loc_1406C4F3B
+  PAGE:00000001406C4DB9                 ; Tag
+  PAGE:00000001406C4DB9                 mov     edx, 65547350h; Tag
+  PAGE:00000001406C4DBE                 mov     [rsp+68h+Object], rbp
+  PAGE:00000001406C4DC3                 ; Object
+  PAGE:00000001406C4DC3                 mov     rcx, rbp; Object
+  PAGE:00000001406C4DC6                 xor     esi, esi
+  PAGE:00000001406C4DC8                 call    ObfReferenceObjectWithTag
+  PAGE:00000001406C4DCD                 xor     r12d, r12d
+  PAGE:00000001406C4DD0                 cmp     rbp, r14
+  PAGE:00000001406C4DD3                 jz      short loc_1406C4E0B
+  PAGE:00000001406C4DD5                 test    bl, 4
+  PAGE:00000001406C4DD8                 jnz     loc_1406C4E75
+  PAGE:00000001406C4DDE                 ; RunRef
+  PAGE:00000001406C4DDE                 lea     rcx, [rbp+4F8h]; RunRef
+  PAGE:00000001406C4DE5                 call    ExAcquireRundownProtection_0
+  PAGE:00000001406C4DEA                 test    al, al
+  PAGE:00000001406C4DEC                 jz      loc_1406C4EFE
+  PAGE:00000001406C4DF2                 or      ebx, 8
+  PAGE:00000001406C4DF5                 test    bl, 8
+  PAGE:00000001406C4DF8                 jz      short loc_1406C4E0B
+  PAGE:00000001406C4DFA                 inc     r12d
+  PAGE:00000001406C4DFD                 xor     r8d, r8d
+  PAGE:00000001406C4E00                 mov     edx, r15d
+  PAGE:00000001406C4E03                 mov     rcx, rbp
+  PAGE:00000001406C4E06                 call    PspTerminateThreadByPointer
+  PAGE:00000001406C4E0B                 mov     rdx, rbp
+  PAGE:00000001406C4E0E                 mov     rcx, rdi
+  PAGE:00000001406C4E11                 call    PspGetPreviousProcessThread
+  PAGE:00000001406C4E16                 mov     rbp, rax
+  PAGE:00000001406C4E19                 test    rax, rax
+  PAGE:00000001406C4E1C                 jnz     short loc_1406C4DD0
+  PAGE:00000001406C4E1E                 test    r12d, r12d
+  PAGE:00000001406C4E21                 jz      short loc_1406C4E2F
+  PAGE:00000001406C4E23                 cmp     rdi, r13
+  PAGE:00000001406C4E26                 jnz     short loc_1406C4E2F
+  PAGE:00000001406C4E28                 xor     ecx, ecx
+  PAGE:00000001406C4E2A                 call    KeFlushProcessWriteBuffers
+  PAGE:00000001406C4E2F                 xor     edx, edx
+  PAGE:00000001406C4E31                 mov     rcx, rdi
+  PAGE:00000001406C4E34                 call    PsGetNextProcessThread
+  PAGE:00000001406C4E39                 mov     r12, [rsp+68h+Object]
+  PAGE:00000001406C4E3E                 mov     rbp, rax
+  PAGE:00000001406C4E41                 cmp     rax, r14
+  PAGE:00000001406C4E44                 jz      short loc_1406C4E63
+  PAGE:00000001406C4E46                 test    bl, 4
+  PAGE:00000001406C4E49                 jnz     short loc_1406C4E63
+  PAGE:00000001406C4E4B                 test    dword ptr [rax+510h], 8000h
+  PAGE:00000001406C4E55                 jnz     short loc_1406C4E63
+  PAGE:00000001406C4E57                 ; RunRef
+  PAGE:00000001406C4E57                 lea     rcx, [rax+4F8h]; RunRef
+  PAGE:00000001406C4E5E                 call    ExReleaseRundownProtection_0
+  PAGE:00000001406C4E63                 cmp     rbp, r12
+  PAGE:00000001406C4E66                 jz      short loc_1406C4E8A
+  PAGE:00000001406C4E68                 mov     rdx, rbp
+  PAGE:00000001406C4E6B                 mov     rcx, rdi
+  PAGE:00000001406C4E6E                 call    PsGetNextProcessThread
+  PAGE:00000001406C4E73                 jmp     short loc_1406C4E3E
+  PAGE:00000001406C4E75                 mov     eax, [rbp+514h]
+  PAGE:00000001406C4E7B                 shr     eax, 3
+  PAGE:00000001406C4E7E                 xor     eax, ebx
+  PAGE:00000001406C4E80                 and     eax, 8
+  PAGE:00000001406C4E83                 xor     ebx, eax
+  PAGE:00000001406C4E85                 jmp     loc_1406C4DF5
+  PAGE:00000001406C4E8A                 ; Tag
+  PAGE:00000001406C4E8A                 mov     edx, 6E457350h; Tag
+  PAGE:00000001406C4E8F                 ; Object
+  PAGE:00000001406C4E8F                 mov     rcx, rbp; Object
+  PAGE:00000001406C4E92                 call    ObfDereferenceObjectWithTag
+  PAGE:00000001406C4E97                 mov     rax, r12
+  PAGE:00000001406C4E9A                 ; Tag
+  PAGE:00000001406C4E9A                 mov     edx, 65547350h; Tag
+  PAGE:00000001406C4E9F                 mov     r12d, 122h
+  PAGE:00000001406C4EA5                 ; Object
+  PAGE:00000001406C4EA5                 mov     rcx, rax; Object
+  PAGE:00000001406C4EA8                 call    ObfDereferenceObjectWithTag
+  PAGE:00000001406C4EAD                 test    bl, 2
+  PAGE:00000001406C4EB0                 jnz     short loc_1406C4F1F
+  PAGE:00000001406C4EB2                 cmp     rdi, r13
+  PAGE:00000001406C4EB5                 jnz     short loc_1406C4EE9
+  PAGE:00000001406C4EB7                 cmp     esi, r12d
+  PAGE:00000001406C4EBA                 jz      loc_1406C4F4A
+  PAGE:00000001406C4EC0                 cmp     qword ptr [rdi+578h], 0
+  PAGE:00000001406C4EC8                 jnz     loc_14081FD23
+  PAGE:00000001406C4ECE                 mov     rbx, [rsp+68h+arg_10]
+  PAGE:00000001406C4ED6                 mov     eax, esi
+  PAGE:00000001406C4ED8                 add     rsp, 30h
+  PAGE:00000001406C4EDC                 pop     r15
+  PAGE:00000001406C4EDE                 pop     r14
+  PAGE:00000001406C4EE0                 pop     r13
+  PAGE:00000001406C4EE2                 pop     r12
+  PAGE:00000001406C4EE4                 pop     rdi
+  PAGE:00000001406C4EE5                 pop     rsi
+  PAGE:00000001406C4EE6                 pop     rbp
+  PAGE:00000001406C4EE7                 retn
+  PAGE:00000001406C4EE9                 cmp     r15d, 40010004h
+  PAGE:00000001406C4EF0                 jnz     short loc_1406C4EB7
+  PAGE:00000001406C4EF2                 xor     edx, edx
+  PAGE:00000001406C4EF4                 mov     rcx, rdi
+  PAGE:00000001406C4EF7                 call    DbgkClearProcessDebugObject
+  PAGE:00000001406C4EFC                 jmp     short loc_1406C4EB7
+  PAGE:00000001406C4EFE                 lock bts dword ptr [rbp+510h], 0Fh
+  PAGE:00000001406C4F07                 setb    al
+  PAGE:00000001406C4F0A                 movzx   ecx, al
+  PAGE:00000001406C4F0D                 shl     ecx, 4
+  PAGE:00000001406C4F10                 xor     ecx, ebx
+  PAGE:00000001406C4F12                 and     ecx, 10h
+  PAGE:00000001406C4F15                 xor     ebx, ecx
+  PAGE:00000001406C4F17                 and     ebx, 0FFFFFFF7h
+  PAGE:00000001406C4F1A                 jmp     loc_1406C4DF5
+  PAGE:00000001406C4F1F                 cmp     [r14+220h], rdi
+  PAGE:00000001406C4F26                 jnz     short loc_1406C4EB2
+  PAGE:00000001406C4F28                 xor     r8d, r8d
+  PAGE:00000001406C4F2B                 mov     edx, r15d
+  PAGE:00000001406C4F2E                 mov     rcx, r14
+  PAGE:00000001406C4F31                 call    PspTerminateThreadByPointer
+  PAGE:00000001406C4F36                 jmp     loc_1406C4EB2
+  PAGE:00000001406C4F3B                 mov     esi, eax
+  PAGE:00000001406C4F3D                 mov     edx, 6E457350h
+  PAGE:00000001406C4F42                 mov     rax, rbp
+  PAGE:00000001406C4F45                 jmp     loc_1406C4EA5
+  PAGE:00000001406C4F4A                 xor     edx, edx
+  PAGE:00000001406C4F4C                 ; BugCheckParameter1
+  PAGE:00000001406C4F4C                 mov     rcx, rdi; BugCheckParameter1
+  PAGE:00000001406C4F4F                 call    PspRundownSingleProcess
+  PAGE:00000001406C4F54                 test    al, al
+  PAGE:00000001406C4F56                 jnz     loc_1406C4ECE
+  PAGE:00000001406C4F5C                 cmp     esi, r12d
+  PAGE:00000001406C4F5F                 mov     eax, 0C000010Ah
+  PAGE:00000001406C4F64                 cmovz   esi, eax
+  PAGE:00000001406C4F67                 jmp     loc_1406C4ECE
+  PAGE:000000014081FCFA                 call    PsGetProcessServerSilo
+  PAGE:000000014081FCFF                 mov     r9, rax
+  PAGE:000000014081FD02                 mov     [rsp+68h+var_48], r15d
+  PAGE:000000014081FD07                 lea     r8, [rdi+5A8h]
+  PAGE:000000014081FD0E                 mov     rdx, rdi
+  PAGE:000000014081FD11                 lea     rcx, aTerminatingCri_0; "Terminating critical process 0x%p (%s)"...
+  PAGE:000000014081FD18                 call    PspCatchCriticalBreak
+  PAGE:000000014081FD1D                 nop
+  PAGE:000000014081FD1E                 jmp     loc_1406C4D70
+  PAGE:000000014081FD23                 cmp     rdi, r13
+  PAGE:000000014081FD26                 jz      loc_1406C4ECE
+  PAGE:000000014081FD2C                 jmp     loc_1406C4F4A
+procedure: |-
+  __int64 __fastcall PspTerminateAllThreads(_EPROCESS *Process, __int64 a2, unsigned int a3, unsigned int a4)
+  {
+    _EPROCESS *v8; // r13
+    __int64 PreviousProcessThread; // rbp
+    unsigned int v10; // ebx
+    unsigned int v11; // esi
+    int v12; // r12d
+    __int64 i; // rax
+    PVOID v14; // rbp
+    void *v15; // rax
+    ULONG v16; // edx
+    __int64 ProcessServerSilo; // rax
+    PVOID Object; // [rsp+70h] [rbp+8h]
+
+    if ( (Process->Flags & 0x2000) != 0 ) // 0x464 = 1124 = _EPROCESS->Flags, bit 13 (0x2000) = BreakOnTermination
+    {
+      ProcessServerSilo = PsGetProcessServerSilo();
+      PspCatchCriticalBreak(
+        (__int64)"Terminating critical process 0x%p (%s)\n",
+        Process,
+        (__int64)Process->ImageFileName,
+        ProcessServerSilo,
+        a3);
+    }
+    v8 = *(_EPROCESS **)(a2 + 184);
+    PreviousProcessThread = PspGetPreviousProcessThread(Process, 0);
+    v10 = a4 & 4 | (2 * (a4 & 1)) | (a4 >> 1) & 1;
+    v11 = 290;
+    if ( PreviousProcessThread )
+    {
+      if ( (v10 & 1) != 0 )
+      {
+        v11 = -1073741558;
+        v16 = 1850045264;
+        v15 = (void *)PreviousProcessThread;
+      }
+      else
+      {
+        Object = (PVOID)PreviousProcessThread;
+        v11 = 0;
+        ObfReferenceObjectWithTag((PVOID)PreviousProcessThread, 0x65547350u);
+        v12 = 0;
+        do
+        {
+          if ( PreviousProcessThread != a2 )
+          {
+            if ( (v10 & 4) != 0 )
+            {
+              v10 ^= ((unsigned __int8)v10 ^ (unsigned __int8)(*(_DWORD *)(PreviousProcessThread + 1300) >> 3)) & 8;
+            }
+            else if ( ExAcquireRundownProtection_0((PEX_RUNDOWN_REF)(PreviousProcessThread + 1272)) )
+            {
+              v10 |= 8u;
+            }
+            else
+            {
+              v10 = (((unsigned __int8)v10
+                    ^ (unsigned __int8)(16
+                                      * _interlockedbittestandset(
+                                          (volatile signed __int32 *)(PreviousProcessThread + 1296),
+                                          0xFu)))
+                   & 0x10
+                   ^ v10)
+                  & 0xFFFFFFF7;
+            }
+            if ( (v10 & 8) != 0 )
+            {
+              ++v12;
+              PspTerminateThreadByPointer(PreviousProcessThread, a3, 0);
+            }
+          }
+          PreviousProcessThread = PspGetPreviousProcessThread(Process, PreviousProcessThread);
+        }
+        while ( PreviousProcessThread );
+        if ( v12 && Process == v8 )
+          KeFlushProcessWriteBuffers(0);
+        for ( i = PsGetNextProcessThread(Process, 0); ; i = PsGetNextProcessThread(Process, v14) )
+        {
+          v14 = (PVOID)i;
+          if ( i != a2 && (v10 & 4) == 0 && (*(_DWORD *)(i + 1296) & 0x8000) == 0 )
+            ExReleaseRundownProtection_0((PEX_RUNDOWN_REF)(i + 1272));
+          if ( v14 == Object )
+            break;
+        }
+        ObfDereferenceObjectWithTag(v14, 0x6E457350u);
+        v15 = Object;
+        v16 = 1700033360;
+      }
+      ObfDereferenceObjectWithTag(v15, v16);
+      if ( (v10 & 2) != 0 && *(_EPROCESS **)(a2 + 544) == Process )
+        PspTerminateThreadByPointer(a2, a3, 0);
+    }
+    if ( Process != v8 && a3 == 1073807364 )
+      DbgkClearProcessDebugObject((ULONG_PTR)Process);
+    if ( (v11 == 290 || Process->DebugPort && Process != v8)
+      && !(unsigned __int8)PspRundownSingleProcess((ULONG_PTR)Process)
+      && v11 == 290 )
+    {
+      return (unsigned int)-1073741558;
+    }
+    return v11;
+  }

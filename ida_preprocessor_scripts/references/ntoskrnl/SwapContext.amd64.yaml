@@ -1,0 +1,402 @@
+func_name: SwapContext
+func_va: '0x1404026e0'
+disasm_code: |-
+  .text:00000001404026E0                 push    rbp
+  .text:00000001404026E2                 sub     rsp, 30h
+  .text:00000001404026E6                 prefetchw byte ptr [rsi+71h]
+  .text:00000001404026EA                 mov     [rsp+38h+var_10], cl
+  .text:00000001404026EE                 cmp     byte ptr [rsi+71h], 0
+  .text:00000001404026F2                 jnz     loc_140402D4A
+  .text:00000001404026F8                 mov     byte ptr [rsi+71h], 1
+  .text:00000001404026FC                 cli
+  .text:00000001404026FD                 rdtsc
+  .text:00000001404026FF                 shl     rdx, 20h
+  .text:0000000140402703                 or      rax, rdx
+  .text:0000000140402706                 sub     rax, [rbx+7EC0h]
+  .text:000000014040270D                 add     [rbx+7F38h], rax
+  .text:0000000140402714                 add     [rbx+7EC0h], rax
+  .text:000000014040271B                 mov     r12, rax
+  .text:000000014040271E                 test    byte ptr [rbx+6], 0FFh
+  .text:0000000140402722                 jz      short loc_14040273F
+  .text:0000000140402724                 and     byte ptr [rbx+6], 0
+  .text:0000000140402728                 cmp     [rbx+18h], rsi
+  .text:000000014040272C                 jz      short loc_14040273F
+  .text:000000014040272E                 mov     ecx, 2
+  .text:0000000140402733                 call    cs:__imp_HalRequestSoftwareInterrupt
+  .text:000000014040273A                 nop     dword ptr [rax+rax+00h]
+  .text:000000014040273F                 test    byte ptr [rsi+2], 36h
+  .text:0000000140402743                 jnz     loc_140402CC8
+  .text:0000000140402749                 dec     byte ptr [rbx+20h]
+  .text:000000014040274C                 sti
+  .text:000000014040274D                 inc     dword ptr [rbx+2D3Ch]
+  .text:0000000140402753                 mov     rbp, cs:KeFeatureBits
+  .text:000000014040275A                 cmp     cs:KiCacheIsoBitmap, 0
+  .text:0000000140402761                 jz      short loc_140402775
+  .text:0000000140402763                 bt      rbp, 2Ch ; ','
+  .text:0000000140402768                 jnb     short loc_140402775
+  .text:000000014040276A                 mov     rcx, rbx
+  .text:000000014040276D                 mov     rdx, rsi
+  .text:0000000140402770                 call    KiCheckAndApplyCacheIsolation
+  .text:0000000140402775                 cmp     [rbx+18h], rsi
+  .text:0000000140402779                 jz      short loc_14040279B
+  .text:000000014040277B                 mov     ecx, [rsi+200h]
+  .text:0000000140402781                 mov     eax, [rbx+0ECh]
+  .text:0000000140402787                 xor     eax, ecx
+  .text:0000000140402789                 test    eax, 0FFh
+  .text:000000014040278E                 jz      short loc_14040279B
+  .text:0000000140402790                 mov     rcx, rbx
+  .text:0000000140402793                 mov     rdx, rsi
+  .text:0000000140402796                 call    KeCheckAndApplyBamQos
+  .text:000000014040279B                 mov     rdx, [rdi+250h]
+  .text:00000001404027A2                 mov     rcx, [rdi+60h]
+  .text:00000001404027A6                 and     rdx, 0FFFFFFFFFFFFFFFDh
+  .text:00000001404027AA                 mov     eax, edx
+  .text:00000001404027AC                 jz      short loc_1404027D8
+  .text:00000001404027AE                 shr     rdx, 20h
+  .text:00000001404027B2                 bt      rbp, 26h ; '&'
+  .text:00000001404027B7                 jb      short loc_1404027D0
+  .text:00000001404027B9                 bt      rbp, 0Fh
+  .text:00000001404027BE                 jb      short loc_1404027D5
+  .text:00000001404027C0                 bt      ebp, 17h
+  .text:00000001404027C4                 jnb     short loc_1404027CB
+  .text:00000001404027C6                 xsave   byte ptr [rcx]
+  .text:00000001404027C9                 jmp     short loc_1404027D8
+  .text:00000001404027CB                 fxsave  dword ptr [rcx]
+  .text:00000001404027CE                 jmp     short loc_1404027D8
+  .text:00000001404027D0                 xsaves  byte ptr [rcx]
+  .text:00000001404027D3                 jmp     short loc_1404027D8
+  .text:00000001404027D5                 xsaveopt byte ptr [rcx]
+  .text:00000001404027D8                 stmxcsr dword ptr [rcx+18h]
+  .text:00000001404027DC                 test    eax, 100h
+  .text:00000001404027E1                 jz      short loc_1404027F4
+  .text:00000001404027E3                 cmp     cs:KiIptMsrMask, 0
+  .text:00000001404027EA                 jz      short loc_1404027F4
+  .text:00000001404027EC                 mov     rcx, rdi
+  .text:00000001404027EF                 call    KiSaveThreadIptState
+  .text:00000001404027F4                 ; 0x58 = _KTHREAD->KernelStack
+  .text:00000001404027F4                 mov     [rdi+58h], rsp; 0x58 = _KTHREAD->KernelStack
+  .text:00000001404027F8                 ; 0x58 = _KTHREAD->KernelStack
+  .text:00000001404027F8                 mov     rsp, [rsi+58h]; 0x58 = _KTHREAD->KernelStack
+  .text:00000001404027FC                 test    byte ptr [rdi+3], 80h
+  .text:0000000140402800                 jz      short loc_14040282D
+  .text:0000000140402802                 mov     ecx, 0C0000102h
+  .text:0000000140402807                 rdmsr
+  .text:0000000140402809                 shl     rdx, 20h
+  .text:000000014040280D                 or      rax, rdx
+  .text:0000000140402810                 cmp     rax, cs:MmUserProbeAddress
+  .text:0000000140402817                 cmovnb  rax, cs:MmUserProbeAddress
+  .text:000000014040281F                 mov     r14, [rdi+1F0h]
+  .text:0000000140402826                 mov     [r14+80h], rax
+  .text:000000014040282D                 mov     rax, [rdi+220h]
+  .text:0000000140402834                 cmp     qword ptr [rax+580h], 0
+  .text:000000014040283C                 jz      short loc_140402851
+  .text:000000014040283E                 mov     ecx, 0C0000100h
+  .text:0000000140402843                 rdmsr
+  .text:0000000140402845                 mov     [rdi+5E8h], eax
+  .text:000000014040284B                 mov     [rdi+5ECh], edx
+  .text:0000000140402851                 btr     dword ptr gs:853h, 0
+  .text:000000014040285B                 jnb     short loc_140402861
+  .text:000000014040285D                 or      byte ptr [rdi+7Fh], 2
+  .text:0000000140402861                 btr     dword ptr [rsi+7Fh], 1
+  .text:0000000140402866                 jnb     short loc_140402871
+  .text:0000000140402868                 or      byte ptr gs:853h, 1
+  .text:0000000140402871                 mov     rcx, [rsi+220h]
+  .text:0000000140402878                 or      cl, [rbx+0FEh]
+  .text:000000014040287E                 and     cl, 0C2h
+  .text:0000000140402881                 cmp     rcx, [rdi+220h]
+  .text:0000000140402888                 jz      short loc_140402897
+  .text:000000014040288A                 and     cl, 0C0h
+  .text:000000014040288D                 call    KiUpdateSpeculationControl
+  .text:0000000140402892                 jmp     loc_140402A39
+  .text:0000000140402897                 movzx   ecx, byte ptr gs:853h
+  .text:00000001404028A0                 and     cx, 3
+  .text:00000001404028A4                 cmp     cx, 1
+  .text:00000001404028A8                 jnz     loc_140402A39
+  .text:00000001404028AE                 cli
+  .text:00000001404028AF                 movzx   eax, byte ptr gs:851h
+  .text:00000001404028B8                 cmp     gs:27Ah, al
+  .text:00000001404028C0                 jz      short loc_1404028D3
+  .text:00000001404028C2                 mov     gs:27Ah, al
+  .text:00000001404028CA                 mov     ecx, 48h ; 'H'
+  .text:00000001404028CF                 xor     edx, edx
+  .text:00000001404028D1                 wrmsr
+  .text:00000001404028D3                 movzx   edx, byte ptr gs:852h
+  .text:00000001404028DC                 test    edx, 10h
+  .text:00000001404028E2                 jz      short loc_1404028FB
+  .text:00000001404028E4                 mov     eax, 1
+  .text:00000001404028E9                 xor     edx, edx
+  .text:00000001404028EB                 mov     ecx, 49h ; 'I'
+  .text:00000001404028F0                 wrmsr
+  .text:00000001404028F2                 movzx   edx, byte ptr gs:852h
+  .text:00000001404028FB                 test    edx, 40h
+  .text:0000000140402901                 jz      loc_140402A2C
+  .text:0000000140402907                 call    loc_140402A1A
+  .text:000000014040290C                 add     rsp, 8
+  .text:0000000140402910                 call    loc_140402A23
+  .text:0000000140402915                 add     rsp, 8
+  .text:0000000140402919                 call    loc_14040290C
+  .text:000000014040291E                 add     rsp, 8
+  .text:0000000140402922                 call    loc_140402915
+  .text:0000000140402927                 add     rsp, 8
+  .text:000000014040292B                 call    loc_14040291E
+  .text:0000000140402930                 add     rsp, 8
+  .text:0000000140402934                 call    loc_140402927
+  .text:0000000140402939                 add     rsp, 8
+  .text:000000014040293D                 call    loc_140402930
+  .text:0000000140402942                 add     rsp, 8
+  .text:0000000140402946                 call    loc_140402939
+  .text:000000014040294B                 add     rsp, 8
+  .text:000000014040294F                 call    loc_140402942
+  .text:0000000140402954                 add     rsp, 8
+  .text:0000000140402958                 call    loc_14040294B
+  .text:000000014040295D                 add     rsp, 8
+  .text:0000000140402961                 call    loc_140402954
+  .text:0000000140402966                 add     rsp, 8
+  .text:000000014040296A                 call    loc_14040295D
+  .text:000000014040296F                 add     rsp, 8
+  .text:0000000140402973                 call    loc_140402966
+  .text:0000000140402978                 add     rsp, 8
+  .text:000000014040297C                 call    loc_14040296F
+  .text:0000000140402981                 add     rsp, 8
+  .text:0000000140402985                 call    loc_140402978
+  .text:000000014040298A                 add     rsp, 8
+  .text:000000014040298E                 call    loc_140402981
+  .text:0000000140402993                 add     rsp, 8
+  .text:0000000140402997                 call    loc_14040298A
+  .text:000000014040299C                 add     rsp, 8
+  .text:00000001404029A0                 call    loc_140402993
+  .text:00000001404029A5                 add     rsp, 8
+  .text:00000001404029A9                 call    loc_14040299C
+  .text:00000001404029AE                 add     rsp, 8
+  .text:00000001404029B2                 call    loc_1404029A5
+  .text:00000001404029B7                 add     rsp, 8
+  .text:00000001404029BB                 call    loc_1404029AE
+  .text:00000001404029C0                 add     rsp, 8
+  .text:00000001404029C4                 call    loc_1404029B7
+  .text:00000001404029C9                 add     rsp, 8
+  .text:00000001404029CD                 call    loc_1404029C0
+  .text:00000001404029D2                 add     rsp, 8
+  .text:00000001404029D6                 call    loc_1404029C9
+  .text:00000001404029DB                 add     rsp, 8
+  .text:00000001404029DF                 call    loc_1404029D2
+  .text:00000001404029E4                 add     rsp, 8
+  .text:00000001404029E8                 call    loc_1404029DB
+  .text:00000001404029ED                 add     rsp, 8
+  .text:00000001404029F1                 call    loc_1404029E4
+  .text:00000001404029F6                 add     rsp, 8
+  .text:00000001404029FA                 call    loc_1404029ED
+  .text:00000001404029FF                 add     rsp, 8
+  .text:0000000140402A03                 call    loc_1404029F6
+  .text:0000000140402A08                 add     rsp, 8
+  .text:0000000140402A0C                 call    loc_1404029FF
+  .text:0000000140402A11                 add     rsp, 8
+  .text:0000000140402A15                 call    loc_140402A08
+  .text:0000000140402A1A                 add     rsp, 8
+  .text:0000000140402A1E                 call    loc_140402A11
+  .text:0000000140402A23                 add     rsp, 8
+  .text:0000000140402A27                 mov     eax, 0DADAh
+  .text:0000000140402A2C                 lfence
+  .text:0000000140402A2F                 or      byte ptr gs:853h, 2
+  .text:0000000140402A38                 sti
+  .text:0000000140402A39                 mov     r14, [rsi+0B8h]
+  .text:0000000140402A40                 cmp     r14, [rdi+0B8h]
+  .text:0000000140402A47                 jz      loc_140402B04
+  .text:0000000140402A4D                 movzx   ecx, byte ptr [rbx+0D1h]
+  .text:0000000140402A54                 movzx   eax, byte ptr [rbx+0D0h]
+  .text:0000000140402A5B                 lock bts [r14+rax*8+178h], rcx
+  .text:0000000140402A65                 mov     rcx, [r14+28h]
+  .text:0000000140402A69                 test    cs:KiKvaShadow, 1
+  .text:0000000140402A70                 jz      short loc_140402AAB
+  .text:0000000140402A72                 cli
+  .text:0000000140402A73                 bt      ecx, 1
+  .text:0000000140402A77                 jnb     short loc_140402A85
+  .text:0000000140402A79                 bts     rcx, 3Fh ; '?'
+  .text:0000000140402A7E                 or      dword ptr [rbx+8E98h], 1
+  .text:0000000140402A85                 mov     [rbx+8E80h], rcx
+  .text:0000000140402A8C                 btr     rcx, 3Fh ; '?'
+  .text:0000000140402A91                 and     dword ptr [rbx+8E98h], 0FFFFFFFDh
+  .text:0000000140402A98                 bt      dword ptr [r14+390h], 0
+  .text:0000000140402AA1                 jnb     short loc_140402AAA
+  .text:0000000140402AA3                 xor     dword ptr [rbx+8E98h], 3
+  .text:0000000140402AAA                 sti
+  .text:0000000140402AAB                 test    cs:HvlEnlightenments, 1
+  .text:0000000140402AB5                 jz      short loc_140402ABE
+  .text:0000000140402AB7                 call    HvlSwitchVirtualAddressSpace
+  .text:0000000140402ABC                 jmp     short loc_140402AE5
+  .text:0000000140402ABE                 mov     cr3, rcx
+  .text:0000000140402AC1                 test    cs:KiKvaShadow, 1
+  .text:0000000140402AC8                 jz      short loc_140402AE5
+  .text:0000000140402ACA                 bt      ecx, 1
+  .text:0000000140402ACE                 jb      short loc_140402AE5
+  .text:0000000140402AD0                 mov     rax, cr4
+  .text:0000000140402AD3                 xor     rax, 80h
+  .text:0000000140402AD9                 mov     cr4, rax
+  .text:0000000140402ADC                 xor     rax, 80h
+  .text:0000000140402AE2                 mov     cr4, rax
+  .text:0000000140402AE5                 movzx   ecx, byte ptr [rbx+0D1h]
+  .text:0000000140402AEC                 movzx   eax, byte ptr [rbx+0D0h]
+  .text:0000000140402AF3                 mov     rdx, [rdi+0B8h]
+  .text:0000000140402AFA                 lock btr [rdx+rax*8+178h], rcx
+  .text:0000000140402B04                 mov     rax, [rsi+28h]
+  .text:0000000140402B08                 test    cs:KiKvaShadow, 1
+  .text:0000000140402B0F                 jnz     short loc_140402B1E
+  .text:0000000140402B11                 mov     r15, [rbx-178h]
+  .text:0000000140402B18                 mov     [r15+4], rax
+  .text:0000000140402B1C                 jmp     short loc_140402B25
+  .text:0000000140402B1E                 mov     [rbx+8E88h], rax
+  .text:0000000140402B25                 mov     [rbx+28h], rax
+  .text:0000000140402B29                 test    rax, rax
+  .text:0000000140402B2C                 jge     loc_140402D32
+  .text:0000000140402B32                 cmp     cs:KiCpuTracingFlags, 0
+  .text:0000000140402B39                 jnz     loc_140402CDB
+  .text:0000000140402B3F                 mov     rcx, 0FFFFF78000000000h
+  .text:0000000140402B49                 mov     rdx, [rdi+250h]
+  .text:0000000140402B50                 and     rdx, [rcx+5F0h]
+  .text:0000000140402B57                 or      rdx, [rsi+250h]
+  .text:0000000140402B5E                 mov     byte ptr [rdi+71h], 0
+  .text:0000000140402B62                 mov     rcx, [rsi+60h]
+  .text:0000000140402B66                 and     rdx, 0FFFFFFFFFFFFFFFDh
+  .text:0000000140402B6A                 mov     eax, edx
+  .text:0000000140402B6C                 jz      short loc_140402B99
+  .text:0000000140402B6E                 shr     rdx, 20h
+  .text:0000000140402B72                 bt      rbp, 29h ; ')'
+  .text:0000000140402B77                 jnb     short loc_140402B7F
+  .text:0000000140402B79                 test    al, 1
+  .text:0000000140402B7B                 jz      short loc_140402B7F
+  .text:0000000140402B7D                 fninit
+  .text:0000000140402B7F                 bt      rbp, 26h ; '&'
+  .text:0000000140402B84                 jb      short loc_140402B91
+  .text:0000000140402B86                 bt      ebp, 17h
+  .text:0000000140402B8A                 jb      short loc_140402B96
+  .text:0000000140402B8C                 fxrstor dword ptr [rcx]
+  .text:0000000140402B8F                 jmp     short loc_140402B99
+  .text:0000000140402B91                 xrstors byte ptr [rcx]
+  .text:0000000140402B94                 jmp     short loc_140402B99
+  .text:0000000140402B96                 xrstor  byte ptr [rcx]
+  .text:0000000140402B99                 ldmxcsr dword ptr [rcx+18h]
+  .text:0000000140402B9D                 test    eax, 100h
+  .text:0000000140402BA2                 jz      short loc_140402BB5
+  .text:0000000140402BA4                 cmp     cs:KiIptMsrMask, 0
+  .text:0000000140402BAB                 jz      short loc_140402BB5
+  .text:0000000140402BAD                 mov     rcx, rsi
+  .text:0000000140402BB0                 call    KiRestoreThreadIptState
+  .text:0000000140402BB5                 bt      dword ptr [rsi+74h], 0Ah
+  .text:0000000140402BBA                 jb      loc_140402C7D
+  .text:0000000140402BC0                 mov     rax, [rsi+220h]
+  .text:0000000140402BC7                 cmp     qword ptr [rax+580h], 0
+  .text:0000000140402BCF                 mov     eax, [rsi+5E8h]
+  .text:0000000140402BD5                 jz      short loc_140402BE2
+  .text:0000000140402BD7                 mov     eax, [rsi+0F0h]
+  .text:0000000140402BDD                 add     eax, 2000h
+  .text:0000000140402BE2                 mov     rcx, [rbx-180h]
+  .text:0000000140402BE9                 mov     [rcx+52h], ax
+  .text:0000000140402BED                 shr     eax, 10h
+  .text:0000000140402BF0                 mov     [rcx+54h], al
+  .text:0000000140402BF3                 mov     [rcx+57h], ah
+  .text:0000000140402BF6                 mov     eax, 53h ; 'S'
+  .text:0000000140402BFB                 mov     fs, eax
+  .text:0000000140402BFD                 mov     eax, [rsi+5E8h]
+  .text:0000000140402C03                 mov     edx, [rsi+5ECh]
+  .text:0000000140402C09                 mov     ecx, 0C0000100h
+  .text:0000000140402C0E                 wrmsr
+  .text:0000000140402C10                 mov     eax, ds
+  .text:0000000140402C12                 mov     edx, es
+  .text:0000000140402C14                 and     eax, edx
+  .text:0000000140402C16                 mov     edx, gs
+  .text:0000000140402C18                 and     eax, edx
+  .text:0000000140402C1A                 cmp     ax, 2Bh ; '+'
+  .text:0000000140402C1E                 jz      short loc_140402C33
+  .text:0000000140402C20                 mov     edx, 2Bh ; '+'
+  .text:0000000140402C25                 mov     ds, edx
+  .text:0000000140402C27                 mov     es, edx
+  .text:0000000140402C29                 cli
+  .text:0000000140402C2A                 swapgs
+  .text:0000000140402C2D                 mov     gs, edx
+  .text:0000000140402C2F                 swapgs
+  .text:0000000140402C32                 sti
+  .text:0000000140402C33                 mov     rax, [rsi+0F0h]
+  .text:0000000140402C3A                 mov     edx, [rsi+0F4h]
+  .text:0000000140402C40                 mov     [rbx-150h], rax
+  .text:0000000140402C47                 test    byte ptr [rsi+3], 84h
+  .text:0000000140402C4B                 jz      short loc_140402C76
+  .text:0000000140402C4D                 test    byte ptr [rsi+3], 80h
+  .text:0000000140402C51                 jz      short loc_140402C6A
+  .text:0000000140402C53                 mov     r8, [rsi+1F0h]
+  .text:0000000140402C5A                 mov     eax, [r8+80h]
+  .text:0000000140402C61                 mov     edx, [r8+84h]
+  .text:0000000140402C68                 jmp     short loc_140402C76
+  .text:0000000140402C6A                 mov     eax, [rsi+5F0h]
+  .text:0000000140402C70                 mov     edx, [rsi+5F4h]
+  .text:0000000140402C76                 mov     ecx, 0C0000102h
+  .text:0000000140402C7B                 wrmsr
+  .text:0000000140402C7D                 test    dword ptr [rbx+312Ch], 10001h
+  .text:0000000140402C87                 jnz     loc_140402D19
+  .text:0000000140402C8D                 inc     dword ptr [rsi+154h]
+  .text:0000000140402C93                 cmp     byte ptr [rsi+0C1h], 1
+  .text:0000000140402C9A                 jnz     short loc_140402CBF
+  .text:0000000140402C9C                 movzx   ax, [rsp+38h+var_10]
+  .text:0000000140402CA2                 or      ax, [rsi+1E6h]
+  .text:0000000140402CA9                 jz      short loc_140402CBF
+  .text:0000000140402CAB                 mov     ecx, 1
+  .text:0000000140402CB0                 call    cs:__imp_HalRequestSoftwareInterrupt
+  .text:0000000140402CB7                 nop     dword ptr [rax+rax+00h]
+  .text:0000000140402CBC                 or      rcx, rsp
+  .text:0000000140402CBF                 setz    al
+  .text:0000000140402CC2                 add     rsp, 30h
+  .text:0000000140402CC6                 pop     rbp
+  .text:0000000140402CC7                 retn
+  .text:0000000140402CC8                 mov     rcx, rbx
+  .text:0000000140402CCB                 mov     rdx, rsi
+  .text:0000000140402CCE                 mov     r8, r12
+  .text:0000000140402CD1                 call    KiBeginThreadAccountingPeriod
+  .text:0000000140402CD6                 jmp     loc_14040274D
+  .text:0000000140402CDB                 test    dword ptr cs:PerfGlobalGroupMask+4, 4
+  .text:0000000140402CE5                 jz      short loc_140402CF2
+  .text:0000000140402CE7                 mov     rcx, rdi
+  .text:0000000140402CEA                 mov     rdx, rsi
+  .text:0000000140402CED                 call    EtwTraceContextSwap
+  .text:0000000140402CF2                 test    cs:KiCpuTracingFlags, 2
+  .text:0000000140402CFC                 jz      short loc_140402D03
+  .text:0000000140402CFE                 call    KiClearLastBranchRecordStack
+  .text:0000000140402D03                 test    cs:KiCpuTracingFlags, 4
+  .text:0000000140402D0D                 jz      short loc_140402D14
+  .text:0000000140402D0F                 call    KiResetProcessorTraceBuffer
+  .text:0000000140402D14                 jmp     loc_140402B3F
+  .text:0000000140402D19                 ; BugCheckParameter3
+  .text:0000000140402D19                 xor     r9, r9; BugCheckParameter3
+  .text:0000000140402D1C                 ; BugCheckParameter4
+  .text:0000000140402D1C                 mov     [rsp+38h+BugCheckParameter4], r9; BugCheckParameter4
+  .text:0000000140402D21                 ; BugCheckParameter2
+  .text:0000000140402D21                 mov     r8, rsi; BugCheckParameter2
+  .text:0000000140402D24                 ; BugCheckParameter1
+  .text:0000000140402D24                 mov     rdx, rdi; BugCheckParameter1
+  .text:0000000140402D27                 ; BugCheckCode
+  .text:0000000140402D27                 mov     ecx, 0B8h; BugCheckCode
+  .text:0000000140402D2C                 call    KeBugCheckEx
+  .text:0000000140402D32                 ; BugCheckParameter3
+  .text:0000000140402D32                 xor     r9, r9; BugCheckParameter3
+  .text:0000000140402D35                 ; BugCheckParameter4
+  .text:0000000140402D35                 mov     [rsp+38h+BugCheckParameter4], r9; BugCheckParameter4
+  .text:0000000140402D3A                 ; BugCheckParameter2
+  .text:0000000140402D3A                 mov     r8, rsi; BugCheckParameter2
+  .text:0000000140402D3D                 ; BugCheckParameter1
+  .text:0000000140402D3D                 mov     rdx, rdi; BugCheckParameter1
+  .text:0000000140402D40                 ; BugCheckCode
+  .text:0000000140402D40                 mov     ecx, 1CEh; BugCheckCode
+  .text:0000000140402D45                 call    KeBugCheckEx
+  .text:0000000140402D4A                 xor     ebp, ebp
+  .text:0000000140402D4C                 inc     ebp
+  .text:0000000140402D4E                 test    cs:HvlLongSpinCountMask, ebp
+  .text:0000000140402D54                 jnz     short loc_140402D72
+  .text:0000000140402D56                 test    cs:HvlEnlightenments, 40h
+  .text:0000000140402D60                 jz      short loc_140402D72
+  .text:0000000140402D62                 call    KiCheckVpBackingLongSpinWaitHypercall
+  .text:0000000140402D67                 test    al, al
+  .text:0000000140402D69                 jz      short loc_140402D72
+  .text:0000000140402D6B                 mov     ecx, ebp
+  .text:0000000140402D6D                 call    HvlNotifyLongSpinWait
+  .text:0000000140402D72                 pause
+  .text:0000000140402D74                 cmp     byte ptr [rsi+71h], 0
+  .text:0000000140402D78                 jz      loc_1404026F8
+  .text:0000000140402D7E                 jmp     short loc_140402D4C
+procedure: ''

@@ -10,11 +10,13 @@ import yaml
 @dataclass(frozen=True)
 class SkillSpec:
     name: str
-    symbol: str
     expected_output: list[str]
     expected_input: list[str]
-    agent_skill: str
     max_retries: int | None = None
+
+    @property
+    def produced_symbols(self) -> list[str]:
+        return [symbol_name_from_artifact_name(item) for item in self.expected_output]
 
 
 @dataclass(frozen=True)
@@ -22,11 +24,6 @@ class SymbolSpec:
     name: str
     category: str
     data_type: str
-    symbol_expr: str | None = None
-    struct_name: str | None = None
-    member_name: str | None = None
-    alias: list[str] | None = None
-    bits: bool = False
 
 
 @dataclass(frozen=True)
@@ -40,6 +37,23 @@ class ModuleSpec:
 @dataclass(frozen=True)
 class ConfigSpec:
     modules: list[ModuleSpec]
+
+
+_ALLOWED_SKILL_FIELDS = frozenset({"name", "expected_input", "expected_output", "max_retries"})
+_ALLOWED_SYMBOL_FIELDS = frozenset({"name", "category", "data_type"})
+_LEGACY_FIELD_MESSAGES = {
+    "skill": {
+        "agent_skill": "is not supported; use skill.name",
+        "symbol": "is not supported; derive it from skill.expected_output",
+    },
+    "symbol": {
+        "symbol_expr": "is not supported; move it to the skill script",
+        "struct_name": "is not supported; move it to the skill script",
+        "member_name": "is not supported; move it to the skill script",
+        "bits": "is not supported; move it to the skill script",
+        "alias": "is not supported; move it to the skill script",
+    },
+}
 
 
 def _require_field(entry: dict[str, Any], field_name: str, owner_name: str) -> Any:
@@ -89,48 +103,45 @@ def _validate_expected_output_name(name: str) -> str:
     return name
 
 
+def symbol_name_from_artifact_name(name: str) -> str:
+    return Path(_validate_expected_output_name(name)).stem
+
+
+def _reject_unknown_fields(
+    entry: dict[str, Any], allowed_fields: frozenset[str], owner_name: str
+) -> None:
+    for field_name in entry:
+        if field_name in allowed_fields:
+            continue
+        custom_message = _LEGACY_FIELD_MESSAGES.get(owner_name, {}).get(field_name)
+        if custom_message is not None:
+            raise ValueError(f"{owner_name}.{field_name} {custom_message}")
+        raise ValueError(f"{owner_name}.{field_name} is not supported")
+
+
 def _load_skill(entry: dict[str, Any]) -> SkillSpec:
+    _reject_unknown_fields(entry, _ALLOWED_SKILL_FIELDS, "skill")
     expected_output = _require_string_list(
-        entry.get("expected_output", []), "expected_output"
+        entry.get("expected_output", []), "expected_output", allow_empty=False
     )
     expected_input = _require_string_list(entry.get("expected_input", []), "expected_input")
+    max_retries = entry.get("max_retries")
+    if max_retries is not None and type(max_retries) is not int:
+        raise ValueError("skill.max_retries must be an integer or null")
     return SkillSpec(
         name=_require_non_empty_string(entry, "name", "skill"),
-        symbol=_require_non_empty_string(entry, "symbol", "skill"),
         expected_output=[_validate_expected_output_name(item) for item in expected_output],
         expected_input=expected_input,
-        agent_skill=str(entry.get("agent_skill", "")).strip() or "find-kph-func",
-        max_retries=entry.get("max_retries"),
+        max_retries=max_retries,
     )
 
 
 def _load_symbol(entry: dict[str, Any]) -> SymbolSpec:
-    struct_name = entry.get("struct_name")
-    member_name = entry.get("member_name")
-    symbol_expr = entry.get("symbol_expr")
-    if symbol_expr is None and (struct_name is None) != (member_name is None):
-        raise ValueError(
-            "struct_name and member_name must be provided together when symbol_expr is omitted"
-        )
-    if symbol_expr is None and struct_name and member_name:
-        symbol_expr = f"{struct_name}->{member_name}"
-    alias_value = entry.get("alias")
-    alias = None
-    if alias_value is not None:
-        alias = _require_string_list(alias_value, "alias") or None
-    bits_value = entry.get("bits", False)
-    if not isinstance(bits_value, bool):
-        raise ValueError("bits must be a boolean")
-
+    _reject_unknown_fields(entry, _ALLOWED_SYMBOL_FIELDS, "symbol")
     return SymbolSpec(
         name=_require_non_empty_string(entry, "name", "symbol"),
         category=_require_non_empty_string(entry, "category", "symbol"),
         data_type=_require_non_empty_string(entry, "data_type", "symbol"),
-        symbol_expr=symbol_expr,
-        struct_name=struct_name,
-        member_name=member_name,
-        alias=alias,
-        bits=bits_value,
     )
 
 
@@ -158,8 +169,11 @@ def load_config(path: str | Path) -> ConfigSpec:
         symbol_names = {symbol.name for symbol in symbols}
         skills = [_load_skill(_require_mapping(item, "skill")) for item in skill_items]
         for skill in skills:
-            if skill.symbol not in symbol_names:
-                raise ValueError(f"skill.symbol references unknown symbol: {skill.symbol}")
+            for symbol_name in skill.produced_symbols:
+                if symbol_name not in symbol_names:
+                    raise ValueError(
+                        f"skill expected_output references unknown symbol: {symbol_name}"
+                    )
 
         modules.append(
             ModuleSpec(

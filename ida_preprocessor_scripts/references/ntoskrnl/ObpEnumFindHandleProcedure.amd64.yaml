@@ -1,0 +1,171 @@
+func_name: ObpEnumFindHandleProcedure
+func_va: '0x1406c6cd0'
+disasm_code: |-
+  PAGE:00000001406C6CD0                 push    rbx
+  PAGE:00000001406C6CD2                 sub     rsp, 20h
+  PAGE:00000001406C6CD6                 mov     r11, [rdx]
+  PAGE:00000001406C6CD9                 mov     r10, rcx
+  PAGE:00000001406C6CDC                 mov     rax, [r9]
+  PAGE:00000001406C6CDF                 mov     r8, r11
+  PAGE:00000001406C6CE2                 sar     r8, 10h ; 0x10 = 16, first step of ObDecodeShift: (VolatileLowValue >> 16) & ~0xF = ObjectPointerBits (ObDecodeShift = 0x14 = 20)
+  PAGE:00000001406C6CE6                 and     r8, 0FFFFFFFFFFFFFFF0h ; clears lower 4 bits: combined with sar 16 equals >> 20 = _HANDLE_TABLE_ENTRY->ObjectPointerBits (ObDecodeShift = 0x14 = 20)
+  PAGE:00000001406C6CEA                 test    rax, rax
+  PAGE:00000001406C6CED                 jz      short loc_1406C6D19
+  PAGE:00000001406C6CEF                 cmp     rax, r8
+  PAGE:00000001406C6CF2                 jz      short loc_1406C6D19
+  PAGE:00000001406C6CF4                 xor     bl, bl
+  PAGE:00000001406C6CF6                 mov     ecx, 1
+  PAGE:00000001406C6CFB                 lock xadd [rdx], rcx
+  PAGE:00000001406C6D00                 lea     rcx, [r10+30h] ; 0x30 = 48 = _HANDLE_TABLE->HandleContentionEvent
+  PAGE:00000001406C6D04                 lock or [rsp+28h+var_28], 0
+  PAGE:00000001406C6D09                 cmp     qword ptr [rcx], 0
+  PAGE:00000001406C6D0D                 jnz     short loc_1406C6D8D
+  PAGE:00000001406C6D0F                 movzx   eax, bl
+  PAGE:00000001406C6D12                 add     rsp, 20h
+  PAGE:00000001406C6D16                 pop     rbx
+  PAGE:00000001406C6D17                 retn
+  PAGE:00000001406C6D19                 mov     rbx, [r9+8]
+  PAGE:00000001406C6D1D                 test    rbx, rbx
+  PAGE:00000001406C6D20                 jz      short loc_1406C6D4F
+  PAGE:00000001406C6D22                 mov     rax, r8
+  PAGE:00000001406C6D25                 shr     rax, 8
+  PAGE:00000001406C6D29                 movzx   ecx, al
+  PAGE:00000001406C6D2C                 movzx   eax, byte ptr [r8+18h]
+  PAGE:00000001406C6D31                 xor     rcx, rax
+  PAGE:00000001406C6D34                 movzx   eax, byte ptr cs:ObHeaderCookie
+  PAGE:00000001406C6D3B                 xor     rcx, rax
+  PAGE:00000001406C6D3E                 lea     rax, ObTypeIndexTable
+  PAGE:00000001406C6D45                 cmp     rbx, [rax+rcx*8]
+  PAGE:00000001406C6D49                 jz      short loc_1406C6D4F
+  PAGE:00000001406C6D4B                 xor     bl, bl
+  PAGE:00000001406C6D4D                 jmp     short loc_1406C6CF6
+  PAGE:00000001406C6D4F                 mov     rcx, [r9+10h]
+  PAGE:00000001406C6D53                 test    rcx, rcx
+  PAGE:00000001406C6D56                 jnz     short loc_1406C6D5C
+  PAGE:00000001406C6D58                 mov     bl, 1
+  PAGE:00000001406C6D5A                 jmp     short loc_1406C6CF6
+  PAGE:00000001406C6D5C                 mov     eax, [rdx+8]
+  PAGE:00000001406C6D5F                 mov     r8d, eax
+  PAGE:00000001406C6D62                 sar     r11, 11h ; 0x11 = 17 = _HANDLE_TABLE_ENTRY->Attributes (bit offset, ObAttributesShift = 0x11 = 17)
+  PAGE:00000001406C6D66                 and     r8d, 1FFFFFFh
+  PAGE:00000001406C6D6D                 and     r11d, 7
+  PAGE:00000001406C6D71                 bt      eax, 19h
+  PAGE:00000001406C6D75                 jb      short loc_1406C6D99
+  PAGE:00000001406C6D77                 and     r11d, 7
+  PAGE:00000001406C6D7B                 cmp     [rcx], r11d
+  PAGE:00000001406C6D7E                 jnz     short loc_1406C6D86
+  PAGE:00000001406C6D80                 cmp     [rcx+4], r8d
+  PAGE:00000001406C6D84                 jz      short loc_1406C6D58
+  PAGE:00000001406C6D86                 xor     bl, bl
+  PAGE:00000001406C6D88                 jmp     loc_1406C6CF6
+  PAGE:00000001406C6D8D                 xor     edx, edx
+  PAGE:00000001406C6D8F                 call    ExfUnblockPushLock
+  PAGE:00000001406C6D94                 jmp     loc_1406C6D0F
+  PAGE:00000001406C6D99                 or      r11d, 8
+  PAGE:00000001406C6D9D                 jmp     short loc_1406C6D77
+procedure: |-
+  // 00000000 struct $32CC4987E53F1E217602E82975918B96 // sizeof=0x8
+  // 00000000 {                                       // XREF: _HANDLE_TABLE_ENTRY.__s4/r
+  // 00000000.0   unsigned __int64 Unlocked : 1;
+  // 00000000.1   unsigned __int64 RefCnt : 16;
+  // 00000000.17  unsigned __int64 Attributes : 3;    // ObAttributesShift = 0x11 = 17
+  // 00000000.20  unsigned __int64 ObjectPointerBits : 44; // ObDecodeShift = 0x14 = 20
+  // 00000008 };
+  //
+  // 00000000 union _HANDLE_TABLE_ENTRY // sizeof=0x10
+  // 00000000 {
+  // 00000000     $32CC4987E53F1E217602E82975918B96 __s4; // (and other union variants)
+  // 00000000 };
+  __int64 __fastcall ObpEnumFindHandleProcedure(
+          _HANDLE_TABLE *HandleTable,
+          __int64 HandleTableEntry,
+          __int64 Handle,
+          _QWORD *EnumParameter)
+  {
+    unsigned __int8 v5; // bl
+    __int64 v7; // rbx
+    _DWORD *v8; // rcx
+    __int64 Attributes; // r11
+    signed __int32 v10[10]; // [rsp+0h] [rbp-28h] BYREF
+
+    // Object pointer is recovered by: (VolatileLowValue >> 16) & ~0xF or ExGetHandlePointer(a2)
+    //   = (VolatileLowValue >> 20) << 4
+    //   = VolatileLowValue >> ObDecodeShift << 4   (ObDecodeShift = 0x14 = 20 = _HANDLE_TABLE_ENTRY->ObjectPointerBits bit offset)
+    if ( !*EnumParameter || *EnumParameter == ((*(__int64 *)HandleTableEntry >> 16) & 0xFFFFFFFFFFFFFFF0uLL) ) // 0x14 = 20 = _HANDLE_TABLE_ENTRY->ObjectPointerBits (ObDecodeShift)
+    {
+      v7 = EnumParameter[1];
+      if ( !v7
+        || v7 == ObTypeIndexTable[(unsigned __int8)ObHeaderCookie
+                                ^ *(unsigned __int8 *)(((*(__int64 *)HandleTableEntry >> 16) & 0xFFFFFFFFFFFFFFF0uLL)
+                                                     + 0x18)
+                                ^ (unsigned __int64)(unsigned __int8)((unsigned __int16)(WORD1(*(_QWORD *)HandleTableEntry)
+                                                                                       & 0xFFF0) >> 8)] )
+      {
+        v8 = (_DWORD *)EnumParameter[2];
+        if ( !v8 )
+          goto LABEL_11;
+        Attributes = (*(__int64 *)HandleTableEntry >> 17) & 7; // 0x11 = 17 = _HANDLE_TABLE_ENTRY->Attributes (ObAttributesShift)
+        if ( (*(_DWORD *)(HandleTableEntry + 8) & 0x2000000) != 0 )
+          LOBYTE(Attributes) = Attributes | 8;
+        if ( *v8 == (Attributes & 7) && v8[1] == (*(_DWORD *)(HandleTableEntry + 8) & 0x1FFFFFF) )
+  LABEL_11:
+          v5 = 1;
+        else
+          v5 = 0;
+      }
+      else
+      {
+        v5 = 0;
+      }
+    }
+    else
+    {
+      v5 = 0;
+    }
+    _InterlockedExchangeAdd64((volatile signed __int64 *)HandleTableEntry, 1u);
+    _InterlockedOr(v10, 0);
+    if ( HandleTable->HandleContentionEvent.Value ) // 0x30 = 48 = _HANDLE_TABLE->HandleContentionEvent
+      ExfUnblockPushLock(&HandleTable->HandleContentionEvent, 0); // 0x30 = 48 = _HANDLE_TABLE->HandleContentionEvent
+    return v5;
+  }
+
+  //A simple decoding function to decode ObjectPointer from HandleTableEntry
+  unsigned __int64 __fastcall ExGetHandlePointer(__int64 *a1)
+  {
+    // Object pointer is recovered by: (VolatileLowValue >> 16) & ~0xF
+    //   = (VolatileLowValue >> 20) << 4
+    //   = VolatileLowValue >> ObDecodeShift << 4   (ObDecodeShift = 0x14 = 20 = _HANDLE_TABLE_ENTRY->ObjectPointerBits bit offset)
+
+    return (*a1 >> 16) & 0xFFFFFFFFFFFFFFF0uLL;
+  }
+
+  bool __fastcall ObpEnumFindHandleProcedure(__int64 a1, volatile signed __int64 *a2, __int64 a3, _QWORD *a4)
+  {
+    __int64 HandlePointer; // rdx
+    bool v8; // bl
+    signed __int64 v9; // r8
+    __int64 v11; // rcx
+    _QWORD *v12; // rcx
+    signed __int32 v13[10]; // [rsp+0h] [rbp-28h] BYREF
+
+    HandlePointer = ExGetHandlePointer(a2);
+    v8 = false;
+    if ( !*a4 || *a4 == HandlePointer )
+    {
+      v11 = a4[1];
+      if ( !v11
+        || ((unsigned __int8)ObHeaderCookie ^ (unsigned __int8)(*(_BYTE *)(HandlePointer + 24) ^ BYTE1(HandlePointer))) == *(_BYTE *)(v11 + 40) )
+      {
+        v12 = (_QWORD *)a4[2]; 
+        if ( !v12 || *v12 == __PAIR64__(a2[1] & 0x1FFFFFF, ((__int64)*(unsigned int *)a2 >> 17) & 7) ) // 0x11 = 17 = _HANDLE_TABLE_ENTRY->Attributes (ObAttributesShift)
+          v8 = true;
+      }
+    }
+    v9 = _InterlockedExchangeAdd64(a2, 1u);
+    _InterlockedOr(v13, 0);
+    if ( *(_QWORD *)(a1 + 48) ) // 0x30 = 48 = _HANDLE_TABLE->HandleContentionEvent
+      ExfUnblockPushLock(a1 + 48, 0, v9); // 0x30 = 48 = _HANDLE_TABLE->HandleContentionEvent
+    return v8;
+  }
+optional_funcs:
+ - ExGetHandlePointer

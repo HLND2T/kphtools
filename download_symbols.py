@@ -6,7 +6,7 @@ Downloads PE files and their corresponding PDB symbol files from Microsoft Symbo
 based on entries in kphdyn.xml.
 
 Usage:
-    uv run python download_symbols.py -xml=kphdyn.xml -symboldir=C:/Symbols [-arch=amd64] [-version=10.0.19041] [-symbol_server=URL]
+    uv run python download_symbols.py [-xml=kphdyn.xml] [-symboldir=symbols] [-arch=amd64] [-version=10.0.19041] [-symbol_server=URL]
 
     The XML path can also be set via KPHTOOLS_XML environment variable.
     If KPHTOOLS_XML is set, it takes precedence over -xml argument.
@@ -37,12 +37,14 @@ except ImportError as e:
 
 
 DEFAULT_SYMBOL_SERVER_URL = "https://msdl.microsoft.com/download/symbols"
+DEFAULT_XML_PATH = "kphdyn.xml"
+DEFAULT_SYMBOL_DIR = "symbols"
 
 # Global variable for symbol server URL (set by parse_args)
 SYMBOL_SERVER_URL = DEFAULT_SYMBOL_SERVER_URL
 
 
-def parse_args():
+def parse_args(argv=None):
     """Parse command line arguments."""
     global SYMBOL_SERVER_URL
     
@@ -51,13 +53,13 @@ def parse_args():
     )
     parser.add_argument(
         "-xml",
-        required=False,
-        help="Path to the XML file (e.g., kphdyn.xml). Can be overridden by KPHTOOLS_XML environment variable."
+        default=DEFAULT_XML_PATH,
+        help=f"Path to the XML file (default: {DEFAULT_XML_PATH}). Can be overridden by KPHTOOLS_XML environment variable."
     )
     parser.add_argument(
         "-symboldir",
-        required=False,
-        help="Directory to save downloaded symbols (can be overridden by KPHTOOLS_SYMBOLDIR environment variable)"
+        default=DEFAULT_SYMBOL_DIR,
+        help=f"Directory to save downloaded symbols (default: {DEFAULT_SYMBOL_DIR}). Can be overridden by KPHTOOLS_SYMBOLDIR environment variable."
     )
     parser.add_argument(
         "-arch",
@@ -80,14 +82,12 @@ def parse_args():
         help="Fast mode: skip entries if known PDB files already exist (ntoskrnl.exe -> ntkrnlmp.pdb/ntoskrnl.pdb, ntkrla57.exe -> ntkrla57.pdb)"
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     
     # Check XML environment variable first, then fallback to command line argument
     xml_path_env = os.getenv("KPHTOOLS_XML")
     if xml_path_env:
         args.xml = xml_path_env
-    elif not args.xml:
-        parser.error("Either KPHTOOLS_XML environment variable or -xml argument must be provided")
     
     if not args.xml:
         parser.error("-xml cannot be empty")
@@ -97,9 +97,6 @@ def parse_args():
     if symbol_dir:
         # Environment variable takes precedence
         args.symboldir = symbol_dir
-    elif not args.symboldir:
-        # Neither environment variable nor command line argument provided
-        parser.error("Either KPHTOOLS_SYMBOLDIR environment variable or -symboldir argument must be provided")
     
     if not args.symboldir:
         parser.error("-symboldir cannot be empty")

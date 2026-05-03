@@ -1,3 +1,20 @@
+"""
+从 YAML 符号产物生成或更新 `kphdyn.xml` 中的 `<data>/<fields>` 映射。
+
+基本用法:
+    uv run python update_symbols.py -xml kphdyn.xml -symboldir symbols
+    uv run python update_symbols.py -xml kphdyn.xml -symboldir symbols \
+        -configyaml config.yaml -outxml output.xml
+
+可用参数:
+    -xml         输入 XML 路径，必填。
+    -symboldir   符号产物根目录，必填。脚本会扫描
+                 `{symboldir}/{arch}/{binary}.{version}/{sha256}/`。
+    -configyaml  符号配置文件路径，默认 `config.yaml`。
+    -syncfile    预留兼容参数；当前版本会解析该参数，但主流程未使用。
+    -outxml      输出 XML 路径；省略时直接覆盖 `-xml`。
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -41,7 +58,7 @@ def collect_symbol_values(
             values[spec["name"]] = fallback_value(spec["data_type"])
             continue
         if spec["category"] == "struct_offset":
-            if spec.get("bits"):
+            if "bit_offset" in payload:
                 values[spec["name"]] = int(payload["offset"]) * 8 + int(
                     payload["bit_offset"]
                 )

@@ -1,0 +1,60 @@
+func_name: ExSetHandleAttributes
+func_va: '0x140295130'
+disasm_code: |-
+  .text:0000000140295130                 mov     r9d, r8d
+  .text:0000000140295133                 and     r9d, 7
+  .text:0000000140295137                 jz      short loc_140295152
+  .text:0000000140295139                 shl     r9, 11h ; 0x11 = 17 = _HANDLE_TABLE_ENTRY->Attributes (bit shift for the Attributes bitfield)
+  .text:000000014029513D                 mov     eax, edx
+  .text:000000014029513F                 shl     rax, 11h ; 0x11 = 17 = _HANDLE_TABLE_ENTRY->Attributes
+  .text:0000000140295143                 and     rax, r9
+  .text:0000000140295146                 not     r9
+  .text:0000000140295149                 and     r9, [rcx]
+  .text:000000014029514C                 or      rax, r9
+  .text:000000014029514F                 mov     [rcx], rax
+  .text:0000000140295152                 test    r8b, 8
+  .text:0000000140295156                 jnz     loc_14044AB80
+  .text:000000014029515C                 retn
+  .text:000000014044AB80                 mov     eax, [rcx+8]
+  .text:000000014044AB83                 test    dl, 8
+  .text:000000014044AB86                 jz      short loc_14044AB8E
+  .text:000000014044AB88                 bts     eax, 19h
+  .text:000000014044AB8C                 jmp     short loc_14044AB92
+  .text:000000014044AB8E                 btr     eax, 19h
+  .text:000000014044AB92                 mov     [rcx+8], eax
+  .text:000000014044AB95                 retn
+procedure: |-
+  // 00000000 struct $32CC4987E53F1E217602E82975918B96 // sizeof=0x8
+  // 00000000 {                                       // XREF: _HANDLE_TABLE_ENTRY.__s4/r
+  // 00000000.0   unsigned __int64 Unlocked : 1;
+  // 00000000.1   unsigned __int64 RefCnt : 16;
+  // 00000000.17  unsigned __int64 Attributes : 3;
+  // 00000000.20  unsigned __int64 ObjectPointerBits : 44;
+  // 00000008 };
+  //
+  // 00000000 union _HANDLE_TABLE_ENTRY // sizeof=0x10
+  // 00000000 {
+  // 00000000     $E5B3C52FE72490EE6A49ADBB8529F30E __s0;
+  // 00000000     $498C43236F7C04FA8A0B851CBCBE20F7 __s1;
+  // 00000000     $1167591FED19391033BD92AB177C8F82 __s2;
+  // 00000000     $2C5CC9DC28D9F2B79C281990513743F8 __s3;
+  // 00000000     $32CC4987E53F1E217602E82975918B96 __s4;
+  // 00000000 };
+  void __fastcall ExSetHandleAttributes(__int64 a1, unsigned int a2, char a3)
+  {
+    int v3; // eax
+    unsigned int v4; // eax
+
+    if ( (a3 & 7) != 0 )
+      *(_QWORD *)a1 = *(_QWORD *)a1 & ~((unsigned __int64)(a3 & 7) << 17) // 0x11 = 17 = _HANDLE_TABLE_ENTRY->Attributes
+                    | ((unsigned __int64)(a3 & 7) << 17) & ((unsigned __int64)a2 << 17); // 0x11 = 17 = _HANDLE_TABLE_ENTRY->Attributes
+    if ( (a3 & 8) != 0 )
+    {
+      v3 = *(_DWORD *)(a1 + 8);
+      if ( (a2 & 8) != 0 )
+        v4 = v3 | 0x2000000;
+      else
+        v4 = v3 & 0xFDFFFFFF;
+      *(_DWORD *)(a1 + 8) = v4;
+    }
+  }

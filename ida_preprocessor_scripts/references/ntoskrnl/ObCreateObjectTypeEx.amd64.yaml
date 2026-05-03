@@ -1,0 +1,781 @@
+func_name: ObCreateObjectTypeEx
+func_va: '0x140787020'
+disasm_code: |-
+  PAGE:0000000140787020                 mov     rax, rsp
+  PAGE:0000000140787023                 mov     [rax+20h], rbx
+  PAGE:0000000140787027                 push    rbp
+  PAGE:0000000140787028                 push    rsi
+  PAGE:0000000140787029                 push    rdi
+  PAGE:000000014078702A                 push    r12
+  PAGE:000000014078702C                 push    r13
+  PAGE:000000014078702E                 push    r14
+  PAGE:0000000140787030                 push    r15
+  PAGE:0000000140787032                 lea     rbp, [rax-128h]
+  PAGE:0000000140787039                 sub     rsp, 1F0h
+  PAGE:0000000140787040                 movaps  xmmword ptr [rax-48h], xmm6
+  PAGE:0000000140787044                 mov     rax, cs:__security_cookie
+  PAGE:000000014078704B                 xor     rax, rsp
+  PAGE:000000014078704E                 mov     [rbp+120h+var_50], rax
+  PAGE:0000000140787055                 mov     rax, [rbp+120h+arg_20]
+  PAGE:000000014078705C                 mov     r15, r8
+  PAGE:000000014078705F                 mov     rdi, rdx
+  PAGE:0000000140787062                 mov     [rbp+120h+var_178], rax
+  PAGE:0000000140787066                 mov     r14, rcx
+  PAGE:0000000140787069                 mov     [rsp+220h+var_1D8], r9
+  PAGE:000000014078706E                 ; Val
+  PAGE:000000014078706E                 xor     edx, edx; Val
+  PAGE:0000000140787070                 ; void *
+  PAGE:0000000140787070                 lea     rcx, [rbp+120h+var_130]; void *
+  PAGE:0000000140787074                 ; Size
+  PAGE:0000000140787074                 mov     r8d, 0D8h; Size
+  PAGE:000000014078707A                 mov     r13, r9
+  PAGE:000000014078707D                 call    memset
+  PAGE:0000000140787082                 xor     eax, eax
+  PAGE:0000000140787084                 ; void *
+  PAGE:0000000140787084                 lea     rcx, [rbp+120h+var_170]; void *
+  PAGE:0000000140787088                 xorps   xmm0, xmm0
+  PAGE:000000014078708B                 mov     [rbp+120h+var_180], rax
+  PAGE:000000014078708F                 xor     ebx, ebx
+  PAGE:0000000140787091                 ; Val
+  PAGE:0000000140787091                 xor     edx, edx; Val
+  PAGE:0000000140787093                 movups  xmmword ptr [rbp+120h+var_1A0], xmm0
+  PAGE:0000000140787097                 ; Size
+  PAGE:0000000140787097                 lea     r8d, [rax+40h]; Size
+  PAGE:000000014078709B                 mov     [rsp+220h+ObjectTypeHeader], rbx
+  PAGE:00000001407870A0                 movups  [rbp+120h+var_190], xmm0
+  PAGE:00000001407870A4                 call    memset
+  PAGE:00000001407870A9                 xorps   xmm0, xmm0
+  PAGE:00000001407870AC                 movups  xmmword ptr [rsp+220h+DestinationString.Buffer], xmm0
+  PAGE:00000001407870B1                 test    r14, r14
+  PAGE:00000001407870B4                 jz      loc_14081F999
+  PAGE:00000001407870BA                 movzx   ecx, word ptr [r14]
+  PAGE:00000001407870BE                 test    cx, cx
+  PAGE:00000001407870C1                 jz      loc_14081F999
+  PAGE:00000001407870C7                 lea     esi, [rbx+1]
+  PAGE:00000001407870CA                 test    sil, cl
+  PAGE:00000001407870CD                 jnz     loc_14081F999
+  PAGE:00000001407870D3                 test    rdi, rdi
+  PAGE:00000001407870D6                 jz      loc_14081F999
+  PAGE:00000001407870DC                 test    dword ptr [rdi+8], 0FFFEE00Dh
+  PAGE:00000001407870E3                 jnz     loc_14081F999
+  PAGE:00000001407870E9                 cmp     word ptr [rdi], 78h ; 'x'
+  PAGE:00000001407870ED                 jnz     loc_14081F999
+  PAGE:00000001407870F3                 lea     r12d, [rbx+2]
+  PAGE:00000001407870F7                 cmp     [rdi+3], r12b
+  PAGE:00000001407870FB                 jnb     loc_14081F999
+  PAGE:0000000140787101                 mov     al, [rdi+2]
+  PAGE:0000000140787104                 test    al, 10h
+  PAGE:0000000140787106                 jnz     loc_14078755D
+  PAGE:000000014078710C                 mov     edx, 4
+  PAGE:0000000140787111                 test    dl, al
+  PAGE:0000000140787113                 jz      loc_140787543
+  PAGE:0000000140787119                 shr     ecx, 1
+  PAGE:000000014078711B                 mov     eax, [rdi+24h]
+  PAGE:000000014078711E                 mov     rdx, [r14+8]
+  PAGE:0000000140787122                 mov     dword ptr [rsp+220h+var_1E0], eax
+  PAGE:0000000140787126                 jz      short loc_14078713E
+  PAGE:0000000140787128                 movzx   eax, word ptr [rdx]
+  PAGE:000000014078712B                 dec     ecx
+  PAGE:000000014078712D                 add     rdx, r12
+  PAGE:0000000140787130                 cmp     ax, 5Ch ; '\'
+  PAGE:0000000140787134                 jz      loc_14081F9B4
+  PAGE:000000014078713A                 test    ecx, ecx
+  PAGE:000000014078713C                 jnz     short loc_140787128
+  PAGE:000000014078713E                 mov     rdx, cs:ObpTypeDirectoryObject
+  PAGE:0000000140787145                 mov     dword ptr [rbp+120h+var_180], 0FFFF1234h
+  PAGE:000000014078714C                 test    rdx, rdx
+  PAGE:000000014078714F                 jz      short loc_140787186
+  PAGE:0000000140787151                 lea     rcx, [rbp+120h+var_1A0]
+  PAGE:0000000140787155                 call    ObpLockDirectoryExclusive
+  PAGE:000000014078715A                 ; DmaAdapter
+  PAGE:000000014078715A                 mov     rcx, cs:ObpTypeDirectoryObject; DmaAdapter
+  PAGE:0000000140787161                 lea     rax, [rbp+120h+var_1A0]
+  PAGE:0000000140787165                 xor     r9d, r9d
+  PAGE:0000000140787168                 ; __int64
+  PAGE:0000000140787168                 mov     [rsp+220h+var_1F8], rax; __int64
+  PAGE:000000014078716D                 mov     rdx, r14
+  PAGE:0000000140787170                 ; char
+  PAGE:0000000140787170                 mov     [rsp+220h+var_200], bl; char
+  PAGE:0000000140787174                 lea     r8d, [r9+40h]
+  PAGE:0000000140787178                 call    ObpLookupDirectoryEntryEx
+  PAGE:000000014078717D                 test    rax, rax
+  PAGE:0000000140787180                 jnz     loc_14081F9BE
+  PAGE:0000000140787186                 ; NumberOfBytes
+  PAGE:0000000140787186                 movzx   edx, word ptr [r14+2]; NumberOfBytes
+  PAGE:000000014078718B                 ; Tag
+  PAGE:000000014078718B                 mov     r8d, 6D4E624Fh; Tag
+  PAGE:0000000140787191                 ; PoolType
+  PAGE:0000000140787191                 mov     ecx, esi; PoolType
+  PAGE:0000000140787193                 call    ExAllocatePoolWithTag
+  PAGE:0000000140787198                 mov     [rsp+220h+var_1B0], rax
+  PAGE:000000014078719D                 test    rax, rax
+  PAGE:00000001407871A0                 jz      loc_14081F9C5
+  PAGE:00000001407871A6                 movzx   eax, word ptr [r14+2]
+  PAGE:00000001407871AB                 ; DestinationString
+  PAGE:00000001407871AB                 lea     rcx, [rsp+220h+DestinationString.Buffer]; DestinationString
+  PAGE:00000001407871B0                 ; SourceString
+  PAGE:00000001407871B0                 mov     rdx, r14; SourceString
+  PAGE:00000001407871B3                 mov     word ptr [rsp+220h+DestinationString.Buffer+2], ax
+  PAGE:00000001407871B8                 call    RtlCopyUnicodeString
+  PAGE:00000001407871BD                 mov     r8, cs:ObpTypeObjectType
+  PAGE:00000001407871C4                 movups  xmm6, xmmword ptr [rsp+220h+DestinationString.Buffer]
+  PAGE:00000001407871C9                 test    r8, r8
+  PAGE:00000001407871CC                 jz      loc_14078759E
+  PAGE:00000001407871D2                 mov     [rbp+120h+var_170], 10h
+  PAGE:00000001407871D9                 lea     r9, [rsp+220h+DestinationString.Buffer]
+  PAGE:00000001407871DE                 mov     eax, [r8+68h]
+  PAGE:00000001407871E2                 lea     rcx, [rbp+120h+var_170]
+  PAGE:00000001407871E6                 mov     [rbp+120h+var_15C], eax
+  PAGE:00000001407871E9                 xor     edx, edx
+  PAGE:00000001407871EB                 mov     eax, [r8+6Ch]
+  PAGE:00000001407871EF                 mov     [rbp+120h+var_158], eax
+  PAGE:00000001407871F2                 lea     rax, [rsp+220h+ObjectTypeHeader]
+  PAGE:00000001407871F7                 mov     [rsp+220h+var_1F0], rbx
+  PAGE:00000001407871FC                 mov     [rsp+220h+var_1F8], rax
+  PAGE:0000000140787201                 mov     dword ptr [rsp+220h+var_200], 0D8h
+  PAGE:0000000140787209                 mov     [rbp+120h+var_154], 800h
+  PAGE:0000000140787210                 call    ObpAllocateObject
+  PAGE:0000000140787215                 mov     esi, eax
+  PAGE:0000000140787217                 test    eax, eax
+  PAGE:0000000140787219                 js      loc_14081F9F4
+  PAGE:000000014078721F                 mov     rax, [rsp+220h+ObjectTypeHeader]
+  PAGE:0000000140787224                 mov     [rax+20h], rbx
+  PAGE:0000000140787228                 lea     rbx, [rax+30h]
+  PAGE:000000014078722C                 cmp     cs:InitializationPhase, 0
+  PAGE:0000000140787233                 movdqu  xmmword ptr [rbx+10h], xmm6 ; 0x10 = 16 = _OBJECT_TYPE->Name
+  PAGE:0000000140787238                 jz      short loc_14078724F
+  PAGE:000000014078723A                 mov     rdx, r15
+  PAGE:000000014078723D                 mov     rcx, rbx
+  PAGE:0000000140787240                 call    ObpInitObjectTypeSD
+  PAGE:0000000140787245                 mov     esi, eax
+  PAGE:0000000140787247                 test    eax, eax
+  PAGE:0000000140787249                 js      loc_14081FA0B
+  PAGE:000000014078724F                 xor     eax, eax
+  PAGE:0000000140787251                 xorps   xmm0, xmm0
+  PAGE:0000000140787254                 movups  xmmword ptr [rbx+2Ch], xmm0 ; 0x2c = 44 = _OBJECT_TYPE->TotalNumberOfObjects (zeroing TotalNumberOfObjects..HighWaterNumberOfHandles)
+  PAGE:0000000140787258                 mov     [rbx+3Ch], eax
+  PAGE:000000014078725B                 cmp     cs:ObpTypeObjectType, rax
+  PAGE:0000000140787262                 jz      loc_140787604
+  PAGE:0000000140787268                 ; UnicodeString
+  PAGE:0000000140787268                 mov     rcx, r14; UnicodeString
+  PAGE:000000014078726B                 mov     r13b, 1
+  PAGE:000000014078726E                 call    RtlxUnicodeStringToAnsiSize
+  PAGE:0000000140787273                 ; PoolType
+  PAGE:0000000140787273                 mov     ecx, 1; PoolType
+  PAGE:0000000140787278                 ; Tag
+  PAGE:0000000140787278                 mov     r8d, 6E54624Fh; Tag
+  PAGE:000000014078727E                 lea     r15d, [r12+rax]
+  PAGE:0000000140787282                 mov     eax, 0FFFCh
+  PAGE:0000000140787287                 and     r15w, ax
+  PAGE:000000014078728B                 add     r15w, cx
+  PAGE:000000014078728F                 movzx   eax, r15w
+  PAGE:0000000140787293                 ; NumberOfBytes
+  PAGE:0000000140787293                 mov     edx, eax; NumberOfBytes
+  PAGE:0000000140787295                 mov     [rsp+220h+Size], rax
+  PAGE:000000014078729A                 call    ExAllocatePoolWithTag
+  PAGE:000000014078729F                 mov     [rsp+220h+P], rax
+  PAGE:00000001407872A4                 test    rax, rax
+  PAGE:00000001407872A7                 jz      loc_14081FA23
+  PAGE:00000001407872AD                 ; Size
+  PAGE:00000001407872AD                 mov     r8, [rsp+220h+Size]; Size
+  PAGE:00000001407872B2                 ; Val
+  PAGE:00000001407872B2                 xor     edx, edx; Val
+  PAGE:00000001407872B4                 ; void *
+  PAGE:00000001407872B4                 mov     rcx, rax; void *
+  PAGE:00000001407872B7                 call    memset
+  PAGE:00000001407872BC                 xorps   xmm0, xmm0
+  PAGE:00000001407872BF                 ; DestinationString
+  PAGE:00000001407872BF                 lea     rcx, [rsp+220h+Size]; DestinationString
+  PAGE:00000001407872C4                 movups  xmmword ptr [rsp+220h+Size], xmm0
+  PAGE:00000001407872C9                 mov     word ptr [rsp+220h+Size+2], r15w
+  PAGE:00000001407872CF                 ; AllocateDestinationString
+  PAGE:00000001407872CF                 xor     r8d, r8d; AllocateDestinationString
+  PAGE:00000001407872D2                 mov     r15, [rsp+220h+P]
+  PAGE:00000001407872D7                 ; SourceString
+  PAGE:00000001407872D7                 mov     rdx, r14; SourceString
+  PAGE:00000001407872DA                 mov     qword ptr [rsp+220h+DestinationString.Length], r15
+  PAGE:00000001407872DF                 call    RtlUnicodeStringToAnsiString
+  PAGE:00000001407872E4                 test    eax, eax
+  PAGE:00000001407872E6                 js      short loc_140787308
+  PAGE:00000001407872E8                 movzx   ecx, word ptr [r14]
+  PAGE:00000001407872EC                 mov     r8, qword ptr [rsp+220h+DestinationString.Length]
+  PAGE:00000001407872F1                 shr     ecx, 1
+  PAGE:00000001407872F3                 cmp     ecx, 4
+  PAGE:00000001407872F6                 jb      loc_140787576
+  PAGE:00000001407872FC                 mov     eax, [r8]
+  PAGE:00000001407872FF                 xor     r13b, r13b
+  PAGE:0000000140787302                 mov     [rbx+0C0h], eax ; 0xc0 = 192 = _OBJECT_TYPE->Key
+  PAGE:0000000140787308                 ; Tag
+  PAGE:0000000140787308                 xor     edx, edx; Tag
+  PAGE:000000014078730A                 ; P
+  PAGE:000000014078730A                 mov     rcx, r15; P
+  PAGE:000000014078730D                 call    ExFreePoolWithTag
+  PAGE:0000000140787312                 test    r13b, r13b
+  PAGE:0000000140787315                 jnz     loc_14081FA23
+  PAGE:000000014078731B                 mov     r13, [rsp+220h+var_1D8]
+  PAGE:0000000140787320                 mov     r15d, 1
+  PAGE:0000000140787326                 mov     r8d, 4
+  PAGE:000000014078732C                 movups  xmm0, xmmword ptr [rdi]
+  PAGE:000000014078732F                 mov     edx, dword ptr [rsp+220h+var_1E0]
+  PAGE:0000000140787333                 movups  xmmword ptr [rbx+40h], xmm0
+  PAGE:0000000140787337                 movups  xmm1, xmmword ptr [rdi+10h]
+  PAGE:000000014078733B                 movups  xmmword ptr [rbx+50h], xmm1
+  PAGE:000000014078733F                 movups  xmm0, xmmword ptr [rdi+20h]
+  PAGE:0000000140787343                 movups  xmmword ptr [rbx+60h], xmm0
+  PAGE:0000000140787347                 movups  xmm1, xmmword ptr [rdi+30h]
+  PAGE:000000014078734B                 movups  xmmword ptr [rbx+70h], xmm1
+  PAGE:000000014078734F                 movups  xmm0, xmmword ptr [rdi+40h]
+  PAGE:0000000140787353                 movups  xmmword ptr [rbx+80h], xmm0
+  PAGE:000000014078735A                 movups  xmm1, xmmword ptr [rdi+50h]
+  PAGE:000000014078735E                 movups  xmmword ptr [rbx+90h], xmm1
+  PAGE:0000000140787365                 movups  xmm0, xmmword ptr [rdi+60h]
+  PAGE:0000000140787369                 movups  xmmword ptr [rbx+0A0h], xmm0
+  PAGE:0000000140787370                 movsd   xmm1, qword ptr [rdi+70h]
+  PAGE:0000000140787375                 movsd   qword ptr [rbx+0B0h], xmm1
+  PAGE:000000014078737D                 mov     [rbx+64h], edx
+  PAGE:0000000140787380                 test    cs:NtGlobalFlag, 4000h
+  PAGE:000000014078738A                 jnz     loc_14081FA58
+  PAGE:0000000140787390                 mov     al, [rdi+2]
+  PAGE:0000000140787393                 and     al, 10h
+  PAGE:0000000140787395                 neg     al
+  PAGE:0000000140787397                 sbb     ecx, ecx
+  PAGE:0000000140787399                 and     ecx, 10h
+  PAGE:000000014078739C                 add     ecx, 58h ; 'X'
+  PAGE:000000014078739F                 test    r15b, dl
+  PAGE:00000001407873A2                 jnz     loc_140787555
+  PAGE:00000001407873A8                 add     [rbx+6Ch], ecx
+  PAGE:00000001407873AB                 cmp     qword ptr [rdi+58h], 0
+  PAGE:00000001407873B0                 jnz     short loc_1407873C0
+  PAGE:00000001407873B2                 lea     rax, SeDefaultObjectMethod
+  PAGE:00000001407873B9                 mov     [rbx+98h], rax
+  PAGE:00000001407873C0                 and     qword ptr [rbx+0B8h], 0 ; 0xb8 = 184 = _OBJECT_TYPE->TypeLock
+  PAGE:00000001407873C8                 lea     rax, [rbx+0C8h] ; 0xc8 = 200 = _OBJECT_TYPE->CallbackList
+  PAGE:00000001407873CF                 mov     [rbx+8], rbx ; 0x8 = 8 = _OBJECT_TYPE->TypeList.Blink
+  PAGE:00000001407873D3                 mov     [rbx], rbx ; 0x0 = 0 = _OBJECT_TYPE->TypeList.Flink
+  PAGE:00000001407873D6                 mov     [rax+8], rax
+  PAGE:00000001407873DA                 mov     [rax], rax
+  PAGE:00000001407873DD                 test    [rbx+42h], r8b
+  PAGE:00000001407873E1                 jz      short loc_1407873EF
+  PAGE:00000001407873E3                 bts     dword ptr [rbx+5Ch], 14h
+  PAGE:00000001407873E8                 lea     r13, ObpDefaultObject
+  PAGE:00000001407873EF                 mov     [rbx+20h], r13 ; 0x20 = 32 = _OBJECT_TYPE->DefaultObject
+  PAGE:00000001407873F3                 mov     rax, gs:188h
+  PAGE:00000001407873FC                 dec     word ptr [rax+1E6h]
+  PAGE:0000000140787403                 mov     rcx, cs:ObpTypeObjectType
+  PAGE:000000014078740A                 ; BugCheckParameter1
+  PAGE:000000014078740A                 xor     edx, edx; BugCheckParameter1
+  PAGE:000000014078740C                 ; BugCheckParameter2
+  PAGE:000000014078740C                 add     rcx, 0B8h; BugCheckParameter2
+  PAGE:0000000140787413                 call    ExAcquirePushLockExclusiveEx
+  PAGE:0000000140787418                 mov     rcx, [rsp+220h+ObjectTypeHeader]
+  PAGE:000000014078741D                 test    [rcx+1Ah], r15b
+  PAGE:0000000140787421                 jz      loc_14081FA61
+  PAGE:0000000140787427                 lea     rax, [rcx-20h]
+  PAGE:000000014078742B                 mov     rcx, cs:ObpTypeObjectType
+  PAGE:0000000140787432                 mov     rdx, [rcx+8]
+  PAGE:0000000140787436                 cmp     [rdx], rcx
+  PAGE:0000000140787439                 jnz     loc_14081FA68
+  PAGE:000000014078743F                 mov     [rax], rcx
+  PAGE:0000000140787442                 lea     r14, cs:140000000h
+  PAGE:0000000140787449                 mov     [rax+8], rdx
+  PAGE:000000014078744D                 mov     r13d, 100h
+  PAGE:0000000140787453                 mov     [rdx], rax
+  PAGE:0000000140787456                 mov     edi, 0C000009Ah
+  PAGE:000000014078745B                 mov     [rcx+8], rax
+  PAGE:000000014078745F                 mov     rdx, cs:ObpTypeObjectType
+  PAGE:0000000140787466                 mov     eax, [rdx+2Ch]
+  PAGE:0000000140787469                 cmp     eax, r13d
+  PAGE:000000014078746C                 jnb     loc_14081FA6F
+  PAGE:0000000140787472                 dec     eax
+  PAGE:0000000140787474                 mov     rva ObpObjectTypes[r14+rax*8], rbx
+  PAGE:000000014078747C                 ; BugCheckParameter2
+  PAGE:000000014078747C                 lea     rcx, [rdx+0B8h]; BugCheckParameter2
+  PAGE:0000000140787483                 ; BugCheckParameter1
+  PAGE:0000000140787483                 xor     edx, edx; BugCheckParameter1
+  PAGE:0000000140787485                 call    ExReleasePushLockEx
+  PAGE:000000014078748A                 mov     rcx, gs:188h
+  PAGE:0000000140787493                 call    KiLeaveGuardedRegionUnsafe
+  PAGE:0000000140787498                 cmp     rbx, cs:ObpTypeObjectType
+  PAGE:000000014078749F                 jz      short loc_1407874D1
+  PAGE:00000001407874A1                 test    esi, esi
+  PAGE:00000001407874A3                 js      loc_14081F9DA
+  PAGE:00000001407874A9                 mov     ecx, 3
+  PAGE:00000001407874AE                 mov     edx, ecx
+  PAGE:00000001407874B0                 xor     eax, eax
+  PAGE:00000001407874B2                 lock cmpxchg ds:rva ObTypeIndexTable[r14+rdx*8], r15
+  PAGE:00000001407874BC                 jz      short loc_1407874CE
+  PAGE:00000001407874BE                 add     ecx, r15d
+  PAGE:00000001407874C1                 movsxd  rdx, ecx
+  PAGE:00000001407874C4                 cmp     rdx, r13
+  PAGE:00000001407874C7                 jb      short loc_1407874B0
+  PAGE:00000001407874C9                 jmp     loc_14081F9D5
+  PAGE:00000001407874CE                 mov     r12b, cl
+  PAGE:00000001407874D1                 movzx   esi, r12b
+  PAGE:00000001407874D5                 mov     ds:rva ObTypeIndexTable[r14+rsi*8], rbx
+  PAGE:00000001407874DD                 ; 0x28 = 40LL = _OBJECT_TYPE->Index
+  PAGE:00000001407874DD                 mov     [rbx+28h], r12b; 0x28 = 40LL = _OBJECT_TYPE->Index
+  PAGE:00000001407874E1                 ; Object
+  PAGE:00000001407874E1                 mov     rcx, cs:ObpTypeDirectoryObject; Object
+  PAGE:00000001407874E8                 test    rcx, rcx
+  PAGE:00000001407874EB                 jz      short loc_140787501
+  PAGE:00000001407874ED                 lea     r8, [rbp+120h+var_1A0]
+  PAGE:00000001407874F1                 ; PVOID
+  PAGE:00000001407874F1                 mov     rdx, rbx; PVOID
+  PAGE:00000001407874F4                 call    ObpInsertDirectoryEntry
+  PAGE:00000001407874F9                 test    al, al
+  PAGE:00000001407874FB                 jz      loc_14081FA76
+  PAGE:0000000140787501                 lea     rcx, [rbp+120h+var_1A0]
+  PAGE:0000000140787505                 call    ObpReleaseLookupContext
+  PAGE:000000014078750A                 mov     rax, [rbp+120h+var_178]
+  PAGE:000000014078750E                 mov     [rax], rbx
+  PAGE:0000000140787511                 xor     eax, eax
+  PAGE:0000000140787513                 mov     rcx, [rbp+120h+var_50]
+  PAGE:000000014078751A                 ; StackCookie
+  PAGE:000000014078751A                 xor     rcx, rsp; StackCookie
+  PAGE:000000014078751D                 call    __security_check_cookie
+  PAGE:0000000140787522                 lea     r11, [rsp+220h+var_30]
+  PAGE:000000014078752A                 mov     rbx, [r11+58h]
+  PAGE:000000014078752E                 movaps  xmm6, xmmword ptr [r11-10h]
+  PAGE:0000000140787533                 mov     rsp, r11
+  PAGE:0000000140787536                 pop     r15
+  PAGE:0000000140787538                 pop     r14
+  PAGE:000000014078753A                 pop     r13
+  PAGE:000000014078753C                 pop     r12
+  PAGE:000000014078753E                 pop     rdi
+  PAGE:000000014078753F                 pop     rsi
+  PAGE:0000000140787540                 pop     rbp
+  PAGE:0000000140787541                 retn
+  PAGE:0000000140787543                 test    dword ptr [rdi+24h], 0FFFFFDFFh
+  PAGE:000000014078754A                 jz      loc_140787119
+  PAGE:0000000140787550                 jmp     loc_14081F990
+  PAGE:0000000140787555                 add     [rbx+68h], ecx
+  PAGE:0000000140787558                 jmp     loc_1407873AB
+  PAGE:000000014078755D                 cmp     [rdi+38h], rbx
+  PAGE:0000000140787561                 jnz     loc_14078710C
+  PAGE:0000000140787567                 cmp     [rdi+40h], rbx
+  PAGE:000000014078756B                 jnz     loc_14078710C
+  PAGE:0000000140787571                 jmp     loc_14081F999
+  PAGE:0000000140787576                 movzx   r9d, word ptr [rsp+220h+Size+2]
+  PAGE:000000014078757C                 mov     eax, 1
+  PAGE:0000000140787581                 mov     edx, ecx
+  PAGE:0000000140787583                 add     rdx, r8
+  PAGE:0000000140787586                 cmp     ecx, r9d
+  PAGE:0000000140787589                 jnb     short loc_14078758E
+  PAGE:000000014078758B                 mov     byte ptr [rdx], 20h ; ' '
+  PAGE:000000014078758E                 add     ecx, eax
+  PAGE:0000000140787590                 add     rdx, rax
+  PAGE:0000000140787593                 cmp     ecx, 4
+  PAGE:0000000140787596                 jnb     loc_1407872FC
+  PAGE:000000014078759C                 jmp     short loc_140787586
+  PAGE:000000014078759E                 movups  xmm0, xmmword ptr [rdi]
+  PAGE:00000001407875A1                 mov     [rbp+120h+var_108], r12b
+  PAGE:00000001407875A5                 lea     r8, [rbp+120h+var_130]
+  PAGE:00000001407875A9                 movups  xmm1, xmmword ptr [rdi+10h]
+  PAGE:00000001407875AD                 mov     [rbp+120h+var_70], 546A624Fh
+  PAGE:00000001407875B7                 movaps  [rbp+120h+var_F0], xmm0
+  PAGE:00000001407875BB                 movups  xmm0, xmmword ptr [rdi+20h]
+  PAGE:00000001407875BF                 movaps  [rbp+120h+var_E0], xmm1
+  PAGE:00000001407875C3                 movups  xmm1, xmmword ptr [rdi+30h]
+  PAGE:00000001407875C7                 movaps  [rbp+120h+var_D0], xmm0
+  PAGE:00000001407875CB                 movups  xmm0, xmmword ptr [rdi+40h]
+  PAGE:00000001407875CF                 movaps  [rbp+120h+var_C0], xmm1
+  PAGE:00000001407875D3                 movups  xmm1, xmmword ptr [rdi+50h]
+  PAGE:00000001407875D7                 movaps  [rbp+120h+var_B0], xmm0
+  PAGE:00000001407875DB                 movups  xmm0, xmmword ptr [rdi+60h]
+  PAGE:00000001407875DF                 movaps  [rbp+120h+var_A0], xmm1
+  PAGE:00000001407875E6                 movsd   xmm1, qword ptr [rdi+70h]
+  PAGE:00000001407875EB                 movaps  [rbp+120h+var_90], xmm0
+  PAGE:00000001407875F2                 movsd   [rbp+120h+var_80], xmm1
+  PAGE:00000001407875FA                 movdqu  [rbp+120h+var_120], xmm6
+  PAGE:00000001407875FF                 jmp     loc_1407871D2
+  PAGE:0000000140787604                 mov     cs:ObpTypeObjectType, rbx
+  PAGE:000000014078760B                 mov     r15d, 1
+  PAGE:0000000140787611                 mov     [rbx+2Ch], r15d
+  PAGE:0000000140787615                 mov     dword ptr [rbx+0C0h], 546A624Fh
+  PAGE:000000014078761F                 jmp     loc_140787326
+  PAGE:000000014081F990                 test    sil, r13b
+  PAGE:000000014081F993                 jnz     loc_140787119
+  PAGE:000000014081F999                 lea     r8, aErrorCreatingO; "Error creating object type\n"
+  PAGE:000000014081F9A0                 ; Level
+  PAGE:000000014081F9A0                 xor     edx, edx; Level
+  PAGE:000000014081F9A2                 ; ComponentId
+  PAGE:000000014081F9A2                 xor     ecx, ecx; ComponentId
+  PAGE:000000014081F9A4                 call    DbgPrintEx
+  PAGE:000000014081F9A9                 ; Trap to Debugger
+  PAGE:000000014081F9A9                 int     3; Trap to Debugger
+  PAGE:000000014081F9AA                 mov     eax, 0C000000Dh
+  PAGE:000000014081F9AF                 jmp     loc_140787513
+  PAGE:000000014081F9B4                 mov     eax, 0C0000033h
+  PAGE:000000014081F9B9                 jmp     loc_140787513
+  PAGE:000000014081F9BE                 mov     edi, 0C0000035h
+  PAGE:000000014081F9C3                 jmp     short loc_14081F9CA
+  PAGE:000000014081F9C5                 mov     edi, 0C000009Ah
+  PAGE:000000014081F9CA                 lea     rcx, [rbp+120h+var_1A0]
+  PAGE:000000014081F9CE                 call    ObpReleaseLookupContext
+  PAGE:000000014081F9D3                 jmp     short loc_14081F9ED
+  PAGE:000000014081F9D5                 mov     esi, 0C0000001h
+  PAGE:000000014081F9DA                 mov     edi, esi
+  PAGE:000000014081F9DC                 lea     rcx, [rbp+120h+var_1A0]
+  PAGE:000000014081F9E0                 call    ObpReleaseLookupContext
+  PAGE:000000014081F9E5                 ; DmaAdapter
+  PAGE:000000014081F9E5                 mov     rcx, rbx; DmaAdapter
+  PAGE:000000014081F9E8                 call    ObDereferenceObjectWithTag
+  PAGE:000000014081F9ED                 mov     eax, edi
+  PAGE:000000014081F9EF                 jmp     loc_140787513
+  PAGE:000000014081F9F4                 lea     rcx, [rbp+120h+var_1A0]
+  PAGE:000000014081F9F8                 call    ObpReleaseLookupContext
+  PAGE:000000014081F9FD                 ; P
+  PAGE:000000014081F9FD                 mov     rcx, [rsp+220h+var_1B0]; P
+  PAGE:000000014081FA02                 ; Tag
+  PAGE:000000014081FA02                 xor     edx, edx; Tag
+  PAGE:000000014081FA04                 call    ExFreePoolWithTag
+  PAGE:000000014081FA09                 jmp     short loc_14081FA1C
+  PAGE:000000014081FA0B                 lea     rcx, [rbp+120h+var_1A0]
+  PAGE:000000014081FA0F                 call    ObpReleaseLookupContext
+  PAGE:000000014081FA14                 ; DmaAdapter
+  PAGE:000000014081FA14                 mov     rcx, rbx; DmaAdapter
+  PAGE:000000014081FA17                 call    ObDereferenceObjectWithTag
+  PAGE:000000014081FA1C                 mov     eax, esi
+  PAGE:000000014081FA1E                 jmp     loc_140787513
+  PAGE:000000014081FA23                 mov     r13, [rsp+220h+var_1D8]
+  PAGE:000000014081FA28                 mov     r8d, 4
+  PAGE:000000014081FA2E                 lea     r15d, [r8-3]
+  PAGE:000000014081FA32                 cmp     [r14], r8w
+  PAGE:000000014081FA36                 jb      short loc_14081FA49
+  PAGE:000000014081FA38                 mov     rax, [r14+8]
+  PAGE:000000014081FA3C                 mov     ecx, [rax]
+  PAGE:000000014081FA3E                 mov     [rbx+0C0h], ecx
+  PAGE:000000014081FA44                 jmp     loc_14078732C
+  PAGE:000000014081FA49                 mov     dword ptr [rbx+0C0h], 3F6A624Fh
+  PAGE:000000014081FA53                 jmp     loc_14078732C
+  PAGE:000000014081FA58                 or      byte ptr [rbx+42h], 20h
+  PAGE:000000014081FA5C                 jmp     loc_140787390
+  PAGE:000000014081FA61                 xor     eax, eax
+  PAGE:000000014081FA63                 jmp     loc_14078742B
+  PAGE:000000014081FA68                 mov     ecx, 3
+  PAGE:000000014081FA6D                 ; Win8: RtlFailFast(ecx)
+  PAGE:000000014081FA6D                 int     29h; Win8: RtlFailFast(ecx)
+  PAGE:000000014081FA6F                 mov     esi, edi
+  PAGE:000000014081FA71                 jmp     loc_14078747C
+  PAGE:000000014081FA76                 and     ds:rva ObTypeIndexTable[r14+rsi*8], 0
+  PAGE:000000014081FA7F                 jmp     loc_14081F9DC
+procedure: |-
+  // 00000000 struct _OBJECT_TYPE // sizeof=0xD8
+  // 00000000 {
+  // 00000000     _LIST_ENTRY TypeList;        // 0x0 = 0
+  // 00000010     _UNICODE_STRING Name;        // 0x10 = 16
+  // 00000020     void *DefaultObject;         // 0x20 = 32
+  // 00000028     unsigned __int8 Index;       // 0x28 = 40
+  // 0000002C     unsigned int TotalNumberOfObjects;
+  // 00000030     unsigned int TotalNumberOfHandles;
+  // 00000034     unsigned int HighWaterNumberOfObjects;
+  // 00000038     unsigned int HighWaterNumberOfHandles;
+  // 00000040     _OBJECT_TYPE_INITIALIZER TypeInfo; // 0x40 = 64 (sizeof=0x78)
+  // 000000B8     _EX_PUSH_LOCK TypeLock;      // 0xb8 = 184
+  // 000000C0     unsigned int Key;            // 0xc0 = 192
+  // 000000C8     _LIST_ENTRY CallbackList;    // 0xc8 = 200
+  // 000000D8 };
+  __int64 __fastcall ObCreateObjectTypeEx(
+          PCUNICODE_STRING SourceString,
+          __int64 a2,
+          __int64 a3,
+          __int16 *a4,
+          _OBJECT_TYPE **a5)
+  {
+    __int16 *v8; // r13
+    unsigned int Length; // ecx
+    unsigned __int8 v10; // r12
+    char v11; // al
+    unsigned int v12; // ecx
+    wchar_t *Buffer; // rdx
+    wchar_t v14; // ax
+    POBJECT_TYPE v15; // r8
+    UNICODE_STRING v16; // xmm6
+    int inited; // esi
+    _OBJECT_HEADER *v18; // rax
+    _OBJECT_TYPE *p_Body; // rbx
+    bool v20; // zf
+    char v21; // r13
+    unsigned __int16 v22; // r15
+    PVOID PoolWithTag; // rax
+    PVOID v24; // r15
+    unsigned int *v25; // r8
+    unsigned int v26; // ecx
+    int v27; // ecx
+    struct _KTHREAD *CurrentThread; // rax
+    struct _LIST_ENTRY *v29; // rax
+    POBJECT_TYPE v30; // rcx
+    struct _LIST_ENTRY *Blink; // rdx
+    unsigned int v32; // edi
+    POBJECT_TYPE v33; // rdx
+    unsigned int TotalNumberOfObjects; // eax
+    int v35; // ecx
+    __int64 v36; // rdx
+    unsigned int v38; // r9d
+    _BYTE *v39; // rdx
+    __int128 v40; // xmm0
+    __int128 v41; // xmm1
+    __int128 v42; // xmm0
+    __int128 v43; // xmm1
+    __int128 v44; // xmm0
+    __int128 v45; // xmm1
+    __int128 v46; // xmm0
+    _POOL_TYPE v47; // [rsp+48h] [rbp-C0h]
+    PVOID ObjectTypeHeader; // [rsp+58h] [rbp-B0h] BYREF
+    size_t Size; // [rsp+60h] [rbp-A8h] BYREF
+    unsigned int *DestinationString; // [rsp+68h] [rbp-A0h]
+    UNICODE_STRING DestinationString_8; // [rsp+70h] [rbp-98h] BYREF
+    PVOID P; // [rsp+80h] [rbp-88h]
+    __int64 v54[2]; // [rsp+88h] [rbp-80h] BYREF
+    __int128 v55; // [rsp+98h] [rbp-70h]
+    __int64 v56; // [rsp+A8h] [rbp-60h]
+    _OBJECT_TYPE **v57; // [rsp+B0h] [rbp-58h]
+    int v58[16]; // [rsp+B8h] [rbp-50h] BYREF
+    _OWORD v59[14]; // [rsp+F8h] [rbp-10h] BYREF
+
+    v57 = a5;
+    v8 = a4;
+    memset(v59, 0, 0xD8u);
+    v56 = 0;
+    *(_OWORD *)v54 = 0;
+    ObjectTypeHeader = nullptr;
+    v55 = 0;
+    memset(v58, 0, sizeof(v58));
+    DestinationString_8 = 0;
+    if ( !SourceString
+      || (Length = SourceString->Length, !(_WORD)Length)
+      || (Length & 1) != 0
+      || !a2
+      || (*(_DWORD *)(a2 + 8) & 0xFFFEE00D) != 0
+      || *(_WORD *)a2 != 120
+      || (v10 = 2, *(_BYTE *)(a2 + 3) >= 2u)
+      || (v11 = *(_BYTE *)(a2 + 2), (v11 & 0x10) != 0) && !*(_QWORD *)(a2 + 56) && !*(_QWORD *)(a2 + 64)
+      || (v11 & 4) == 0 && (*(_DWORD *)(a2 + 36) & 0xFFFFFDFF) != 0 && ((unsigned __int8)v8 & 1) == 0 )
+    {
+      DbgPrintEx(0, 0, "Error creating object type\n");
+      __debugbreak();
+    }
+    v12 = Length >> 1;
+    Buffer = SourceString->Buffer;
+    v47 = *(_DWORD *)(a2 + 36);
+    if ( !v12 )
+    {
+  LABEL_13:
+      LODWORD(v56) = 0xFFFF1234;
+      if ( ObpTypeDirectoryObject
+        && (ObpLockDirectoryExclusive(v54, ObpTypeDirectoryObject),
+            ObpLookupDirectoryEntryEx(ObpTypeDirectoryObject, 0, (__int64)v54)) )
+      {
+        v32 = 0xC0000035;
+      }
+      else
+      {
+        DestinationString_8.Buffer = (wchar_t *)ExAllocatePoolWithTag(PagedPool, SourceString->MaximumLength, 0x6D4E624Fu);
+        if ( DestinationString_8.Buffer )
+        {
+          DestinationString_8.MaximumLength = SourceString->MaximumLength;
+          RtlCopyUnicodeString(&DestinationString_8, SourceString);
+          v15 = ObpTypeObjectType;
+          v16 = DestinationString_8;
+          if ( !ObpTypeObjectType )
+          {
+            v40 = *(_OWORD *)a2;
+            BYTE8(v59[2]) = 2;
+            v15 = (POBJECT_TYPE)v59;
+            v41 = *(_OWORD *)(a2 + 16);
+            LODWORD(v59[12]) = 'TjbO';
+            v59[4] = v40;
+            v42 = *(_OWORD *)(a2 + 32);
+            v59[5] = v41;
+            v43 = *(_OWORD *)(a2 + 48);
+            v59[6] = v42;
+            v44 = *(_OWORD *)(a2 + 64);
+            v59[7] = v43;
+            v45 = *(_OWORD *)(a2 + 80);
+            v59[8] = v44;
+            v46 = *(_OWORD *)(a2 + 96);
+            v59[9] = v45;
+            *(_QWORD *)&v45 = *(_QWORD *)(a2 + 112);
+            v59[10] = v46;
+            *(_QWORD *)&v59[11] = v45;
+            v59[1] = DestinationString_8;
+          }
+          v58[0] = 16;
+          v58[5] = v15->TypeInfo.DefaultPagedPoolCharge;
+          v58[6] = v15->TypeInfo.DefaultNonPagedPoolCharge;
+          v58[7] = 2048;
+          inited = ObpAllocateObject(v58, 0, (__int64)v15, &DestinationString_8, 0xD8u, &ObjectTypeHeader, nullptr);
+          if ( inited < 0 )
+          {
+            ObpReleaseLookupContext(v54);
+            ExFreePoolWithTag(DestinationString_8.Buffer, 0);
+          }
+          else
+          {
+            v18 = (_OBJECT_HEADER *)ObjectTypeHeader;
+            *((_QWORD *)ObjectTypeHeader + 4) = 0;
+            p_Body = (_OBJECT_TYPE *)&v18->Body;
+            v20 = (_DWORD)InitializationPhase == 0;
+            *(UNICODE_STRING *)&v18[1].HandleCount = v16;
+            if ( v20 || (inited = ObpInitObjectTypeSD(&v18->Body, a3), inited >= 0) )
+            {
+              *(_OWORD *)&p_Body->TotalNumberOfObjects = 0; // 0x2c = 44 = _OBJECT_TYPE->TotalNumberOfObjects
+              *(&p_Body->HighWaterNumberOfHandles + 1) = 0;
+              if ( ObpTypeObjectType )
+              {
+                v21 = 1;
+                v22 = ((RtlxUnicodeStringToAnsiSize(SourceString) + 2) & 0xFFFC) + 1;
+                Size = v22;
+                PoolWithTag = ExAllocatePoolWithTag(PagedPool, v22, 'nTbO');
+                P = PoolWithTag;
+                if ( !PoolWithTag )
+                  goto LABEL_75;
+                memset(PoolWithTag, 0, Size);
+                Size = 0;
+                WORD1(Size) = v22;
+                v24 = P;
+                DestinationString = (unsigned int *)P;
+                if ( RtlUnicodeStringToAnsiString((PANSI_STRING)&Size, SourceString, 0) >= 0 )
+                {
+                  v25 = DestinationString;
+                  v26 = SourceString->Length >> 1;
+                  if ( v26 < 4 )
+                  {
+                    v38 = WORD1(Size);
+                    v39 = (char *)DestinationString + v26;
+                    do
+                    {
+                      if ( v26 < v38 )
+                        *v39 = 32;
+                      ++v26;
+                      ++v39;
+                    }
+                    while ( v26 < 4 );
+                  }
+                  v21 = 0;
+                  p_Body->Key = *v25; // 0xc0 = 192 = _OBJECT_TYPE->Key
+                }
+                ExFreePoolWithTag(v24, 0);
+                if ( v21 )
+                {
+  LABEL_75:
+                  v8 = a4;
+                  if ( SourceString->Length < 4u )
+                    p_Body->Key = 1063936591; // 0xc0 = 192 = _OBJECT_TYPE->Key
+                  else
+                    p_Body->Key = *(_DWORD *)SourceString->Buffer; // 0xc0 = 192 = _OBJECT_TYPE->Key
+                }
+                else
+                {
+                  v8 = a4;
+                }
+              }
+              else
+              {
+                ObpTypeObjectType = p_Body;
+                p_Body->TotalNumberOfObjects = 1;
+                p_Body->Key = 'TjbO';
+              }
+              p_Body->TypeInfo = *(_OBJECT_TYPE_INITIALIZER *)a2;
+              p_Body->TypeInfo.PoolType = v47;
+              if ( (NtGlobalFlag & 0x4000) != 0 )
+                LOBYTE(p_Body->TypeInfo.ObjectTypeFlags) |= 0x20u;
+              v27 = (*(_BYTE *)(a2 + 2) & 0x10) != 0 ? 104 : 88;
+              if ( (v47 & 1) != 0 )
+                p_Body->TypeInfo.DefaultPagedPoolCharge += v27;
+              else
+                p_Body->TypeInfo.DefaultNonPagedPoolCharge += v27;
+              if ( !*(_QWORD *)(a2 + 88) )
+                p_Body->TypeInfo.SecurityProcedure = (int (__fastcall *)(void *, _SECURITY_OPERATION_CODE, unsigned int *, void *, unsigned int *, void **, _POOL_TYPE, _GENERIC_MAPPING *, char))&SeDefaultObjectMethod;
+              p_Body->TypeLock.Value = 0; // 0xb8 = 184 = _OBJECT_TYPE->TypeLock
+              p_Body->TypeList.Blink = &p_Body->TypeList; // 0x0 = 0 = _OBJECT_TYPE->TypeList
+              p_Body->TypeList.Flink = &p_Body->TypeList; // 0x0 = 0 = _OBJECT_TYPE->TypeList
+              p_Body->CallbackList.Blink = &p_Body->CallbackList; // 0xc8 = 200 = _OBJECT_TYPE->CallbackList
+              p_Body->CallbackList.Flink = &p_Body->CallbackList; // 0xc8 = 200 = _OBJECT_TYPE->CallbackList
+              if ( (p_Body->TypeInfo.ObjectTypeFlags & 4) != 0 )
+              {
+                p_Body->TypeInfo.ValidAccessMask |= 0x100000u;
+                v8 = &ObpDefaultObject;
+              }
+              p_Body->DefaultObject = v8; // 0x20 = 32 = _OBJECT_TYPE->DefaultObject
+              CurrentThread = KeGetCurrentThread();
+              --CurrentThread->SpecialApcDisable;
+              ExAcquirePushLockExclusiveEx((ULONG_PTR)&ObpTypeObjectType->TypeLock, 0);
+              if ( (*((_BYTE *)ObjectTypeHeader + 26) & 1) != 0 )
+                v29 = (struct _LIST_ENTRY *)((char *)ObjectTypeHeader - 32);
+              else
+                v29 = nullptr;
+              v30 = ObpTypeObjectType;
+              Blink = ObpTypeObjectType->TypeList.Blink;
+              if ( (POBJECT_TYPE)Blink->Flink != ObpTypeObjectType )
+                __fastfail(3u);
+              v29->Flink = &ObpTypeObjectType->TypeList;
+              v29->Blink = Blink;
+              Blink->Flink = v29;
+              v32 = 0xC000009A;
+              v30->TypeList.Blink = v29;
+              v33 = ObpTypeObjectType;
+              TotalNumberOfObjects = ObpTypeObjectType->TotalNumberOfObjects;
+              if ( TotalNumberOfObjects >= 256 )
+                inited = 0xC000009A;
+              else
+                ObpObjectTypes[TotalNumberOfObjects - 1] = (__int64)p_Body;
+              ExReleasePushLockEx((ULONG_PTR)&v33->TypeLock, 0);
+              KiLeaveGuardedRegionUnsafe(KeGetCurrentThread());
+              if ( p_Body != ObpTypeObjectType )
+              {
+                if ( inited < 0 )
+                {
+  LABEL_69:
+                  v32 = inited;
+  LABEL_70:
+                  ObpReleaseLookupContext(v54);
+                  ObDereferenceObjectWithTag((PADAPTER_OBJECT)p_Body);
+                  return v32;
+                }
+                v35 = 3;
+                v36 = 3;
+                while ( _InterlockedCompareExchange64(&ObTypeIndexTable[v36], 1, 0) )
+                {
+                  v36 = ++v35;
+                  if ( (unsigned __int64)v35 >= 256 )
+                  {
+                    inited = 0xC0000001;
+                    goto LABEL_69;
+                  }
+                }
+                v10 = v35;
+              }
+              ObTypeIndexTable[v10] = (__int64)p_Body;
+              p_Body->Index = v10;                // 0x28 = 40LL = _OBJECT_TYPE->Index
+              if ( !ObpTypeDirectoryObject
+                || ObpInsertDirectoryEntry((char *)ObpTypeDirectoryObject, (char *)p_Body, (__int64)v54) )
+              {
+                ObpReleaseLookupContext(v54);
+                *v57 = p_Body;
+                return 0;
+              }
+              ObTypeIndexTable[v10] = 0;
+              goto LABEL_70;
+            }
+            ObpReleaseLookupContext(v54);
+            ObDereferenceObjectWithTag((PADAPTER_OBJECT)p_Body);
+          }
+          return (unsigned int)inited;
+        }
+        v32 = 0xC000009A;
+      }
+      ObpReleaseLookupContext(v54);
+      return v32;
+    }
+    while ( 1 )
+    {
+      v14 = *Buffer;
+      --v12;
+      ++Buffer;
+      if ( v14 == 92 )
+        return 0xC0000033LL;
+      if ( !v12 )
+        goto LABEL_13;
+    }
+  }

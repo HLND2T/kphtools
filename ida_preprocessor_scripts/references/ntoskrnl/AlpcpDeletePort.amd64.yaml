@@ -1,0 +1,265 @@
+func_name: AlpcpDeletePort
+func_va: '0x140671f30'
+disasm_code: |-
+  PAGE:0000000140671F30                 mov     [rsp+arg_0], rbx
+  PAGE:0000000140671F35                 mov     [rsp+arg_8], rsi
+  PAGE:0000000140671F3A                 push    rdi
+  PAGE:0000000140671F3B                 sub     rsp, 20h
+  PAGE:0000000140671F3F                 mov     rax, gs:188h
+  PAGE:0000000140671F48                 or      rbx, 0FFFFFFFFFFFFFFFFh
+  PAGE:0000000140671F4C                 mov     rdi, rcx
+  PAGE:0000000140671F4F                 add     [rax+1E4h], bx
+  PAGE:0000000140671F56                 test    dword ptr [rcx+100h], 1000h ; 0x100 = 256LL = _ALPC_PORT->PortAttributes, 0 = _ALPC_PORT_ATTRIBUTES->Flags
+  PAGE:0000000140671F60                 jnz     loc_1406720A5
+  PAGE:0000000140671F66                 mov     rcx, [rdi+10h] ; 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
+  PAGE:0000000140671F6A                 test    rcx, rcx
+  PAGE:0000000140671F6D                 jz      loc_140671FF6
+  PAGE:0000000140671F73                 ; BugCheckParameter2
+  PAGE:0000000140671F73                 add     rcx, 0FFFFFFFFFFFFFFF0h; BugCheckParameter2
+  PAGE:0000000140671F77                 ; BugCheckParameter1
+  PAGE:0000000140671F77                 xor     edx, edx; BugCheckParameter1
+  PAGE:0000000140671F79                 call    ExAcquirePushLockExclusiveEx
+  PAGE:0000000140671F7E                 mov     eax, [rdi+1A0h]
+  PAGE:0000000140671F84                 and     eax, 6
+  PAGE:0000000140671F87                 cmp     eax, 2
+  PAGE:0000000140671F8A                 jz      loc_1406720C2
+  PAGE:0000000140671F90                 cmp     eax, 4
+  PAGE:0000000140671F93                 jz      loc_140672072
+  PAGE:0000000140671F99                 cmp     eax, 6
+  PAGE:0000000140671F9C                 jnz     short loc_140671FC4
+  PAGE:0000000140671F9E                 mov     rax, [rdi+10h] ; 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
+  PAGE:0000000140671FA2                 and     qword ptr [rax+8], 0 ; 0x8 = 8LL = _ALPC_COMMUNICATION_INFO->ServerCommunicationPort
+  PAGE:0000000140671FA7                 mov     rax, [rdi+10h] ; 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
+  PAGE:0000000140671FAB                 mov     rcx, [rax+10h] ; 0x10 = 16LL = _ALPC_COMMUNICATION_INFO->ClientCommunicationPort
+  PAGE:0000000140671FAF                 test    rcx, rcx
+  PAGE:0000000140671FB2                 jz      short loc_140671FC4
+  PAGE:0000000140671FB4                 and     qword ptr [rcx+1A8h], 0
+  PAGE:0000000140671FBC                 and     qword ptr [rcx+1B0h], 0
+  PAGE:0000000140671FC4                 mov     rsi, [rdi+10h] ; 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
+  PAGE:0000000140671FC8                 lock xadd [rsi-10h], rbx
+  PAGE:0000000140671FCE                 and     bl, 6
+  PAGE:0000000140671FD1                 cmp     bl, 2
+  PAGE:0000000140671FD4                 jz      loc_1406720DE
+  PAGE:0000000140671FDA                 ; BugCheckParameter2
+  PAGE:0000000140671FDA                 lea     rcx, [rsi-10h]; BugCheckParameter2
+  PAGE:0000000140671FDE                 call    KeAbPostRelease
+  PAGE:0000000140671FE3                 ; BugCheckParameter2
+  PAGE:0000000140671FE3                 mov     rcx, [rdi+10h]; BugCheckParameter2 ; 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
+  PAGE:0000000140671FE7                 mov     edx, 1
+  PAGE:0000000140671FEC                 call    AlpcpDereferenceBlobEx
+  PAGE:0000000140671FF1                 and     qword ptr [rdi+10h], 0 ; 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
+  PAGE:0000000140671FF6                 ; DmaAdapter
+  PAGE:0000000140671FF6                 mov     rcx, [rdi+20h]; DmaAdapter
+  PAGE:0000000140671FFA                 test    rcx, rcx
+  PAGE:0000000140671FFD                 jnz     loc_1406720AF
+  PAGE:0000000140672003                 mov     ecx, [rdi+1A0h]
+  PAGE:0000000140672009                 mov     eax, ecx
+  PAGE:000000014067200B                 and     al, 6
+  PAGE:000000014067200D                 cmp     al, 4
+  PAGE:000000014067200F                 jz      short loc_140672088
+  PAGE:0000000140672011                 mov     rax, [rdi+18h] ; 0x18 = 24LL = _ALPC_PORT->OwnerProcess
+  PAGE:0000000140672015                 mov     ecx, 0
+  PAGE:000000014067201A                 test    al, 1
+  PAGE:000000014067201C                 ; Object
+  PAGE:000000014067201C                 cmovz   rcx, rax; Object
+  PAGE:0000000140672020                 test    rcx, rcx
+  PAGE:0000000140672023                 jnz     loc_1406720EC
+  PAGE:0000000140672029                 ; DmaAdapter
+  PAGE:0000000140672029                 mov     rcx, [rdi+170h]; DmaAdapter
+  PAGE:0000000140672030                 test    rcx, rcx
+  PAGE:0000000140672033                 jnz     loc_1406720FB
+  PAGE:0000000140672039                 xor     ecx, ecx
+  PAGE:000000014067203B                 ; BugCheckParameter2
+  PAGE:000000014067203B                 xchg    rcx, [rdi+1B8h]; BugCheckParameter2
+  PAGE:0000000140672042                 test    rcx, rcx
+  PAGE:0000000140672045                 jnz     loc_1406720CF
+  PAGE:000000014067204B                 mov     rcx, rdi
+  PAGE:000000014067204E                 call    AlpcpDestroyPort
+  PAGE:0000000140672053                 mov     rcx, gs:188h
+  PAGE:000000014067205C                 call    KeLeaveCriticalRegionThread
+  PAGE:0000000140672061                 mov     rbx, [rsp+28h+arg_0]
+  PAGE:0000000140672066                 mov     rsi, [rsp+28h+arg_8]
+  PAGE:000000014067206B                 add     rsp, 20h
+  PAGE:000000014067206F                 pop     rdi
+  PAGE:0000000140672070                 retn
+  PAGE:0000000140672072                 mov     rax, [rdi+10h] ; 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
+  PAGE:0000000140672076                 and     qword ptr [rax+10h], 0 ; 0x10 = 16LL = _ALPC_COMMUNICATION_INFO->ClientCommunicationPort
+  PAGE:000000014067207B                 mov     rax, [rdi+10h] ; 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
+  PAGE:000000014067207F                 mov     rcx, [rax+8] ; 0x8 = 8LL = _ALPC_COMMUNICATION_INFO->ServerCommunicationPort
+  PAGE:0000000140672083                 jmp     loc_140671FAF
+  PAGE:0000000140672088                 bt      ecx, 0Ah
+  PAGE:000000014067208C                 jb      short loc_140672011
+  PAGE:000000014067208E                 ; DmaAdapter
+  PAGE:000000014067208E                 mov     rcx, [rdi+50h]; DmaAdapter
+  PAGE:0000000140672092                 test    rcx, rcx
+  PAGE:0000000140672095                 jz      loc_140672011
+  PAGE:000000014067209B                 call    HalPutDmaAdapter
+  PAGE:00000001406720A0                 jmp     loc_140672011
+  PAGE:00000001406720A5                 call    AlpcpSendCloseMessage
+  PAGE:00000001406720AA                 jmp     loc_140671F66
+  PAGE:00000001406720AF                 call    HalPutDmaAdapter
+  PAGE:00000001406720B4                 mov     rcx, [rdi+30h]
+  PAGE:00000001406720B8                 call    AlpcpFreeCompletionPacketLookaside
+  PAGE:00000001406720BD                 jmp     loc_140672003
+  PAGE:00000001406720C2                 mov     rax, [rdi+10h] ; 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
+  PAGE:00000001406720C6                 and     qword ptr [rax], 0 ; 0x0 = 0LL = _ALPC_COMMUNICATION_INFO->ConnectionPort
+  PAGE:00000001406720CA                 jmp     loc_140671FC4
+  PAGE:00000001406720CF                 mov     edx, 1
+  PAGE:00000001406720D4                 call    AlpcpDereferenceBlobEx
+  PAGE:00000001406720D9                 jmp     loc_14067204B
+  PAGE:00000001406720DE                 lea     rcx, [rsi-10h]
+  PAGE:00000001406720E2                 call    ExfTryToWakePushLock
+  PAGE:00000001406720E7                 jmp     loc_140671FDA
+  PAGE:00000001406720EC                 ; Tag
+  PAGE:00000001406720EC                 mov     edx, 63706C41h; Tag
+  PAGE:00000001406720F1                 call    ObfDereferenceObjectWithTag
+  PAGE:00000001406720F6                 jmp     loc_140672029
+  PAGE:00000001406720FB                 call    HalPutDmaAdapter
+  PAGE:0000000140672100                 jmp     loc_140672039
+procedure: |-
+
+  00000000 struct _ALPC_PORT // sizeof=0x1D8
+  00000000 {
+  00000000     _LIST_ENTRY PortListEntry;
+  00000010     _ALPC_COMMUNICATION_INFO *CommunicationInfo;
+  00000018     _EPROCESS *OwnerProcess;
+  00000020     void *CompletionPort;
+  00000028     void *CompletionKey;
+  00000030     _ALPC_COMPLETION_PACKET_LOOKASIDE *CompletionPacketLookaside;
+  00000038     void *PortContext;
+  00000040     _SECURITY_CLIENT_CONTEXT StaticSecurity;
+  00000088     _EX_PUSH_LOCK IncomingQueueLock;
+  00000090     _LIST_ENTRY MainQueue;
+  000000A0     _LIST_ENTRY LargeMessageQueue;
+  000000B0     _EX_PUSH_LOCK PendingQueueLock;
+  000000B8     _LIST_ENTRY PendingQueue;
+  000000C8     _EX_PUSH_LOCK DirectQueueLock;
+  000000D0     _LIST_ENTRY DirectQueue;
+  000000E0     _EX_PUSH_LOCK WaitQueueLock;
+  000000E8     _LIST_ENTRY WaitQueue;
+  000000F8     $65109B3CF935EFC2FF19B1393336302E ___u17;
+  00000100     _ALPC_PORT_ATTRIBUTES PortAttributes;
+  00000148     _EX_PUSH_LOCK ResourceListLock;
+  00000150     _LIST_ENTRY ResourceListHead;
+  00000160     _EX_PUSH_LOCK PortObjectLock;
+  00000168     _ALPC_COMPLETION_LIST *CompletionList;
+  00000170     struct _CALLBACK_OBJECT *CallbackObject;
+  00000178     void *CallbackContext;
+  00000180     _LIST_ENTRY CanceledQueue;
+  00000190     int SequenceNo;
+  00000194     int ReferenceNo;
+  00000198     _PALPC_PORT_REFERENCE_WAIT_BLOCK *ReferenceNoWait;
+  000001A0     _ALPC_PORT::$4256D429A94D192A5E76D842F51028AF u1;
+  000001A4     // padding byte
+  000001A5     // padding byte
+  000001A6     // padding byte
+  000001A7     // padding byte
+  000001A8     _ALPC_PORT *TargetQueuePort;
+  000001B0     _ALPC_PORT *TargetSequencePort;
+  000001B8     _KALPC_MESSAGE *CachedMessage;
+  000001C0     unsigned int MainQueueLength;
+  000001C4     unsigned int LargeMessageQueueLength;
+  000001C8     unsigned int PendingQueueLength;
+  000001CC     unsigned int DirectQueueLength;
+  000001D0     unsigned int CanceledQueueLength;
+  000001D4     unsigned int WaitQueueLength;
+  000001D8 };
+
+  00000000 struct _ALPC_PORT_ATTRIBUTES // sizeof=0x48
+  00000000 {                                       // XREF: _ALPC_PORT.PortAttributes/r
+  00000000     unsigned int Flags;
+  00000004     _SECURITY_QUALITY_OF_SERVICE SecurityQos;
+  00000010     unsigned __int64 MaxMessageLength;
+  00000018     unsigned __int64 MemoryBandwidth;
+  00000020     unsigned __int64 MaxPoolUsage;
+  00000028     unsigned __int64 MaxSectionSize;
+  00000030     unsigned __int64 MaxViewSize;
+  00000038     unsigned __int64 MaxTotalSectionSize;
+  00000040     unsigned int DupObjectTypes;
+  00000044     unsigned int Reserved;
+  00000048 };
+
+  00000000 struct _ALPC_COMMUNICATION_INFO
+  00000000 {
+  00000000     _ALPC_PORT *ConnectionPort;
+  00000008     _ALPC_PORT *ServerCommunicationPort;
+  00000010     _ALPC_PORT *ClientCommunicationPort;
+  00000018 };
+
+  __int64 __fastcall AlpcpDeletePort(_ALPC_PORT *a1)
+  {
+    struct _KTHREAD *CurrentThread; // rax
+    _ALPC_COMMUNICATION_INFO *CommunicationInfo; // rcx
+    unsigned int v4; // eax
+    _ALPC_PORT *ServerCommunicationPort; // rcx
+    _ALPC_COMMUNICATION_INFO *v6; // rsi
+    struct _DMA_ADAPTER *CompletionPort; // rcx
+    unsigned int State; // ecx
+    _EPROCESS *OwnerProcess; // rcx
+    struct _CALLBACK_OBJECT *CallbackObject; // rcx
+    ULONG_PTR v11; // rcx
+    struct _DMA_ADAPTER *ClientToken; // rcx
+
+    CurrentThread = KeGetCurrentThread();
+    --CurrentThread->KernelApcDisable;
+    if ( (a1->PortAttributes.Flags & 0x1000) != 0 ) // 0x100 = 256LL = _ALPC_PORT->PortAttributes, 0 = _ALPC_PORT_ATTRIBUTES->Flags
+      AlpcpSendCloseMessage((__int64)a1);
+    CommunicationInfo = a1->CommunicationInfo; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
+    if ( CommunicationInfo )
+    {
+      ExAcquirePushLockExclusiveEx((ULONG_PTR)&CommunicationInfo[-1].HandleTable.Flags, 0);
+      v4 = a1->u1.State & 6;
+      switch ( v4 )
+      {
+        case 2u:
+          a1->CommunicationInfo->ConnectionPort = nullptr; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo, 0x0 = 0LL = _ALPC_COMMUNICATION_INFO->ConnectionPort
+          break;
+        case 4u:
+          a1->CommunicationInfo->ClientCommunicationPort = nullptr; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo, 0x10 = 16LL = _ALPC_COMMUNICATION_INFO->ClientCommunicationPort
+          ServerCommunicationPort = a1->CommunicationInfo->ServerCommunicationPort; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo, 0x8 = 8LL = _ALPC_COMMUNICATION_INFO->ServerCommunicationPort
+  LABEL_8:
+          if ( ServerCommunicationPort )
+          {
+            ServerCommunicationPort->TargetQueuePort = nullptr;
+            ServerCommunicationPort->TargetSequencePort = nullptr;
+          }
+          break;
+        case 6u:
+          a1->CommunicationInfo->ServerCommunicationPort = nullptr; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo, 0x8 = 8LL = _ALPC_COMMUNICATION_INFO->ServerCommunicationPort
+          ServerCommunicationPort = a1->CommunicationInfo->ClientCommunicationPort; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo, 0x10 = 16LL = _ALPC_COMMUNICATION_INFO->ClientCommunicationPort
+          goto LABEL_8;
+      }
+      v6 = a1->CommunicationInfo; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
+      if ( (_InterlockedExchangeAdd64((volatile signed __int64 *)&v6[-1].HandleTable.Flags, 0xFFFFFFFFFFFFFFFFuLL) & 6) == 2 )
+        ExfTryToWakePushLock(&v6[-1].HandleTable.Flags);
+      KeAbPostRelease((ULONG_PTR)&v6[-1].HandleTable.Flags);
+      AlpcpDereferenceBlobEx((ULONG_PTR)a1->CommunicationInfo); // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
+      a1->CommunicationInfo = nullptr; // 0x10 = 16LL = _ALPC_PORT->CommunicationInfo
+    }
+    CompletionPort = (struct _DMA_ADAPTER *)a1->CompletionPort;
+    if ( CompletionPort )
+    {
+      HalPutDmaAdapter(CompletionPort);
+      AlpcpFreeCompletionPacketLookaside(a1->CompletionPacketLookaside);
+    }
+    State = a1->u1.State;
+    if ( (State & 6) == 4 && (State & 0x400) == 0 )
+    {
+      ClientToken = (struct _DMA_ADAPTER *)a1->StaticSecurity.ClientToken;
+      if ( ClientToken )
+        HalPutDmaAdapter(ClientToken);
+    }
+    OwnerProcess = nullptr;
+    if ( ((__int64)a1->OwnerProcess & 1) == 0 ) // 0x18 = 24LL = _ALPC_PORT->OwnerProcess
+      OwnerProcess = a1->OwnerProcess; // 0x18 = 24LL = _ALPC_PORT->OwnerProcess
+    if ( OwnerProcess )
+      ObfDereferenceObjectWithTag(OwnerProcess, 0x63706C41u);
+    CallbackObject = a1->CallbackObject;
+    if ( CallbackObject )
+      HalPutDmaAdapter((PADAPTER_OBJECT)CallbackObject);
+    v11 = _InterlockedExchange64((volatile __int64 *)&a1->CachedMessage, 0);
+    if ( v11 )
+      AlpcpDereferenceBlobEx(v11);
+    AlpcpDestroyPort(a1);
+    return KeLeaveCriticalRegionThread(KeGetCurrentThread());
+  }

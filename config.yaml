@@ -4,506 +4,241 @@ modules:
   - ntoskrnl.exe
   - ntkrla57.exe
   skills:
-  - name: find-EgeGuid
-    symbol: EgeGuid
-    agent_skill: find-kph-struct-offset
+  - name: find-EgeGuid-AND-EreGuidEntry
     expected_output:
     - EgeGuid.yaml
+    - EreGuidEntry.yaml
   - name: find-EpObjectTable
-    symbol: EpObjectTable
-    agent_skill: find-kph-struct-offset
     expected_output:
     - EpObjectTable.yaml
-  - name: find-EreGuidEntry
-    symbol: EreGuidEntry
-    agent_skill: find-kph-struct-offset
-    expected_output:
-    - EreGuidEntry.yaml
-  - name: find-HtHandleContentionEvent
-    symbol: HtHandleContentionEvent
-    agent_skill: find-kph-struct-offset
-    expected_output:
-    - HtHandleContentionEvent.yaml
   - name: find-OtName
-    symbol: OtName
-    agent_skill: find-kph-struct-offset
     expected_output:
     - OtName.yaml
   - name: find-OtIndex
-    symbol: OtIndex
-    agent_skill: find-kph-struct-offset
     expected_output:
     - OtIndex.yaml
-  - name: find-ObDecodeShift
-    symbol: ObDecodeShift
-    agent_skill: find-kph-struct-offset
-    expected_output:
-    - ObDecodeShift.yaml
-  - name: find-ObAttributesShift
-    symbol: ObAttributesShift
-    agent_skill: find-kph-struct-offset
+  - name: find-ObAttributesShift-AND-ObDecodeShift-AND-HtHandleContentionEvent
     expected_output:
     - ObAttributesShift.yaml
-  - name: find-AlpcCommunicationInfo
-    symbol: AlpcCommunicationInfo
-    agent_skill: find-kph-struct-offset
-    expected_output:
-    - AlpcCommunicationInfo.yaml
-  - name: find-AlpcOwnerProcess
-    symbol: AlpcOwnerProcess
-    agent_skill: find-kph-struct-offset
-    expected_output:
-    - AlpcOwnerProcess.yaml
-  - name: find-AlpcConnectionPort
-    symbol: AlpcConnectionPort
-    agent_skill: find-kph-struct-offset
-    expected_output:
-    - AlpcConnectionPort.yaml
-  - name: find-AlpcServerCommunicationPort
-    symbol: AlpcServerCommunicationPort
-    agent_skill: find-kph-struct-offset
-    expected_output:
-    - AlpcServerCommunicationPort.yaml
-  - name: find-AlpcClientCommunicationPort
-    symbol: AlpcClientCommunicationPort
-    agent_skill: find-kph-struct-offset
-    expected_output:
-    - AlpcClientCommunicationPort.yaml
-  - name: find-AlpcHandleTable
-    symbol: AlpcHandleTable
-    agent_skill: find-kph-struct-offset
+    - ObDecodeShift.yaml
+    - HtHandleContentionEvent.yaml
+  - name: find-AlpcHandleTable-AND-AlpcPortContext-AND-AlpcPortObjectLock
     expected_output:
     - AlpcHandleTable.yaml
+    - AlpcPortContext.yaml
+    - AlpcPortObjectLock.yaml
   - name: find-AlpcHandleTableLock
-    symbol: AlpcHandleTableLock
-    agent_skill: find-kph-struct-offset
     expected_output:
     - AlpcHandleTableLock.yaml
-  - name: find-AlpcAttributes
-    symbol: AlpcAttributes
-    agent_skill: find-kph-struct-offset
+  - name: find-AlpcAttributes-AND-AlpcAttributesFlags-AND-AlpcCommunicationInfo-AND-AlpcOwnerProcess-AND-AlpcConnectionPort-AND-AlpcServerCommunicationPort-AND-AlpcClientCommunicationPort
     expected_output:
     - AlpcAttributes.yaml
-  - name: find-AlpcAttributesFlags
-    symbol: AlpcAttributesFlags
-    agent_skill: find-kph-struct-offset
-    expected_output:
     - AlpcAttributesFlags.yaml
-  - name: find-AlpcPortContext
-    symbol: AlpcPortContext
-    agent_skill: find-kph-struct-offset
-    expected_output:
-    - AlpcPortContext.yaml
-  - name: find-AlpcPortObjectLock
-    symbol: AlpcPortObjectLock
-    agent_skill: find-kph-struct-offset
-    expected_output:
-    - AlpcPortObjectLock.yaml
-  - name: find-AlpcSequenceNo
-    symbol: AlpcSequenceNo
-    agent_skill: find-kph-struct-offset
+    - AlpcCommunicationInfo.yaml
+    - AlpcOwnerProcess.yaml
+    - AlpcConnectionPort.yaml
+    - AlpcServerCommunicationPort.yaml
+    - AlpcClientCommunicationPort.yaml
+
+  - name: find-AlpcSequenceNo-AND-AlpcState
     expected_output:
     - AlpcSequenceNo.yaml
-  - name: find-AlpcState
-    symbol: AlpcState
-    agent_skill: find-kph-struct-offset
-    expected_output:
     - AlpcState.yaml
-  - name: find-KtInitialStack
-    symbol: KtInitialStack
-    agent_skill: find-kph-struct-offset
+  - name: find-KtInitialStack-AND-KtStackBase-AND-KtStackLimit
     expected_output:
     - KtInitialStack.yaml
-  - name: find-KtStackLimit
-    symbol: KtStackLimit
-    agent_skill: find-kph-struct-offset
-    expected_output:
-    - KtStackLimit.yaml
-  - name: find-KtStackBase
-    symbol: KtStackBase
-    agent_skill: find-kph-struct-offset
-    expected_output:
     - KtStackBase.yaml
+    - KtStackLimit.yaml
   - name: find-KtKernelStack
-    symbol: KtKernelStack
-    agent_skill: find-kph-struct-offset
     expected_output:
     - KtKernelStack.yaml
-  - name: find-KtReadOperationCount
-    symbol: KtReadOperationCount
-    agent_skill: find-kph-struct-offset
+  - name: find-KtReadOperationCount-AND-KtWriteOperationCount-AND-KtOtherOperationCount-AND-KtReadTransferCount-AND-KtWriteTransferCount-AND-KtOtherTransferCount
     expected_output:
     - KtReadOperationCount.yaml
-  - name: find-KtWriteOperationCount
-    symbol: KtWriteOperationCount
-    agent_skill: find-kph-struct-offset
-    expected_output:
     - KtWriteOperationCount.yaml
-  - name: find-KtOtherOperationCount
-    symbol: KtOtherOperationCount
-    agent_skill: find-kph-struct-offset
-    expected_output:
     - KtOtherOperationCount.yaml
-  - name: find-KtReadTransferCount
-    symbol: KtReadTransferCount
-    agent_skill: find-kph-struct-offset
-    expected_output:
     - KtReadTransferCount.yaml
-  - name: find-KtWriteTransferCount
-    symbol: KtWriteTransferCount
-    agent_skill: find-kph-struct-offset
-    expected_output:
     - KtWriteTransferCount.yaml
-  - name: find-KtOtherTransferCount
-    symbol: KtOtherTransferCount
-    agent_skill: find-kph-struct-offset
-    expected_output:
     - KtOtherTransferCount.yaml
   - name: find-MmSectionControlArea
-    symbol: MmSectionControlArea
-    agent_skill: find-kph-struct-offset
     expected_output:
     - MmSectionControlArea.yaml
   - name: find-MmControlAreaListHead
-    symbol: MmControlAreaListHead
-    agent_skill: find-kph-struct-offset
     expected_output:
     - MmControlAreaListHead.yaml
   - name: find-MmControlAreaLock
-    symbol: MmControlAreaLock
-    agent_skill: find-kph-struct-offset
     expected_output:
     - MmControlAreaLock.yaml
-  - name: find-EpSectionObject
-    symbol: EpSectionObject
-    agent_skill: find-kph-struct-offset
-    expected_output:
-    - EpSectionObject.yaml
-  - name: find-EpProtection
-    symbol: EpProtection
-    agent_skill: find-kph-struct-offset
-    expected_output:
-    - EpProtection.yaml
-  - name: find-EpCookie
-    symbol: EpCookie
-    agent_skill: find-kph-struct-offset
+  - name: find-EpCookie-AND-EpSectionObject
     expected_output:
     - EpCookie.yaml
+    - EpSectionObject.yaml
+  - name: find-EpProtection
+    expected_output:
+    - EpProtection.yaml
   - name: find-EpBreakOnTermination
-    symbol: EpBreakOnTermination
-    agent_skill: find-kph-struct-offset
     expected_output:
     - EpBreakOnTermination.yaml
   - name: find-KpDirectoryTableBase
-    symbol: KpDirectoryTableBase
-    agent_skill: find-kph-struct-offset
     expected_output:
     - KpDirectoryTableBase.yaml
   - name: find-PspCreateProcessNotifyRoutine
-    symbol: PspCreateProcessNotifyRoutine
-    agent_skill: find-kph-gv
     expected_output:
     - PspCreateProcessNotifyRoutine.yaml
   - name: find-PspLoadImageNotifyRoutine
-    symbol: PspLoadImageNotifyRoutine
-    agent_skill: find-kph-gv
     expected_output:
     - PspLoadImageNotifyRoutine.yaml
   - name: find-PspCreateThreadNotifyRoutine
-    symbol: PspCreateThreadNotifyRoutine
-    agent_skill: find-kph-gv
     expected_output:
     - PspCreateThreadNotifyRoutine.yaml
   - name: find-ExReferenceCallBackBlock
-    symbol: ExReferenceCallBackBlock
-    agent_skill: find-kph-func
     expected_output:
     - ExReferenceCallBackBlock.yaml
   - name: find-ExDereferenceCallBackBlock
-    symbol: ExDereferenceCallBackBlock
-    agent_skill: find-kph-func
     expected_output:
     - ExDereferenceCallBackBlock.yaml
   - name: find-PspEnumerateCallback
-    symbol: PspEnumerateCallback
-    agent_skill: find-kph-func
     expected_output:
     - PspEnumerateCallback.yaml
   - name: find-CmpEnumerateCallback
-    symbol: CmpEnumerateCallback
-    agent_skill: find-kph-func
     expected_output:
     - CmpEnumerateCallback.yaml
   symbols:
   - name: EgeGuid
     category: struct_offset
-    symbol_expr: _ETW_GUID_ENTRY->Guid
-    struct_name: _ETW_GUID_ENTRY
-    member_name: Guid
     data_type: uint16
   - name: EpObjectTable
     category: struct_offset
-    symbol_expr: _EPROCESS->ObjectTable
-    struct_name: _EPROCESS
-    member_name: ObjectTable
     data_type: uint16
   - name: EreGuidEntry
     category: struct_offset
-    symbol_expr: _ETW_REG_ENTRY->GuidEntry
-    struct_name: _ETW_REG_ENTRY
-    member_name: GuidEntry
     data_type: uint16
   - name: HtHandleContentionEvent
     category: struct_offset
-    symbol_expr: _HANDLE_TABLE->HandleContentionEvent
-    struct_name: _HANDLE_TABLE
-    member_name: HandleContentionEvent
     data_type: uint16
   - name: OtName
     category: struct_offset
-    symbol_expr: _OBJECT_TYPE->Name
-    struct_name: _OBJECT_TYPE
-    member_name: Name
     data_type: uint16
   - name: OtIndex
     category: struct_offset
-    symbol_expr: _OBJECT_TYPE->Index
-    struct_name: _OBJECT_TYPE
-    member_name: Index
     data_type: uint16
   - name: ObDecodeShift
     category: struct_offset
-    symbol_expr: _HANDLE_TABLE_ENTRY->ObjectPointerBits
-    struct_name: _HANDLE_TABLE_ENTRY
-    member_name: ObjectPointerBits
     data_type: uint16
-    bits: true
   - name: ObAttributesShift
     category: struct_offset
-    symbol_expr: _HANDLE_TABLE_ENTRY->Attributes
-    struct_name: _HANDLE_TABLE_ENTRY
-    member_name: Attributes
     data_type: uint16
-    bits: true
   - name: AlpcCommunicationInfo
     category: struct_offset
-    symbol_expr: _ALPC_PORT->CommunicationInfo
-    struct_name: _ALPC_PORT
-    member_name: CommunicationInfo
     data_type: uint16
   - name: AlpcOwnerProcess
     category: struct_offset
-    symbol_expr: _ALPC_PORT->OwnerProcess
-    struct_name: _ALPC_PORT
-    member_name: OwnerProcess
     data_type: uint16
   - name: AlpcConnectionPort
     category: struct_offset
-    symbol_expr: _ALPC_COMMUNICATION_INFO->ConnectionPort
-    struct_name: _ALPC_COMMUNICATION_INFO
-    member_name: ConnectionPort
     data_type: uint16
   - name: AlpcServerCommunicationPort
     category: struct_offset
-    symbol_expr: _ALPC_COMMUNICATION_INFO->ServerCommunicationPort
-    struct_name: _ALPC_COMMUNICATION_INFO
-    member_name: ServerCommunicationPort
     data_type: uint16
   - name: AlpcClientCommunicationPort
     category: struct_offset
-    symbol_expr: _ALPC_COMMUNICATION_INFO->ClientCommunicationPort
-    struct_name: _ALPC_COMMUNICATION_INFO
-    member_name: ClientCommunicationPort
     data_type: uint16
   - name: AlpcHandleTable
     category: struct_offset
-    symbol_expr: _ALPC_COMMUNICATION_INFO->HandleTable
-    struct_name: _ALPC_COMMUNICATION_INFO
-    member_name: HandleTable
     data_type: uint16
   - name: AlpcHandleTableLock
     category: struct_offset
-    symbol_expr: _ALPC_HANDLE_TABLE->Lock
-    struct_name: _ALPC_HANDLE_TABLE
-    member_name: Lock
     data_type: uint16
   - name: AlpcAttributes
     category: struct_offset
-    symbol_expr: _ALPC_PORT->PortAttributes
-    struct_name: _ALPC_PORT
-    member_name: PortAttributes
     data_type: uint16
   - name: AlpcAttributesFlags
     category: struct_offset
-    symbol_expr: _ALPC_PORT_ATTRIBUTES->Flags
-    struct_name: _ALPC_PORT_ATTRIBUTES
-    member_name: Flags
     data_type: uint16
   - name: AlpcPortContext
     category: struct_offset
-    symbol_expr: _ALPC_PORT->PortContext
-    struct_name: _ALPC_PORT
-    member_name: PortContext
     data_type: uint16
   - name: AlpcPortObjectLock
     category: struct_offset
-    symbol_expr: _ALPC_PORT->PortObjectLock
-    struct_name: _ALPC_PORT
-    member_name: PortObjectLock
     data_type: uint16
   - name: AlpcSequenceNo
     category: struct_offset
-    symbol_expr: _ALPC_PORT->SequenceNo
-    struct_name: _ALPC_PORT
-    member_name: SequenceNo
     data_type: uint16
   - name: AlpcState
     category: struct_offset
-    symbol_expr: _ALPC_PORT->u1.State
-    struct_name: _ALPC_PORT
-    member_name: u1.State
     data_type: uint16
   - name: KtInitialStack
     category: struct_offset
-    symbol_expr: _KTHREAD->InitialStack
-    struct_name: _KTHREAD
-    member_name: InitialStack
     data_type: uint16
   - name: KtStackLimit
     category: struct_offset
-    symbol_expr: _KTHREAD->StackLimit
-    struct_name: _KTHREAD
-    member_name: StackLimit
     data_type: uint16
   - name: KtStackBase
     category: struct_offset
-    symbol_expr: _KTHREAD->StackBase
-    struct_name: _KTHREAD
-    member_name: StackBase
     data_type: uint16
   - name: KtKernelStack
     category: struct_offset
-    symbol_expr: _KTHREAD->KernelStack
-    struct_name: _KTHREAD
-    member_name: KernelStack
     data_type: uint16
   - name: KtReadOperationCount
     category: struct_offset
-    symbol_expr: _KTHREAD->ReadOperationCount
-    struct_name: _KTHREAD
-    member_name: ReadOperationCount
     data_type: uint16
   - name: KtWriteOperationCount
     category: struct_offset
-    symbol_expr: _KTHREAD->WriteOperationCount
-    struct_name: _KTHREAD
-    member_name: WriteOperationCount
     data_type: uint16
   - name: KtOtherOperationCount
     category: struct_offset
-    symbol_expr: _KTHREAD->OtherOperationCount
-    struct_name: _KTHREAD
-    member_name: OtherOperationCount
     data_type: uint16
   - name: KtReadTransferCount
     category: struct_offset
-    symbol_expr: _KTHREAD->ReadTransferCount
-    struct_name: _KTHREAD
-    member_name: ReadTransferCount
     data_type: uint16
   - name: KtWriteTransferCount
     category: struct_offset
-    symbol_expr: _KTHREAD->WriteTransferCount
-    struct_name: _KTHREAD
-    member_name: WriteTransferCount
     data_type: uint16
   - name: KtOtherTransferCount
     category: struct_offset
-    symbol_expr: _KTHREAD->OtherTransferCount
-    struct_name: _KTHREAD
-    member_name: OtherTransferCount
     data_type: uint16
   - name: MmSectionControlArea
     category: struct_offset
-    symbol_expr: _SECTION->u1.ControlArea,_SECTION_OBJECT->Segment
-    struct_name: _SECTION
-    member_name: u1.ControlArea
     data_type: uint16
   - name: MmControlAreaListHead
     category: struct_offset
-    symbol_expr: _CONTROL_AREA->ListHead
-    struct_name: _CONTROL_AREA
-    member_name: ListHead
     data_type: uint16
   - name: MmControlAreaLock
     category: struct_offset
-    symbol_expr: _CONTROL_AREA->ControlAreaLock
-    struct_name: _CONTROL_AREA
-    member_name: ControlAreaLock
     data_type: uint16
   - name: EpSectionObject
     category: struct_offset
-    symbol_expr: _EPROCESS->SectionObject
-    struct_name: _EPROCESS
-    member_name: SectionObject
     data_type: uint16
   - name: EpProtection
     category: struct_offset
-    symbol_expr: _EPROCESS->Protection
-    struct_name: _EPROCESS
-    member_name: Protection
     data_type: uint16
   - name: EpCookie
     category: struct_offset
-    symbol_expr: _EPROCESS->Cookie
-    struct_name: _EPROCESS
-    member_name: Cookie
     data_type: uint16
   - name: EpBreakOnTermination
     category: struct_offset
-    symbol_expr: _EPROCESS->BreakOnTermination
-    struct_name: _EPROCESS
-    member_name: BreakOnTermination
     data_type: uint16
-    bits: true
   - name: KpDirectoryTableBase
     category: struct_offset
-    symbol_expr: _KPROCESS->DirectoryTableBase
-    struct_name: _KPROCESS
-    member_name: DirectoryTableBase
     data_type: uint16
   - name: PspCreateProcessNotifyRoutine
     category: gv
-    alias:
-    - PspCreateProcessNotifyRoutine
     data_type: uint32
   - name: PspLoadImageNotifyRoutine
     category: gv
-    alias:
-    - PspLoadImageNotifyRoutine
     data_type: uint32
   - name: PspCreateThreadNotifyRoutine
     category: gv
-    alias:
-    - PspCreateThreadNotifyRoutine
     data_type: uint32
   - name: ExReferenceCallBackBlock
     category: func
-    alias:
-    - ExReferenceCallBackBlock
     data_type: uint32
   - name: ExDereferenceCallBackBlock
     category: func
-    alias:
-    - ExDereferenceCallBackBlock
     data_type: uint32
   - name: PspEnumerateCallback
     category: func
-    alias:
-    - PspEnumerateCallback
     data_type: uint32
   - name: CmpEnumerateCallback
     category: func
-    alias:
-    - CmpEnumerateCallback
     data_type: uint32

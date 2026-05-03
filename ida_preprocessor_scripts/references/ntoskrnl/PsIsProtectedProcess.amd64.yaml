@@ -1,0 +1,12 @@
+func_name: PsIsProtectedProcess
+func_va: '0x140210130'
+disasm_code: |-
+  .text:0000000140210130                 test    byte ptr [rcx+87Ah], 7; 0x87A = 2170 = _EPROCESS->Protection
+  .text:0000000140210137                 mov     eax, 0
+  .text:000000014021013C                 setnbe  al
+  .text:000000014021013F                 retn
+procedure: |-
+  _BOOL8 __fastcall PsIsProtectedProcess(_EPROCESS *a1)
+  {
+    return (a1->Protection.Level & 7) != 0; // 0x87A = 2170 = _EPROCESS->Protection
+  }

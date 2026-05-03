@@ -61,7 +61,6 @@ class TestUpdateSymbols(unittest.TestCase):
                 "name": "ObDecodeShift",
                 "category": "struct_offset",
                 "data_type": "uint16",
-                "bits": True,
             },
         ]
         yaml_payloads = {
@@ -71,6 +70,22 @@ class TestUpdateSymbols(unittest.TestCase):
         values = update_symbols.collect_symbol_values(symbol_specs, yaml_payloads)
 
         self.assertEqual(84, values["ObDecodeShift"])
+
+    def test_collect_symbol_values_uses_offset_when_bit_offset_is_absent(self) -> None:
+        symbol_specs = [
+            {
+                "name": "ObDecodeShift",
+                "category": "struct_offset",
+                "data_type": "uint16",
+            },
+        ]
+        yaml_payloads = {
+            "ObDecodeShift": {"offset": 0x8},
+        }
+
+        values = update_symbols.collect_symbol_values(symbol_specs, yaml_payloads)
+
+        self.assertEqual(0x8, values["ObDecodeShift"])
 
     def test_export_xml_reuses_existing_fields_id(self) -> None:
         tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring(XML_TEXT))

@@ -1,0 +1,167 @@
+func_name: AlpcAddHandleTableEntry
+func_va: '0x1405ebb88'
+disasm_code: |-
+  PAGE:00000001405EBB88                 mov     rax, rsp
+  PAGE:00000001405EBB8B                 mov     [rax+8], rbx
+  PAGE:00000001405EBB8F                 mov     [rax+10h], rbp
+  PAGE:00000001405EBB93                 mov     [rax+18h], rsi
+  PAGE:00000001405EBB97                 mov     [rax+20h], rdi
+  PAGE:00000001405EBB9B                 push    r12
+  PAGE:00000001405EBB9D                 push    r14
+  PAGE:00000001405EBB9F                 push    r15
+  PAGE:00000001405EBBA1                 sub     rsp, 20h
+  PAGE:00000001405EBBA5                 lea     rbp, [rcx+8] ; 0x8 = 8 = _ALPC_HANDLE_TABLE->Lock
+  PAGE:00000001405EBBA9                 mov     r15, rdx
+  PAGE:00000001405EBBAC                 mov     rdi, rcx
+  PAGE:00000001405EBBAF                 ; BugCheckParameter1
+  PAGE:00000001405EBBAF                 xor     edx, edx; BugCheckParameter1
+  PAGE:00000001405EBBB1                 ; BugCheckParameter2
+  PAGE:00000001405EBBB1                 mov     rcx, rbp; BugCheckParameter2
+  PAGE:00000001405EBBB4                 call    ExAcquirePushLockExclusiveEx
+  PAGE:00000001405EBBB9                 mov     rsi, [rdi+10h] ; 0x10 = 16 = _ALPC_HANDLE_TABLE->TotalHandles
+  PAGE:00000001405EBBBD                 xor     ebx, ebx
+  PAGE:00000001405EBBBF                 test    rsi, rsi
+  PAGE:00000001405EBBC2                 jz      short loc_1405EBBD9
+  PAGE:00000001405EBBC4                 mov     rcx, [rdi] ; 0x0 = 0 = _ALPC_HANDLE_TABLE->Handles
+  PAGE:00000001405EBBC7                 cmp     qword ptr [rcx], 0
+  PAGE:00000001405EBBCB                 jz      short loc_1405EBBF4
+  PAGE:00000001405EBBCD                 inc     rbx
+  PAGE:00000001405EBBD0                 add     rcx, 8
+  PAGE:00000001405EBBD4                 cmp     rbx, rsi
+  PAGE:00000001405EBBD7                 jb      short loc_1405EBBC7
+  PAGE:00000001405EBBD9                 add     rsi, rsi
+  PAGE:00000001405EBBDC                 mov     rax, 1FFFFFFFFFFFFFFFh
+  PAGE:00000001405EBBE6                 cmp     rsi, rax
+  PAGE:00000001405EBBE9                 jb      short loc_1405EBC0B
+  PAGE:00000001405EBBEB                 or      rbx, 0FFFFFFFFFFFFFFFFh
+  PAGE:00000001405EBBEF                 jmp     loc_1405EBC8C
+  PAGE:00000001405EBBF4                 mov     rax, [r15]
+  PAGE:00000001405EBBF7                 mov     [rcx], rax
+  PAGE:00000001405EBBFA                 ; BugCheckParameter2
+  PAGE:00000001405EBBFA                 mov     rcx, rbp; BugCheckParameter2
+  PAGE:00000001405EBBFD                 call    AlpcpReleasePushLockExclusive
+  PAGE:00000001405EBC02                 lea     rax, [rbx+10h]
+  PAGE:00000001405EBC06                 jmp     loc_1405EBC97
+  PAGE:00000001405EBC0B                 mov     r12, rsi
+  PAGE:00000001405EBC0E                 ; Tag
+  PAGE:00000001405EBC0E                 mov     r8d, 61486C41h; Tag
+  PAGE:00000001405EBC14                 shl     r12, 3
+  PAGE:00000001405EBC18                 ; PoolType
+  PAGE:00000001405EBC18                 mov     ecx, 1; PoolType
+  PAGE:00000001405EBC1D                 ; NumberOfBytes
+  PAGE:00000001405EBC1D                 mov     rdx, r12; NumberOfBytes
+  PAGE:00000001405EBC20                 call    ExAllocatePoolWithTag
+  PAGE:00000001405EBC25                 or      rbx, 0FFFFFFFFFFFFFFFFh
+  PAGE:00000001405EBC29                 mov     r14, rax
+  PAGE:00000001405EBC2C                 test    rax, rax
+  PAGE:00000001405EBC2F                 jz      short loc_1405EBC8C
+  PAGE:00000001405EBC31                 ; Size
+  PAGE:00000001405EBC31                 mov     r8, r12; Size
+  PAGE:00000001405EBC34                 ; Val
+  PAGE:00000001405EBC34                 xor     edx, edx; Val
+  PAGE:00000001405EBC36                 ; void *
+  PAGE:00000001405EBC36                 mov     rcx, rax; void *
+  PAGE:00000001405EBC39                 call    memset
+  PAGE:00000001405EBC3E                 mov     r8, [rdi+10h] ; 0x10 = 16 = _ALPC_HANDLE_TABLE->TotalHandles
+  PAGE:00000001405EBC42                 ; void *
+  PAGE:00000001405EBC42                 mov     rcx, r14; void *
+  PAGE:00000001405EBC45                 ; Src
+  PAGE:00000001405EBC45                 mov     rdx, [rdi]; Src ; 0x0 = 0 = _ALPC_HANDLE_TABLE->Handles
+  PAGE:00000001405EBC48                 ; Size
+  PAGE:00000001405EBC48                 shl     r8, 3; Size
+  PAGE:00000001405EBC4C                 call    memmove
+  PAGE:00000001405EBC51                 mov     rbx, [rdi+10h] ; 0x10 = 16 = _ALPC_HANDLE_TABLE->TotalHandles
+  PAGE:00000001405EBC55                 mov     rax, [r15]
+  PAGE:00000001405EBC58                 mov     [r14+rbx*8], rax
+  PAGE:00000001405EBC5C                 cmp     qword ptr [rdi+10h], 10h ; 0x10 = 16 = _ALPC_HANDLE_TABLE->TotalHandles
+  PAGE:00000001405EBC61                 ; P
+  PAGE:00000001405EBC61                 mov     rcx, [rdi]; P ; 0x0 = 0 = _ALPC_HANDLE_TABLE->Handles
+  PAGE:00000001405EBC64                 jnz     short loc_1405EBC77
+  PAGE:00000001405EBC66                 ; Entry
+  PAGE:00000001405EBC66                 mov     rdx, rcx; Entry
+  PAGE:00000001405EBC69                 ; Lookaside
+  PAGE:00000001405EBC69                 lea     rcx, stru_140CEBD00; Lookaside
+  PAGE:00000001405EBC70                 call    ExFreeToNPagedLookasideList
+  PAGE:00000001405EBC75                 jmp     short loc_1405EBC81
+  PAGE:00000001405EBC77                 ; Tag
+  PAGE:00000001405EBC77                 mov     edx, 61486C41h; Tag
+  PAGE:00000001405EBC7C                 call    ExFreePoolWithTag
+  PAGE:00000001405EBC81                 mov     [rdi], r14 ; 0x0 = 0 = _ALPC_HANDLE_TABLE->Handles
+  PAGE:00000001405EBC84                 add     rbx, 10h
+  PAGE:00000001405EBC88                 mov     [rdi+10h], rsi ; 0x10 = 16 = _ALPC_HANDLE_TABLE->TotalHandles
+  PAGE:00000001405EBC8C                 ; BugCheckParameter2
+  PAGE:00000001405EBC8C                 mov     rcx, rbp; BugCheckParameter2
+  PAGE:00000001405EBC8F                 call    AlpcpReleasePushLockExclusive
+  PAGE:00000001405EBC94                 mov     rax, rbx
+  PAGE:00000001405EBC97                 mov     rbx, [rsp+38h+arg_0]
+  PAGE:00000001405EBC9C                 mov     rbp, [rsp+38h+arg_8]
+  PAGE:00000001405EBCA1                 mov     rsi, [rsp+38h+arg_10]
+  PAGE:00000001405EBCA6                 mov     rdi, [rsp+38h+arg_18]
+  PAGE:00000001405EBCAB                 add     rsp, 20h
+  PAGE:00000001405EBCAF                 pop     r15
+  PAGE:00000001405EBCB1                 pop     r14
+  PAGE:00000001405EBCB3                 pop     r12
+  PAGE:00000001405EBCB5                 retn
+procedure: |-
+  __int64 __fastcall AlpcAddHandleTableEntry(_ALPC_HANDLE_TABLE *a1, void **pOutObject)
+  {
+    _EX_PUSH_LOCK *p_Lock; // rbp
+    unsigned __int64 TotalHandles; // rsi
+    unsigned __int64 v6; // rbx
+    _ALPC_HANDLE_ENTRY *Handles; // rcx
+    unsigned __int64 v8; // rsi
+    __int64 v9; // rbx
+    _ALPC_HANDLE_ENTRY *PoolWithTag; // rax
+    _ALPC_HANDLE_ENTRY *v12; // r14
+    unsigned __int64 v13; // rbx
+
+    p_Lock = &a1->Lock; // 0x8 = 8 = _ALPC_HANDLE_TABLE->Lock
+    ExAcquirePushLockExclusiveEx((ULONG_PTR)&a1->Lock, 0);
+    TotalHandles = a1->TotalHandles; // 0x10 = 16 = _ALPC_HANDLE_TABLE->TotalHandles
+    v6 = 0;
+    if ( TotalHandles )
+    {
+      Handles = a1->Handles; // 0x0 = 0 = _ALPC_HANDLE_TABLE->Handles
+      while ( Handles->Object )
+      {
+        ++v6;
+        ++Handles;
+        if ( v6 >= TotalHandles )
+          goto LABEL_5;
+      }
+      Handles->Object = *pOutObject;
+      AlpcpReleasePushLockExclusive((ULONG_PTR)p_Lock);
+      return v6 + 16;
+    }
+    else
+    {
+  LABEL_5:
+      v8 = 2 * TotalHandles;
+      if ( v8 < 0x1FFFFFFFFFFFFFFFLL )
+      {
+        PoolWithTag = (_ALPC_HANDLE_ENTRY *)ExAllocatePoolWithTag(PagedPool, 8 * v8, 0x61486C41u);
+        v9 = -1;
+        v12 = PoolWithTag;
+        if ( PoolWithTag )
+        {
+          memset(PoolWithTag, 0, 8 * v8);
+          memmove(v12, a1->Handles, 8 * a1->TotalHandles);
+          v13 = a1->TotalHandles;
+          v12[v13].Object = *pOutObject;
+          if ( a1->TotalHandles == 16 )
+            ExFreeToNPagedLookasideList(&stru_140CEBD00, a1->Handles);
+          else
+            ExFreePoolWithTag(a1->Handles, 0x61486C41u);
+          a1->Handles = v12;
+          v9 = v13 + 16;
+          a1->TotalHandles = v8;
+        }
+      }
+      else
+      {
+        v9 = -1;
+      }
+      AlpcpReleasePushLockExclusive((ULONG_PTR)p_Lock);
+      return v9;
+    }
+  }

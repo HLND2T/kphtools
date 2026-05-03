@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import AsyncMock, patch
 
 import ida_mcp_resolver
@@ -61,44 +63,1063 @@ class TestIdaMcpResolver(unittest.IsolatedAsyncioTestCase):
                 image_base=0x140000000,
             )
 
-    async def test_llm_struct_offset_parser_returns_offset(self) -> None:
+    def test_parse_llm_decompile_response_normalizes_found_entries(self) -> None:
+        payload = ida_mcp_resolver.parse_llm_decompile_response(
+            """
+```yaml
+found_call:
+  - insn_va: '0x140010000'
+    insn_disasm: call sub_140020000
+    func_name: ExReferenceCallBackBlock
+found_gv:
+  - insn_va: '0x140010008'
+    insn_disasm: mov rcx, cs:qword_140030000
+    gv_name: PspCreateProcessNotifyRoutine
+found_struct_offset:
+  - insn_va: '0x140010010'
+    insn_disasm: mov rcx, [r9+18h]
+    offset: '0x18'
+    struct_name: _ALPC_PORT
+    member_name: OwnerProcess
+```
+            """
+        )
+
+        self.assertEqual(
+            "ExReferenceCallBackBlock",
+            payload["found_call"][0]["func_name"],
+        )
+        self.assertEqual(
+            "PspCreateProcessNotifyRoutine",
+            payload["found_gv"][0]["gv_name"],
+        )
+        self.assertEqual("0x18", payload["found_struct_offset"][0]["offset"])
+
+    def test_parse_llm_decompile_response_extracts_fenced_yaml_from_prose(self) -> None:
+        payload = ida_mcp_resolver.parse_llm_decompile_response(
+            """
+Here is the YAML:
+
+```yaml
+found_struct_offset:
+  - insn_va: '0x140010010'
+    insn_disasm: mov rcx, [r9+18h]
+    offset: '0x18'
+    size: 8
+    struct_name: _ALPC_PORT
+    member_name: OwnerProcess
+```
+            """
+        )
+
+        self.assertEqual(1, len(payload["found_struct_offset"]))
+        self.assertEqual("8", payload["found_struct_offset"][0]["size"])
+        self.assertEqual("_ALPC_PORT", payload["found_struct_offset"][0]["struct_name"])
+
+    def test_parse_llm_decompile_response_preserves_struct_bit_offset(self) -> None:
+        payload = ida_mcp_resolver.parse_llm_decompile_response(
+            """
+found_struct_offset:
+  - insn_va: '0x140650EB4'
+    insn_disasm: 'test    dword ptr [rcx+464h], 2000h'
+    offset: '0x464'
+    bit_offset: '13'
+    struct_name: _EPROCESS
+    member_name: BreakOnTerminationfound_struct_offset:
+  - insn_va: '0x140650EB4'
+    insn_disasm: 'test    dword ptr [rcx+464h], 2000h'
+    offset: '0x464'
+    bit_offset: '13'
+    struct_name: _EPROCESS
+    member_name: BreakOnTermination
+            """
+        )
+
+        self.assertEqual(1, len(payload["found_struct_offset"]))
+        self.assertEqual("13", payload["found_struct_offset"][0]["bit_offset"])
+
+    def test_parse_llm_decompile_response_repairs_glued_top_level_header(self) -> None:
+        payload = ida_mcp_resolver.parse_llm_decompile_response(
+            """
+found_struct_offset:
+  - insn_va: '0x1406DE4E6'
+    insn_disasm: 'and     qword ptr [rax], 0'
+    offset: '0x0'
+    struct_name: _ALPC_COMMUNICATION_INFO
+    member_name: ConnectionPortfound_struct_offset:
+  - insn_va: '0x1406DE376'
+    insn_disasm: 'test    dword ptr [rcx+100h], 1000h'
+    offset: '0x100'
+    struct_name: _ALPC_PORT
+    member_name: PortAttributes
+  - insn_va: '0x1406DE4E6'
+    insn_disasm: 'and     qword ptr [rax], 0'
+    offset: '0x0'
+    struct_name: _ALPC_COMMUNICATION_INFO
+    member_name: ConnectionPort
+            """
+        )
+
+        self.assertEqual(2, len(payload["found_struct_offset"]))
+        self.assertEqual(
+            "PortAttributes",
+            payload["found_struct_offset"][0]["member_name"],
+        )
+        self.assertEqual(
+            "ConnectionPort",
+            payload["found_struct_offset"][1]["member_name"],
+        )
+
+    def test_llm_decompile_specs_require_four_tuple(self) -> None:
+        self.assertIsNone(
+            ida_mcp_resolver._build_llm_decompile_specs_map(
+                [
+                    (
+                        "AlpcAttributes",
+                        "prompt/call_llm_decompile.md",
+                        "references/ntoskrnl/AlpcpOpenPort.amd64.yaml",
+                    )
+                ]
+            )
+        )
+
+    def test_prepare_llm_decompile_request_includes_optional_funcs(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            scripts_dir = Path(temp_dir)
+            (scripts_dir / "prompt").mkdir()
+            (scripts_dir / "references" / "ntoskrnl").mkdir(parents=True)
+            (scripts_dir / "prompt" / "call_llm_decompile.md").write_text(
+                "{reference_blocks}\n{target_blocks}\n{symbol_name_list}",
+                encoding="utf-8",
+            )
+            (scripts_dir / "references" / "ntoskrnl" / "Ref.amd64.yaml").write_text(
+                "\n".join(
+                    [
+                        "func_name: ObpEnumFindHandleProcedure",
+                        "func_va: '0x1406c6cd0'",
+                        "disasm_code: mov rax, rcx",
+                        "procedure: ''",
+                        "optional_funcs:",
+                        "  - ExGetHandlePointer",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            with patch.object(
+                ida_mcp_resolver,
+                "_get_preprocessor_scripts_dir",
+                return_value=scripts_dir,
+            ):
+                request = ida_mcp_resolver._prepare_llm_decompile_request(
+                    symbol_name="ObDecodeShift",
+                    llm_decompile_specs=[
+                        (
+                            "ObDecodeShift",
+                            "_HANDLE_TABLE_ENTRY->ObjectPointerBits",
+                            "prompt/call_llm_decompile.md",
+                            "references/ntoskrnl/Ref.{arch}.yaml",
+                        )
+                    ],
+                    llm_config={"model": "test-model", "api_key": "test-key"},
+                    binary_dir="/tmp/amd64/ntoskrnl",
+                )
+
+        self.assertIsNotNone(request)
+        self.assertEqual(
+            ["ObpEnumFindHandleProcedure", "ExGetHandlePointer"],
+            request["target_func_names"],
+        )
+        self.assertEqual(
+            ["ObpEnumFindHandleProcedure"],
+            request["required_target_func_names"],
+        )
+
+    def test_prepare_llm_decompile_request_deduplicates_optional_funcs(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            scripts_dir = Path(temp_dir)
+            (scripts_dir / "prompt").mkdir()
+            (scripts_dir / "references" / "ntoskrnl").mkdir(parents=True)
+            (scripts_dir / "prompt" / "call_llm_decompile.md").write_text(
+                "{reference_blocks}\n{target_blocks}\n{symbol_name_list}",
+                encoding="utf-8",
+            )
+            for ref_name, func_name, optional_func in [
+                ("RefA", "PrimaryA", "SharedHelper"),
+                ("RefB", "PrimaryB", "SharedHelper"),
+            ]:
+                (scripts_dir / "references" / "ntoskrnl" / f"{ref_name}.amd64.yaml").write_text(
+                    "\n".join(
+                        [
+                            f"func_name: {func_name}",
+                            "func_va: '0x140001000'",
+                            "disasm_code: mov rax, rcx",
+                            "procedure: ''",
+                            "optional_funcs:",
+                            f"  - {optional_func}",
+                            "  - PrimaryA",
+                            "",
+                        ]
+                    ),
+                    encoding="utf-8",
+                )
+
+            with patch.object(
+                ida_mcp_resolver,
+                "_get_preprocessor_scripts_dir",
+                return_value=scripts_dir,
+            ):
+                request = ida_mcp_resolver._prepare_llm_decompile_request(
+                    symbol_name="ObDecodeShift",
+                    llm_decompile_specs=[
+                        (
+                            "ObDecodeShift",
+                            "_HANDLE_TABLE_ENTRY->ObjectPointerBits",
+                            "prompt/call_llm_decompile.md",
+                            "references/ntoskrnl/RefA.{arch}.yaml",
+                        ),
+                        (
+                            "ObDecodeShift",
+                            "_HANDLE_TABLE_ENTRY->ObjectPointerBits",
+                            "prompt/call_llm_decompile.md",
+                            "references/ntoskrnl/RefB.{arch}.yaml",
+                        ),
+                    ],
+                    llm_config={"model": "test-model", "api_key": "test-key"},
+                    binary_dir="/tmp/amd64/ntoskrnl",
+                )
+
+        self.assertIsNotNone(request)
+        self.assertEqual(
+            ["PrimaryA", "SharedHelper", "PrimaryB"],
+            request["target_func_names"],
+        )
+        self.assertEqual(["PrimaryA", "PrimaryB"], request["required_target_func_names"])
+
+    async def test_call_llm_decompile_uses_cs2_prompt_template(self) -> None:
+        prompt_template = (
+            ida_mcp_resolver._get_preprocessor_scripts_dir()
+            / "prompt"
+            / "call_llm_decompile.md"
+        ).read_text(encoding="utf-8")
         with patch.object(
             ida_mcp_resolver,
             "call_llm_text",
-            AsyncMock(return_value="offset: 0x570\n"),
-        ):
-            payload = await ida_mcp_resolver.resolve_struct_offset_via_llm(
-                llm_config={"model": "gpt-4o"},
-                reference_blocks=["ref"],
-                target_blocks=["target"],
+            AsyncMock(return_value="found_call: []\n"),
+        ) as mock_call:
+            await ida_mcp_resolver.call_llm_decompile(
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                symbol_name_list=["ExReferenceCallBackBlock"],
+                reference_items=[
+                    {
+                        "func_name": "Ref",
+                        "disasm_code": "ref disasm",
+                        "procedure": "ref proc",
+                    }
+                ],
+                target_items=[
+                    {
+                        "func_name": "Target",
+                        "disasm_code": "target disasm",
+                        "procedure": "target proc",
+                    }
+                ],
+                prompt_template=prompt_template,
             )
 
-        self.assertEqual(0x570, payload["offset"])
+        prompt = mock_call.await_args.kwargs["prompt"]
+        self.assertIn("These are the reference functions:", prompt)
+        self.assertIn(
+            'collect all references to "ExReferenceCallBackBlock"',
+            prompt,
+        )
+        self.assertIn("ref disasm", prompt)
+        self.assertIn("target proc", prompt)
 
-    async def test_llm_struct_offset_parser_supports_decimal_string(self) -> None:
+    async def test_call_llm_decompile_debug_prints_prompt_and_raw_response(self) -> None:
+        prompt_template = (
+            ida_mcp_resolver._get_preprocessor_scripts_dir()
+            / "prompt"
+            / "call_llm_decompile.md"
+        ).read_text(encoding="utf-8")
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "call_llm_text",
+                AsyncMock(return_value="found_call: []\n"),
+            ),
+            patch("builtins.print") as mock_print,
+        ):
+            await ida_mcp_resolver.call_llm_decompile(
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                symbol_name_list=["ExReferenceCallBackBlock"],
+                reference_items=[
+                    {
+                        "func_name": "Ref",
+                        "disasm_code": "ref disasm",
+                        "procedure": "ref proc",
+                    }
+                ],
+                target_items=[
+                    {
+                        "func_name": "Target",
+                        "disasm_code": "target disasm",
+                        "procedure": "target proc",
+                    }
+                ],
+                prompt_template=prompt_template,
+                debug=True,
+            )
+
+        output = "\n".join(
+            " ".join(str(arg) for arg in call_args.args)
+            for call_args in mock_print.call_args_list
+        )
+        self.assertIn(
+            "BEGIN llm_decompile prompt for ExReferenceCallBackBlock",
+            output,
+        )
+        self.assertIn('collect all references to "ExReferenceCallBackBlock"', output)
+        self.assertIn("target disasm", output)
+        self.assertIn(
+            "BEGIN llm_decompile raw response for ExReferenceCallBackBlock",
+            output,
+        )
+        self.assertIn("found_call: []", output)
+
+    async def test_call_llm_decompile_renders_multiple_symbols(self) -> None:
+        prompt_template = (
+            ida_mcp_resolver._get_preprocessor_scripts_dir()
+            / "prompt"
+            / "call_llm_decompile.md"
+        ).read_text(encoding="utf-8")
         with patch.object(
             ida_mcp_resolver,
             "call_llm_text",
-            AsyncMock(return_value='offset: "570"\n'),
-        ):
-            payload = await ida_mcp_resolver.resolve_struct_offset_via_llm(
-                llm_config={"model": "gpt-4o"},
-                reference_blocks=["ref"],
-                target_blocks=["target"],
+            AsyncMock(return_value="found_struct_offset: []\n"),
+        ) as mock_call:
+            await ida_mcp_resolver.call_llm_decompile(
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                symbol_name_list=[
+                    "_ALPC_PORT->PortAttributes",
+                    "_ALPC_PORT_ATTRIBUTES->Flags",
+                ],
+                reference_items=[
+                    {
+                        "func_name": "Ref",
+                        "disasm_code": "ref disasm",
+                        "procedure": "ref proc",
+                    }
+                ],
+                target_items=[
+                    {
+                        "func_name": "Target",
+                        "disasm_code": "target disasm",
+                        "procedure": "target proc",
+                    }
+                ],
+                prompt_template=prompt_template,
             )
 
-        self.assertEqual(570, payload["offset"])
+        prompt = mock_call.await_args.kwargs["prompt"]
+        self.assertIn(
+            'collect all references to "_ALPC_PORT->PortAttributes, '
+            '_ALPC_PORT_ATTRIBUTES->Flags"',
+            prompt,
+        )
 
-    async def test_llm_struct_offset_parser_supports_fenced_yaml(self) -> None:
+    async def test_call_llm_decompile_labels_each_disassembly_with_func_name(self) -> None:
+        prompt_template = (
+            ida_mcp_resolver._get_preprocessor_scripts_dir()
+            / "prompt"
+            / "call_llm_decompile.md"
+        ).read_text(encoding="utf-8")
         with patch.object(
             ida_mcp_resolver,
             "call_llm_text",
-            AsyncMock(return_value="```yaml\noffset: 0x570\n```\n"),
-        ):
-            payload = await ida_mcp_resolver.resolve_struct_offset_via_llm(
-                llm_config={"model": "gpt-4o"},
-                reference_blocks=["ref"],
-                target_blocks=["target"],
+            AsyncMock(return_value="found_struct_offset: []\n"),
+        ) as mock_call:
+            await ida_mcp_resolver.call_llm_decompile(
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                symbol_name_list=["_HANDLE_TABLE_ENTRY->ObjectPointerBits"],
+                reference_items=[
+                    {
+                        "func_name": "ObpEnumFindHandleProcedure",
+                        "disasm_code": "reference disasm",
+                        "procedure": "reference proc",
+                    }
+                ],
+                target_items=[
+                    {
+                        "func_name": "ObpEnumFindHandleProcedure",
+                        "disasm_code": "target primary disasm",
+                        "procedure": "target primary proc",
+                    },
+                    {
+                        "func_name": "ExGetHandlePointer",
+                        "disasm_code": "target helper disasm",
+                        "procedure": "target helper proc",
+                    },
+                ],
+                prompt_template=prompt_template,
             )
 
-        self.assertEqual(0x570, payload["offset"])
+        prompt = mock_call.await_args.kwargs["prompt"]
+        target_primary_block_start = prompt.index(
+            "### Target Function: ObpEnumFindHandleProcedure",
+        )
+        target_helper_block_start = prompt.index(
+            "### Target Function: ExGetHandlePointer",
+            target_primary_block_start + 1,
+        )
+        target_section_end = prompt.index(
+            "\n\nWhat you need to do is",
+            target_helper_block_start,
+        )
+        target_primary_block = prompt[target_primary_block_start:target_helper_block_start]
+        target_helper_block = prompt[target_helper_block_start:target_section_end]
+
+        self.assertIn(
+            "**Disassembly for ObpEnumFindHandleProcedure**",
+            target_primary_block,
+        )
+        self.assertIn(
+            "**Procedure for ObpEnumFindHandleProcedure**",
+            target_primary_block,
+        )
+        target_primary_disasm_fence = "```c\n; Function: ObpEnumFindHandleProcedure\n"
+        self.assertIn(target_primary_disasm_fence, target_primary_block)
+        target_primary_disasm_index = target_primary_block.index("target primary disasm")
+        target_primary_annotation_index = target_primary_block.index(
+            target_primary_disasm_fence,
+        )
+        self.assertLess(target_primary_annotation_index, target_primary_disasm_index)
+
+        self.assertIn("**Disassembly for ExGetHandlePointer**", target_helper_block)
+        self.assertIn("**Procedure for ExGetHandlePointer**", target_helper_block)
+        target_helper_disasm_fence = "```c\n; Function: ExGetHandlePointer\n"
+        self.assertIn(target_helper_disasm_fence, target_helper_block)
+        target_helper_disasm_index = target_helper_block.index("target helper disasm")
+        target_helper_annotation_index = target_helper_block.index(
+            target_helper_disasm_fence,
+        )
+        self.assertLess(target_helper_annotation_index, target_helper_disasm_index)
+
+    async def test_resolve_symbol_via_llm_decompile_uses_found_call(self) -> None:
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "_prepare_llm_decompile_request",
+                return_value={
+                    "prepared": True,
+                    "llm_symbol_name": "ExReferenceCallBackBlock",
+                },
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "call_llm_decompile",
+                AsyncMock(
+                    return_value={
+                        "found_call": [
+                            {
+                                "insn_va": "0x140001000",
+                                "insn_disasm": "call sub_140012340",
+                                "func_name": "ExReferenceCallBackBlock",
+                            }
+                        ],
+                        "found_gv": [],
+                        "found_struct_offset": [],
+                    }
+                ),
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "_resolve_direct_call_target_via_mcp",
+                AsyncMock(return_value=0x140012340),
+            ),
+        ):
+            payload = await ida_mcp_resolver.resolve_symbol_via_llm_decompile(
+                session=AsyncMock(),
+                symbol_name="ExReferenceCallBackBlock",
+                category="func",
+                binary_dir="/tmp",
+                image_base=0x140000000,
+                llm_decompile_specs=[
+                    (
+                        "ExReferenceCallBackBlock",
+                        "ExReferenceCallBackBlock",
+                        "prompt/call_llm_decompile.md",
+                        "references/ntoskrnl/Ref.{arch}.yaml",
+                    )
+                ],
+                llm_config={"model": "test-model", "api_key": "test-key"},
+            )
+
+        self.assertEqual(
+            {
+                "func_name": "ExReferenceCallBackBlock",
+                "func_va": 0x140012340,
+                "func_rva": 0x12340,
+            },
+            payload,
+        )
+
+    async def test_resolve_symbol_via_llm_decompile_uses_found_gv(self) -> None:
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "_prepare_llm_decompile_request",
+                return_value={
+                    "prepared": True,
+                    "llm_symbol_name": "PspCreateProcessNotifyRoutine",
+                },
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "call_llm_decompile",
+                AsyncMock(
+                    return_value={
+                        "found_call": [],
+                        "found_gv": [
+                            {
+                                "insn_va": "0x140001008",
+                                "insn_disasm": "mov rcx, cs:qword_140045678",
+                                "gv_name": "PspCreateProcessNotifyRoutine",
+                            }
+                        ],
+                        "found_struct_offset": [],
+                    }
+                ),
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "_resolve_direct_gv_target_via_mcp",
+                AsyncMock(return_value=0x140045678),
+            ),
+        ):
+            payload = await ida_mcp_resolver.resolve_symbol_via_llm_decompile(
+                session=AsyncMock(),
+                symbol_name="PspCreateProcessNotifyRoutine",
+                category="gv",
+                binary_dir="/tmp",
+                image_base=0x140000000,
+                llm_decompile_specs=[
+                    (
+                        "PspCreateProcessNotifyRoutine",
+                        "PspCreateProcessNotifyRoutine",
+                        "prompt/call_llm_decompile.md",
+                        "references/ntoskrnl/Ref.{arch}.yaml",
+                    )
+                ],
+                llm_config={"model": "test-model", "api_key": "test-key"},
+            )
+
+        self.assertEqual(
+            {
+                "gv_name": "PspCreateProcessNotifyRoutine",
+                "gv_va": 0x140045678,
+                "gv_rva": 0x45678,
+            },
+            payload,
+        )
+
+    async def test_resolve_symbol_via_llm_decompile_uses_found_struct_offset(self) -> None:
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "_prepare_llm_decompile_request",
+                return_value={
+                    "prepared": True,
+                    "llm_symbol_name": "_ALPC_PORT->OwnerProcess",
+                },
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "call_llm_decompile",
+                AsyncMock(
+                    return_value={
+                        "found_call": [],
+                        "found_gv": [],
+                        "found_struct_offset": [
+                            {
+                                "insn_va": "0x140001010",
+                                "insn_disasm": "mov rcx, [r9+18h]",
+                                "offset": "0x18",
+                                "struct_name": "_ALPC_PORT",
+                                "member_name": "OwnerProcess",
+                            }
+                        ],
+                    }
+                ),
+            ),
+        ):
+            payload = await ida_mcp_resolver.resolve_symbol_via_llm_decompile(
+                session=AsyncMock(),
+                symbol_name="AlpcOwnerProcess",
+                category="struct_offset",
+                binary_dir="/tmp",
+                image_base=0x140000000,
+                llm_decompile_specs=[
+                    (
+                        "AlpcOwnerProcess",
+                        "_ALPC_PORT->OwnerProcess",
+                        "prompt/call_llm_decompile.md",
+                        "references/ntoskrnl/Ref.{arch}.yaml",
+                    )
+                ],
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                struct_metadata={
+                    "struct_name": "_ALPC_PORT",
+                    "member_name": "OwnerProcess",
+                },
+            )
+
+        self.assertEqual(
+            {
+                "struct_name": "_ALPC_PORT",
+                "member_name": "OwnerProcess",
+                "offset": 0x18,
+            },
+            payload,
+        )
+
+    async def test_resolve_symbol_via_llm_decompile_uses_found_struct_bit_offset(
+        self,
+    ) -> None:
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "_prepare_llm_decompile_request",
+                return_value={
+                    "prepared": True,
+                    "llm_symbol_name": "_EPROCESS->BreakOnTermination",
+                },
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "call_llm_decompile",
+                AsyncMock(
+                    return_value={
+                        "found_call": [],
+                        "found_gv": [],
+                        "found_struct_offset": [
+                            {
+                                "insn_va": "0x140650EB4",
+                                "insn_disasm": "test dword ptr [rcx+464h], 2000h",
+                                "offset": "0x464",
+                                "bit_offset": "13",
+                                "struct_name": "_EPROCESS",
+                                "member_name": "BreakOnTermination",
+                            }
+                        ],
+                    }
+                ),
+            ),
+        ):
+            payload = await ida_mcp_resolver.resolve_symbol_via_llm_decompile(
+                session=AsyncMock(),
+                symbol_name="EpBreakOnTermination",
+                category="struct_offset",
+                binary_dir="/tmp",
+                image_base=0x140000000,
+                llm_decompile_specs=[
+                    (
+                        "EpBreakOnTermination",
+                        "_EPROCESS->BreakOnTermination",
+                        "prompt/call_llm_decompile.md",
+                        "references/ntoskrnl/PspTerminateAllThreads.{arch}.yaml",
+                    )
+                ],
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                struct_metadata={
+                    "struct_name": "_EPROCESS",
+                    "member_name": "BreakOnTermination",
+                    "bits": True,
+                },
+            )
+
+        self.assertEqual(
+            {
+                "struct_name": "_EPROCESS",
+                "member_name": "BreakOnTermination",
+                "offset": 0x464,
+                "bit_offset": 13,
+            },
+            payload,
+        )
+
+    async def test_resolve_symbol_via_llm_decompile_skips_missing_optional_target(
+        self,
+    ) -> None:
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "_prepare_llm_decompile_request",
+                return_value={
+                    "prepared": True,
+                    "llm_symbol_name": "_HANDLE_TABLE_ENTRY->ObjectPointerBits",
+                    "llm_symbol_names": ["_HANDLE_TABLE_ENTRY->ObjectPointerBits"],
+                    "target_func_names": [
+                        "ObpEnumFindHandleProcedure",
+                        "ExGetHandlePointer",
+                    ],
+                    "required_target_func_names": ["ObpEnumFindHandleProcedure"],
+                    "reference_items": [
+                        {
+                            "func_name": "ObpEnumFindHandleProcedure",
+                            "func_va": "0x1406c6cd0",
+                            "disasm_code": "reference disasm",
+                            "procedure": "",
+                        }
+                    ],
+                    "prompt_template": "{reference_blocks}\n{target_blocks}\n{symbol_name_list}",
+                    "prompt_path": "/tmp/prompt.md",
+                    "reference_paths": ["/tmp/ref.yaml"],
+                    "arch": "amd64",
+                },
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "_load_llm_decompile_target_details_via_mcp",
+                AsyncMock(
+                    return_value=[
+                        {
+                            "func_name": "ObpEnumFindHandleProcedure",
+                            "func_va": "0x1406c6cd0",
+                            "disasm_code": "target disasm",
+                            "procedure": "",
+                        }
+                    ]
+                ),
+            ) as mock_load_targets,
+            patch.object(
+                ida_mcp_resolver,
+                "call_llm_decompile",
+                AsyncMock(
+                    return_value={
+                        "found_call": [],
+                        "found_gv": [],
+                        "found_struct_offset": [
+                            {
+                                "insn_va": "0x1406c6ce2",
+                                "insn_disasm": "sar r8, 10h",
+                                "offset": "0x0",
+                                "bit_offset": "20",
+                                "struct_name": "_HANDLE_TABLE_ENTRY",
+                                "member_name": "ObjectPointerBits",
+                            }
+                        ],
+                    }
+                ),
+            ) as mock_call,
+        ):
+            payload = await ida_mcp_resolver.resolve_symbol_via_llm_decompile(
+                session=AsyncMock(),
+                symbol_name="ObDecodeShift",
+                category="struct_offset",
+                binary_dir="/tmp/amd64/ntoskrnl-required-missing",
+                image_base=0x140000000,
+                llm_decompile_specs=[],
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                struct_metadata={
+                    "struct_name": "_HANDLE_TABLE_ENTRY",
+                    "member_name": "ObjectPointerBits",
+                    "bits": True,
+                },
+            )
+
+        self.assertEqual(
+            {
+                "struct_name": "_HANDLE_TABLE_ENTRY",
+                "member_name": "ObjectPointerBits",
+                "offset": 0,
+                "bit_offset": 20,
+            },
+            payload,
+        )
+        self.assertEqual(
+            ["ObpEnumFindHandleProcedure", "ExGetHandlePointer"],
+            mock_load_targets.await_args.args[1],
+        )
+        mock_call.assert_awaited_once()
+
+    async def test_resolve_symbol_via_llm_decompile_fails_when_required_target_missing(
+        self,
+    ) -> None:
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "_prepare_llm_decompile_request",
+                return_value={
+                    "prepared": True,
+                    "llm_symbol_name": "_HANDLE_TABLE_ENTRY->ObjectPointerBits",
+                    "llm_symbol_names": ["_HANDLE_TABLE_ENTRY->ObjectPointerBits"],
+                    "target_func_names": [
+                        "ObpEnumFindHandleProcedure",
+                        "ExGetHandlePointer",
+                    ],
+                    "required_target_func_names": ["ObpEnumFindHandleProcedure"],
+                    "reference_items": [],
+                    "prompt_template": "{reference_blocks}\n{target_blocks}\n{symbol_name_list}",
+                    "prompt_path": "/tmp/prompt.md",
+                    "reference_paths": ["/tmp/ref.yaml"],
+                    "arch": "amd64",
+                },
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "_load_llm_decompile_target_details_via_mcp",
+                AsyncMock(
+                    return_value=[
+                        {
+                            "func_name": "ExGetHandlePointer",
+                            "func_va": "0x1406c7000",
+                            "disasm_code": "helper disasm",
+                            "procedure": "",
+                        }
+                    ]
+                ),
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "call_llm_decompile",
+                AsyncMock(),
+            ) as mock_call,
+        ):
+            payload = await ida_mcp_resolver.resolve_symbol_via_llm_decompile(
+                session=AsyncMock(),
+                symbol_name="ObDecodeShift",
+                category="struct_offset",
+                binary_dir="/tmp/amd64/ntoskrnl",
+                image_base=0x140000000,
+                llm_decompile_specs=[],
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                struct_metadata={
+                    "struct_name": "_HANDLE_TABLE_ENTRY",
+                    "member_name": "ObjectPointerBits",
+                    "bits": True,
+                },
+            )
+
+        self.assertIsNone(payload)
+        mock_call.assert_not_awaited()
+
+    async def test_resolve_symbol_via_llm_decompile_uses_spec_query_name(self) -> None:
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "_load_llm_decompile_target_details_via_mcp",
+                AsyncMock(
+                    return_value=[
+                        {
+                            "func_name": "AlpcpDeletePort",
+                            "func_va": "0x1406df5c0",
+                            "disasm_code": "target disasm",
+                            "procedure": "target proc",
+                        }
+                    ]
+                ),
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "call_llm_decompile",
+                AsyncMock(
+                    return_value={
+                        "found_call": [],
+                        "found_gv": [],
+                        "found_struct_offset": [
+                            {
+                                "insn_va": "0x140001010",
+                                "insn_disasm": "test dword ptr [r9+100h], 100000h",
+                                "offset": "0x100",
+                                "struct_name": "_ALPC_PORT",
+                                "member_name": "PortAttributes",
+                            }
+                        ],
+                    }
+                ),
+            ) as mock_call,
+        ):
+            payload = await ida_mcp_resolver.resolve_symbol_via_llm_decompile(
+                session=AsyncMock(),
+                symbol_name="AlpcAttributes",
+                category="struct_offset",
+                binary_dir="/tmp/amd64/ntoskrnl",
+                image_base=0x140000000,
+                llm_decompile_specs=[
+                    (
+                        "AlpcAttributes",
+                        "_ALPC_PORT->PortAttributes",
+                        "prompt/call_llm_decompile.md",
+                        "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+                    )
+                ],
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                struct_metadata={
+                    "struct_name": "_ALPC_PORT",
+                    "member_name": "PortAttributes",
+                },
+            )
+
+        self.assertEqual(
+            {
+                "struct_name": "_ALPC_PORT",
+                "member_name": "PortAttributes",
+                "offset": 0x100,
+            },
+            payload,
+        )
+        self.assertEqual(
+            ["_ALPC_PORT->PortAttributes"],
+            mock_call.await_args.kwargs["symbol_name_list"],
+        )
+
+    async def test_resolve_symbol_via_llm_decompile_batches_same_request_group(
+        self,
+    ) -> None:
+        ida_mcp_resolver._LLM_DECOMPILE_RESULT_CACHE.clear()
+        llm_specs = [
+            (
+                "AlpcAttributes",
+                "_ALPC_PORT->PortAttributes",
+                "prompt/call_llm_decompile.md",
+                "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+            ),
+            (
+                "AlpcAttributesFlags",
+                "_ALPC_PORT_ATTRIBUTES->Flags",
+                "prompt/call_llm_decompile.md",
+                "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+            ),
+            (
+                "AlpcCommunicationInfo",
+                "_ALPC_PORT->CommunicationInfo",
+                "prompt/call_llm_decompile.md",
+                "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+            ),
+        ]
+        llm_result = {
+            "found_call": [],
+            "found_gv": [],
+            "found_struct_offset": [
+                {
+                    "insn_va": "0x140001010",
+                    "insn_disasm": "test dword ptr [r9+100h], 100000h",
+                    "offset": "0x100",
+                    "struct_name": "_ALPC_PORT",
+                    "member_name": "PortAttributes",
+                },
+                {
+                    "insn_va": "0x140001020",
+                    "insn_disasm": "test dword ptr [rax+10h], 1",
+                    "offset": "0x10",
+                    "struct_name": "_ALPC_PORT_ATTRIBUTES",
+                    "member_name": "Flags",
+                },
+                {
+                    "insn_va": "0x140001030",
+                    "insn_disasm": "mov rcx, [rdi+10h]",
+                    "offset": "0x10",
+                    "struct_name": "_ALPC_PORT",
+                    "member_name": "CommunicationInfo",
+                },
+            ],
+        }
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "_load_llm_decompile_target_details_via_mcp",
+                AsyncMock(
+                    return_value=[
+                        {
+                            "func_name": "AlpcpDeletePort",
+                            "func_va": "0x1406df5c0",
+                            "disasm_code": "target disasm",
+                            "procedure": "target proc",
+                        }
+                    ]
+                ),
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "call_llm_decompile",
+                AsyncMock(return_value=llm_result),
+            ) as mock_call,
+        ):
+            attributes_payload = await ida_mcp_resolver.resolve_symbol_via_llm_decompile(
+                session=AsyncMock(),
+                symbol_name="AlpcAttributes",
+                category="struct_offset",
+                binary_dir="/tmp/kphtools-test-batch/amd64",
+                image_base=0x140000000,
+                llm_decompile_specs=llm_specs,
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                struct_metadata={
+                    "struct_name": "_ALPC_PORT",
+                    "member_name": "PortAttributes",
+                },
+            )
+            flags_payload = await ida_mcp_resolver.resolve_symbol_via_llm_decompile(
+                session=AsyncMock(),
+                symbol_name="AlpcAttributesFlags",
+                category="struct_offset",
+                binary_dir="/tmp/kphtools-test-batch/amd64",
+                image_base=0x140000000,
+                llm_decompile_specs=llm_specs,
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                struct_metadata={
+                    "struct_name": "_ALPC_PORT_ATTRIBUTES",
+                    "member_name": "Flags",
+                },
+            )
+            communication_info_payload = (
+                await ida_mcp_resolver.resolve_symbol_via_llm_decompile(
+                    session=AsyncMock(),
+                    symbol_name="AlpcCommunicationInfo",
+                    category="struct_offset",
+                    binary_dir="/tmp/kphtools-test-batch/amd64",
+                    image_base=0x140000000,
+                    llm_decompile_specs=llm_specs,
+                    llm_config={"model": "test-model", "api_key": "test-key"},
+                    struct_metadata={
+                        "struct_name": "_ALPC_PORT",
+                        "member_name": "CommunicationInfo",
+                    },
+                )
+            )
+
+        self.assertEqual(
+            {
+                "struct_name": "_ALPC_PORT",
+                "member_name": "PortAttributes",
+                "offset": 0x100,
+            },
+            attributes_payload,
+        )
+        self.assertEqual(
+            {
+                "struct_name": "_ALPC_PORT_ATTRIBUTES",
+                "member_name": "Flags",
+                "offset": 0x10,
+            },
+            flags_payload,
+        )
+        self.assertEqual(
+            {
+                "struct_name": "_ALPC_PORT",
+                "member_name": "CommunicationInfo",
+                "offset": 0x10,
+            },
+            communication_info_payload,
+        )
+        mock_call.assert_awaited_once()
+        self.assertEqual(
+            [
+                "_ALPC_PORT->PortAttributes",
+                "_ALPC_PORT_ATTRIBUTES->Flags",
+                "_ALPC_PORT->CommunicationInfo",
+            ],
+            mock_call.await_args.kwargs["symbol_name_list"],
+        )
+        ida_mcp_resolver._LLM_DECOMPILE_RESULT_CACHE.clear()
