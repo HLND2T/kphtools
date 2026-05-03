@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import hashlib
 import os
 from pathlib import Path
 from typing import Any
@@ -149,6 +150,80 @@ def find_data_entry(root: ET.Element, info: FilePathInfo) -> ET.Element | None:
         ):
             return data_elem
     return None
+
+
+class HashMismatchError(ValueError):
+    pass
+
+
+def _calculate_sha256(binary_path: Path) -> str:
+    digest = hashlib.sha256()
+    with Path(binary_path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest().lower()
+
+
+def parse_pe_info(binary_path: Path, expected_sha256: str) -> dict[str, str]:
+    actual_sha256 = _calculate_sha256(binary_path)
+    expected = expected_sha256.lower()
+    if actual_sha256 != expected:
+        raise HashMismatchError(
+            f"sha256 mismatch for {binary_path}: expected {expected}, got {actual_sha256}"
+        )
+
+    pe = pefile.PE(str(binary_path), fast_load=True)
+    try:
+        return {
+            "timestamp": hex(pe.FILE_HEADER.TimeDateStamp),
+            "size": hex(pe.OPTIONAL_HEADER.SizeOfImage),
+            "sha256": actual_sha256,
+        }
+    finally:
+        pe.close()
+
+
+def _version_sort_key(version: str) -> tuple[int, tuple[int, ...] | str]:
+    parts = version.split(".")
+    if parts and all(part.isdigit() for part in parts):
+        return (0, tuple(int(part) for part in parts))
+    return (1, version)
+
+
+def find_insert_position(root: ET.Element, info: FilePathInfo) -> int:
+    children = list(root)
+    new_key = _version_sort_key(info.version)
+    last_group_index: int | None = None
+
+    for index, elem in enumerate(children):
+        if elem.tag != "data":
+            continue
+        if elem.get("arch") != info.arch or elem.get("file") != info.file:
+            continue
+        last_group_index = index
+        existing_key = _version_sort_key(elem.get("version", ""))
+        if existing_key > new_key:
+            return index
+
+    if last_group_index is not None:
+        return last_group_index + 1
+
+    for index, elem in enumerate(children):
+        if elem.tag == "fields":
+            return index
+    return len(children)
+
+
+def create_data_entry(info: FilePathInfo, pe_info: dict[str, str]) -> ET.Element:
+    data_elem = ET.Element("data")
+    data_elem.set("arch", info.arch)
+    data_elem.set("version", info.version)
+    data_elem.set("file", info.file)
+    data_elem.set("hash", info.sha256)
+    data_elem.set("timestamp", pe_info["timestamp"])
+    data_elem.set("size", pe_info["size"])
+    data_elem.text = "0"
+    return data_elem
 
 
 def fallback_value(data_type: str) -> int:

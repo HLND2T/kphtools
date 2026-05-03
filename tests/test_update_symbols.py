@@ -299,6 +299,70 @@ class TestUpdateSymbols(unittest.TestCase):
 
         self.assertIsNotNone(data_elem)
 
+    def test_create_data_entry_uses_text_fields_id_zero(self) -> None:
+        info = update_symbols.FilePathInfo(
+            arch="amd64",
+            file="ntoskrnl.exe",
+            version="10.0.1",
+            sha256="d" * 64,
+            binary_path=Path("ntoskrnl.exe"),
+        )
+
+        data_elem = update_symbols.create_data_entry(
+            info,
+            {"timestamp": "0x10", "size": "0x20", "sha256": "d" * 64},
+        )
+
+        self.assertEqual("data", data_elem.tag)
+        self.assertEqual("amd64", data_elem.get("arch"))
+        self.assertEqual("10.0.1", data_elem.get("version"))
+        self.assertEqual("ntoskrnl.exe", data_elem.get("file"))
+        self.assertEqual("d" * 64, data_elem.get("hash"))
+        self.assertEqual("0x10", data_elem.get("timestamp"))
+        self.assertEqual("0x20", data_elem.get("size"))
+        self.assertEqual("0", data_elem.text)
+        self.assertIsNone(data_elem.get("fields"))
+        self.assertIsNone(data_elem.get("sha256"))
+
+    def test_find_insert_position_keeps_data_before_fields(self) -> None:
+        root = update_symbols.ET.fromstring(
+            '<kphdyn>'
+            '<data arch="amd64" file="ntoskrnl.exe" version="10.0.1" hash="a">1</data>'
+            '<fields id="1" />'
+            '</kphdyn>'
+        )
+        info = update_symbols.FilePathInfo(
+            arch="amd64",
+            file="ntoskrnl.exe",
+            version="10.0.2",
+            sha256="e" * 64,
+            binary_path=Path("ntoskrnl.exe"),
+        )
+
+        insert_index = update_symbols.find_insert_position(root, info)
+
+        self.assertEqual(1, insert_index)
+
+    def test_find_insert_position_orders_versions_within_same_group(self) -> None:
+        root = update_symbols.ET.fromstring(
+            '<kphdyn>'
+            '<data arch="amd64" file="ntoskrnl.exe" version="10.0.1" hash="a">1</data>'
+            '<data arch="amd64" file="ntoskrnl.exe" version="10.0.3" hash="b">1</data>'
+            '<fields id="1" />'
+            '</kphdyn>'
+        )
+        info = update_symbols.FilePathInfo(
+            arch="amd64",
+            file="ntoskrnl.exe",
+            version="10.0.2",
+            sha256="f" * 64,
+            binary_path=Path("ntoskrnl.exe"),
+        )
+
+        insert_index = update_symbols.find_insert_position(root, info)
+
+        self.assertEqual(1, insert_index)
+
     def test_export_xml_reuses_existing_fields_id(self) -> None:
         tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring(XML_TEXT))
         config = self._build_config()
