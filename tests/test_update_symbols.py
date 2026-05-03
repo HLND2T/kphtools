@@ -51,6 +51,13 @@ class TestUpdateSymbols(unittest.TestCase):
         self.assertEqual("kphdyn.xml", args.xml)
         self.assertEqual("symbols", args.symboldir)
         self.assertTrue(args.syncfile)
+        self.assertFalse(args.debug)
+
+    def test_parse_args_accepts_debug_flag(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            args = update_symbols.parse_args(["-syncfile", "-debug"])
+
+        self.assertTrue(args.debug)
 
     def test_parse_args_prefers_environment_xml_and_symboldir(self) -> None:
         with patch.dict(
@@ -437,6 +444,7 @@ class TestUpdateSymbols(unittest.TestCase):
                 xml=str(xml_path),
                 symboldir=str(symboldir),
                 outxml=None,
+                debug=False,
             )
             with (
                 patch.object(update_symbols, "parse_pe_info", side_effect=fake_parse_pe_info) as pe_mock,
@@ -465,6 +473,55 @@ class TestUpdateSymbols(unittest.TestCase):
             self.assertIsNotNone(new_elem)
             self.assertEqual("0", new_elem.text)
             self.assertIsNone(new_elem.get("fields"))
+
+    def test_syncfile_main_debug_prints_added_file_entries(self) -> None:
+        missing_sha = "2" * 64
+
+        with TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            xml_path = temp_path / "kphdyn.xml"
+            symboldir = temp_path / "symbols"
+
+            xml_path.write_text("<kphdyn />", encoding="utf-8")
+
+            missing_binary = (
+                symboldir
+                / "amd64"
+                / "ntoskrnl.exe.10.0.2"
+                / missing_sha
+                / "ntoskrnl.exe"
+            )
+            missing_binary.parent.mkdir(parents=True)
+            missing_binary.write_bytes(b"missing")
+
+            output = io.StringIO()
+            args = SimpleNamespace(
+                xml=str(xml_path),
+                symboldir=str(symboldir),
+                outxml=None,
+                debug=True,
+            )
+            with (
+                patch.object(
+                    update_symbols,
+                    "parse_pe_info",
+                    return_value={
+                        "timestamp": "0x10",
+                        "size": "0x20",
+                        "sha256": missing_sha,
+                    },
+                ),
+                redirect_stdout(output),
+            ):
+                exit_code = update_symbols.syncfile_main(args)
+
+        self.assertEqual(0, exit_code)
+        self.assertIn("syncfile: added file entry: <data", output.getvalue())
+        self.assertIn('arch="amd64"', output.getvalue())
+        self.assertIn('version="10.0.2"', output.getvalue())
+        self.assertIn('file="ntoskrnl.exe"', output.getvalue())
+        self.assertIn(f'hash="{missing_sha}"', output.getvalue())
+        self.assertIn(">0</data>", output.getvalue())
 
     def test_main_syncfile_dispatch_does_not_load_configyaml(self) -> None:
         with (

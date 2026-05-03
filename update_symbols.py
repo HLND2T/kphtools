@@ -12,6 +12,7 @@
                  `{symboldir}/{arch}/{binary}.{version}/{sha256}/`。
     -configyaml  符号配置文件路径，默认 `config.yaml`。
     -syncfile    纯同步模式：扫描符号目录并补齐 XML 中缺失的 `<data>0</data>`。
+    -debug       在 `-syncfile` 新增条目时打印每个追加的 `<data>` entry。
     -outxml      输出 XML 路径；省略时直接覆盖 `-xml`。
 
 环境变量:
@@ -46,6 +47,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("-symboldir", default=DEFAULT_SYMBOL_DIR)
     parser.add_argument("-configyaml", default="config.yaml")
     parser.add_argument("-syncfile", action="store_true")
+    parser.add_argument("-debug", action="store_true")
     parser.add_argument("-outxml")
     args = parser.parse_args(argv)
 
@@ -462,6 +464,9 @@ def syncfile_main(args: argparse.Namespace) -> int:
         data_elem = create_data_entry(info, pe_info)
         root.insert(find_insert_position(root, info), data_elem)
         stats.added += 1
+        if getattr(args, "debug", False):
+            entry_text = ET.tostring(data_elem, encoding="unicode")
+            print(f"syncfile: added file entry: {entry_text}")
 
     if stats.added:
         tree.write(out_path, encoding="utf-8", xml_declaration=True)
