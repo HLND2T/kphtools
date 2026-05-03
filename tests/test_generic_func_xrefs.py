@@ -126,8 +126,8 @@ class TestGenericFuncXrefs(unittest.IsolatedAsyncioTestCase):
                 "_collect_xref_func_starts_for_string",
                 new=AsyncMock(
                     side_effect=[
-                        {0x140010000, 0x140020000},
-                        {0x140020000},
+                        {0x140010000, 0x140020000, 0x140030000},
+                        {0x140020000, 0x140030000},
                         {0x140030000},
                     ]
                 ),
