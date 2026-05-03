@@ -323,6 +323,7 @@ class TestUpdateSymbols(unittest.TestCase):
         self.assertEqual("0", data_elem.text)
         self.assertIsNone(data_elem.get("fields"))
         self.assertIsNone(data_elem.get("sha256"))
+        self.assertIsNone(data_elem.get("added"))
 
     def test_find_insert_position_keeps_data_before_fields(self) -> None:
         root = update_symbols.ET.fromstring(
