@@ -12,6 +12,9 @@ modules:
     - AlpcpInitSystem.yaml
     expected_output:
     - AlpcpDeletePort.yaml
+  - name: find-NtSecureConnectPort
+    expected_output:
+    - NtSecureConnectPort.yaml
   - name: find-EgeGuid-AND-EreGuidEntry
     expected_output:
     - EgeGuid.yaml

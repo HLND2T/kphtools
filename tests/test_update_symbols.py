@@ -619,6 +619,34 @@ class TestUpdateSymbols(unittest.TestCase):
         data_elem = tree.getroot().find("data")
         self.assertEqual("1", data_elem.get("fields"))
 
+    def test_export_xml_ignores_yaml_without_symbol_spec(self) -> None:
+        tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring(XML_TEXT))
+        config = self._build_config()
+
+        with TemporaryDirectory() as temp_dir:
+            sha_dir = Path(temp_dir) / "amd64" / "ntoskrnl.exe.10.0.1" / "abc"
+            sha_dir.mkdir(parents=True, exist_ok=True)
+            (sha_dir / "EpObjectTable.yaml").write_text(
+                "category: struct_offset\noffset: 0x570\n",
+                encoding="utf-8",
+            )
+            (sha_dir / "NtSecureConnectPort.yaml").write_text(
+                "category: func\n"
+                "func_name: NtSecureConnectPort\n"
+                "func_rva: 0x5e8d70\n",
+                encoding="utf-8",
+            )
+            with patch.object(
+                update_symbols,
+                "_load_binary_metadata",
+                return_value={"timestamp": "0x0", "size": "0x0"},
+            ):
+                update_symbols.export_xml(tree, config, Path(temp_dir))
+
+        fields_elem = tree.getroot().find("fields")
+        self.assertEqual("0x570", fields_elem.get("EpObjectTable"))
+        self.assertIsNone(fields_elem.get("NtSecureConnectPort"))
+
     def test_export_xml_reuses_existing_data_entry_with_hash_attribute(self) -> None:
         tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring(HASH_XML_TEXT))
         config = self._build_config()
