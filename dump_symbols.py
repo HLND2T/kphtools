@@ -93,6 +93,10 @@ def _output_symbol_names(skill: Any) -> list[str]:
     ]
 
 
+def _symbol_for_output(symbol_map: dict[str, Any], symbol_name: str) -> Any:
+    return symbol_map.get(symbol_name, {"name": symbol_name})
+
+
 def _artifact_paths(binary_dir: str | Path, names: list[str]) -> list[str]:
     return [str(Path(binary_dir) / name) for name in names]
 
@@ -155,7 +159,7 @@ async def _preprocess_skill_outputs(
         status = await preprocess_single_skill_via_mcp(
             session=session,
             skill=skill,
-            symbol=symbol_map[symbol_name],
+            symbol=_symbol_for_output(symbol_map, symbol_name),
             binary_dir=Path(binary_dir),
             pdb_path=pdb_path,
             debug=debug,

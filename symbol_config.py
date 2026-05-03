@@ -206,14 +206,7 @@ def load_config(path: str | Path) -> ConfigSpec:
             raise ValueError("symbols must be a non-empty list")
 
         symbols = [_load_symbol(_require_mapping(item, "symbol")) for item in symbol_items]
-        symbol_names = {symbol.name for symbol in symbols}
         skills = [_load_skill(_require_mapping(item, "skill")) for item in skill_items]
-        for skill in skills:
-            for symbol_name in skill.produced_symbols:
-                if symbol_name not in symbol_names:
-                    raise ValueError(
-                        f"skill output references unknown symbol: {symbol_name}"
-                    )
 
         modules.append(
             ModuleSpec(
