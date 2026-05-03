@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -69,7 +69,7 @@ def _normalize_signatures(
     if not isinstance(ntapi_signatures, Mapping):
         return None
     signatures = ntapi_signatures.get(symbol_name)
-    if not isinstance(signatures, Iterable) or isinstance(signatures, (str, bytes)):
+    if not isinstance(signatures, (list, tuple)):
         return None
     normalized = list(signatures)
     if not normalized or any(not isinstance(item, str) or not item for item in normalized):
@@ -257,7 +257,7 @@ async def preprocess_ntapi_symbols(
                 "func_name": symbol_name,
                 "func_rva": resolved["rva"],
             }
-        except Exception as exc:
+        except KeyError as exc:
             if debug:
                 print(f"    Preprocess: PDB miss for {symbol_name}: {exc}")
 

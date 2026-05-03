@@ -134,6 +134,25 @@ class TestExtractNtApi(unittest.IsolatedAsyncioTestCase):
                 load_artifact(Path(temp_dir) / "NtSecureConnectPort.yaml"),
             )
 
+    async def test_unexpected_pdb_resolver_error_is_not_swallowed(self) -> None:
+        session = AsyncMock()
+        with TemporaryDirectory() as temp_dir:
+            with patch.object(
+                _extract_ntapi,
+                "resolve_public_symbol",
+                side_effect=RuntimeError("boom"),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "boom"):
+                    await _extract_ntapi.preprocess_ntapi_symbols(
+                        **_base_kwargs(
+                            temp_dir,
+                            session,
+                            pdb_path=Path(temp_dir) / "ntkrnlmp.pdb",
+                        )
+                    )
+
+        session.call_tool.assert_not_awaited()
+
     async def test_accepts_single_candidate_in_page_segment(self) -> None:
         session = AsyncMock()
         session.call_tool.side_effect = [
@@ -338,3 +357,22 @@ class TestExtractNtApi(unittest.IsolatedAsyncioTestCase):
                 },
                 load_artifact(Path(temp_dir) / "NtSecureConnectPort.yaml"),
             )
+
+    async def test_rejects_malformed_signature_containers(self) -> None:
+        cases = [
+            ("dict", {"bad": "shape"}),
+            ("set", {"5D 53 26 88 09 00 00 00"}),
+        ]
+        for label, malformed_signatures in cases:
+            with self.subTest(container_type=label):
+                session = AsyncMock()
+                with TemporaryDirectory() as temp_dir:
+                    kwargs = _base_kwargs(temp_dir, session, pdb_path=None)
+                    kwargs["ntapi_signatures"] = {
+                        "NtSecureConnectPort": malformed_signatures,
+                    }
+
+                    status = await _extract_ntapi.preprocess_ntapi_symbols(**kwargs)
+
+                self.assertEqual(_extract_ntapi.PREPROCESS_STATUS_FAILED, status)
+                session.call_tool.assert_not_awaited()
