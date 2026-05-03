@@ -7,12 +7,16 @@
         -configyaml config.yaml -outxml output.xml
 
 可用参数:
-    -xml         输入 XML 路径，必填。
-    -symboldir   符号产物根目录，必填。脚本会扫描
+    -xml         输入 XML 路径，默认 `kphdyn.xml`。
+    -symboldir   符号产物根目录，默认 `symbols`。脚本会扫描
                  `{symboldir}/{arch}/{binary}.{version}/{sha256}/`。
     -configyaml  符号配置文件路径，默认 `config.yaml`。
     -syncfile    预留兼容参数；当前版本会解析该参数，但主流程未使用。
     -outxml      输出 XML 路径；省略时直接覆盖 `-xml`。
+
+环境变量:
+    - `KPHTOOLS_XML`         若已设置，会覆盖解析后的 `-xml` 值（含默认值）。
+    - `KPHTOOLS_SYMBOLDIR`   若已设置，会覆盖解析后的 `-symboldir` 值（含默认值）。
 """
 
 from __future__ import annotations

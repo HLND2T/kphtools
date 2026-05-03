@@ -1,4 +1,6 @@
+import io
 import os
+from contextlib import redirect_stderr
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -74,13 +76,19 @@ class TestUpdateSymbols(unittest.TestCase):
 
     def test_parse_args_rejects_empty_environment_xml(self) -> None:
         with patch.dict(os.environ, {"KPHTOOLS_XML": ""}, clear=True):
-            with self.assertRaises(SystemExit):
-                update_symbols.parse_args(["-syncfile"])
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                with self.assertRaises(SystemExit):
+                    update_symbols.parse_args(["-syncfile"])
+        self.assertIn("-xml cannot be empty", stderr.getvalue())
 
     def test_parse_args_rejects_empty_environment_symboldir(self) -> None:
         with patch.dict(os.environ, {"KPHTOOLS_SYMBOLDIR": ""}, clear=True):
-            with self.assertRaises(SystemExit):
-                update_symbols.parse_args(["-syncfile"])
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                with self.assertRaises(SystemExit):
+                    update_symbols.parse_args(["-syncfile"])
+        self.assertIn("-symboldir cannot be empty", stderr.getvalue())
 
     def test_collect_yaml_values_uses_real_and_fallback_values(self) -> None:
         symbol_specs = [
