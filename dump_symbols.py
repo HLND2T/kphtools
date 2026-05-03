@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from ida_skill_preprocessor import (
+    PREPROCESS_STATUS_ABSENT_OK as _PREPROCESS_STATUS_ABSENT_OK,
     PREPROCESS_STATUS_FAILED as _PREPROCESS_STATUS_FAILED,
     PREPROCESS_STATUS_SUCCESS,
     preprocess_single_skill_via_mcp,
@@ -56,6 +57,7 @@ SUPPORTED_ARCHES = ("amd64", "arm64")
 DEFAULT_ARCH = ",".join(SUPPORTED_ARCHES)
 DEFAULT_SYMBOL_DIR = "symbols"
 DEFAULT_LLM_MODEL = "gpt-4o"
+PREPROCESS_STATUS_ABSENT_OK = _PREPROCESS_STATUS_ABSENT_OK
 PREPROCESS_STATUS_FAILED = _PREPROCESS_STATUS_FAILED
 
 
@@ -179,6 +181,8 @@ async def _preprocess_skill_outputs(
         )
         _debug_log(debug, f"preprocess status for {skill_name}/{symbol_name}: {status}")
         if status != PREPROCESS_STATUS_SUCCESS and symbol_name in required_symbol_names:
+            if status == PREPROCESS_STATUS_ABSENT_OK and symbol_name not in symbol_map:
+                continue
             return False
     return preprocessed_all
 
