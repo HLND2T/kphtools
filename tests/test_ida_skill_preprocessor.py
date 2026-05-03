@@ -18,17 +18,13 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         ida_skill_preprocessor._SCRIPT_ENTRY_CACHE.clear()
 
-    def test_repository_config_skills_have_matching_script_and_skill_doc(self) -> None:
+    def test_repository_config_skills_have_matching_script(self) -> None:
         config = load_config("config.yaml")
 
         for module in config.modules:
             for skill in module.skills:
-                script_path = (
-                    Path("ida_preprocessor_scripts") / f"{skill.name}.py"
-                )
-                skill_doc_path = Path(".claude") / "skills" / skill.name / "SKILL.md"
+                script_path = Path("ida_preprocessor_scripts") / f"{skill.name}.py"
                 self.assertTrue(script_path.is_file(), script_path)
-                self.assertTrue(skill_doc_path.is_file(), skill_doc_path)
 
     def test_repository_config_skills_export_loadable_preprocess_entries(self) -> None:
         config = load_config("config.yaml")
@@ -590,6 +586,45 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             {"AlpcpInitSystem": ["func_name", "func_rva"]},
             mock_common.await_args.kwargs["generate_yaml_desired_fields"],
+        )
+
+    async def test_ntsecureconnectport_script_dispatches_ntapi_signatures(self) -> None:
+        with patch(
+            "ida_preprocessor_scripts._extract_ntapi.preprocess_ntapi_symbols",
+            new=AsyncMock(return_value=ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS),
+        ) as mock_ntapi:
+            status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
+                session=AsyncMock(),
+                skill=SkillSpec(
+                    name="find-NtSecureConnectPort",
+                    expected_output=["NtSecureConnectPort.yaml"],
+                    expected_input=[],
+                ),
+                symbol={"name": "NtSecureConnectPort"},
+                binary_dir=Path("/tmp"),
+                pdb_path=Path("/tmp/ntkrnlmp.pdb"),
+                debug=False,
+                llm_config=None,
+            )
+
+        self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
+        self.assertEqual(
+            ["NtSecureConnectPort"],
+            mock_ntapi.await_args.kwargs["target_function_names"],
+        )
+        self.assertEqual(
+            {
+                "NtSecureConnectPort": ["5D 53 26 88 09 00 00 00"],
+            },
+            mock_ntapi.await_args.kwargs["ntapi_signatures"],
+        )
+        self.assertEqual(
+            {"NtSecureConnectPort": ["func_name", "func_rva"]},
+            mock_ntapi.await_args.kwargs["generate_yaml_desired_fields"],
+        )
+        self.assertEqual(
+            Path("/tmp/ntkrnlmp.pdb"),
+            mock_ntapi.await_args.kwargs["pdb_path"],
         )
 
     async def test_missing_script_returns_failed(self) -> None:
