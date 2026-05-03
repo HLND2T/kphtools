@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 from typing import Any
 import xml.etree.ElementTree as ET
@@ -27,17 +28,35 @@ import pefile
 from symbol_artifacts import load_artifact
 from symbol_config import load_config
 
+DEFAULT_XML_PATH = "kphdyn.xml"
+DEFAULT_SYMBOL_DIR = "symbols"
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Export kphdyn.xml from YAML symbol artifacts"
     )
-    parser.add_argument("-xml", required=True)
-    parser.add_argument("-symboldir", required=True)
+    parser.add_argument("-xml", default=DEFAULT_XML_PATH)
+    parser.add_argument("-symboldir", default=DEFAULT_SYMBOL_DIR)
     parser.add_argument("-configyaml", default="config.yaml")
     parser.add_argument("-syncfile", action="store_true")
     parser.add_argument("-outxml")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+
+    env_xml = os.getenv("KPHTOOLS_XML")
+    if env_xml:
+        args.xml = env_xml
+
+    env_symboldir = os.getenv("KPHTOOLS_SYMBOLDIR")
+    if env_symboldir:
+        args.symboldir = env_symboldir
+
+    if not args.xml:
+        parser.error("-xml cannot be empty")
+    if not args.symboldir:
+        parser.error("-symboldir cannot be empty")
+
+    return args
 
 
 def fallback_value(data_type: str) -> int:

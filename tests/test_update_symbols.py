@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -40,6 +41,36 @@ class TestUpdateSymbols(unittest.TestCase):
                 )
             ]
         )
+
+    def test_parse_args_uses_default_xml_and_symboldir(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            args = update_symbols.parse_args(["-syncfile"])
+
+        self.assertEqual("kphdyn.xml", args.xml)
+        self.assertEqual("symbols", args.symboldir)
+        self.assertTrue(args.syncfile)
+
+    def test_parse_args_prefers_environment_xml_and_symboldir(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "KPHTOOLS_XML": "env.xml",
+                "KPHTOOLS_SYMBOLDIR": "env-symbols",
+            },
+            clear=True,
+        ):
+            args = update_symbols.parse_args(
+                [
+                    "-xml",
+                    "cli.xml",
+                    "-symboldir",
+                    "cli-symbols",
+                    "-syncfile",
+                ]
+            )
+
+        self.assertEqual("env.xml", args.xml)
+        self.assertEqual("env-symbols", args.symboldir)
 
     def test_collect_yaml_values_uses_real_and_fallback_values(self) -> None:
         symbol_specs = [
