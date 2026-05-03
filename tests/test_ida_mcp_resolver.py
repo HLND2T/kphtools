@@ -71,6 +71,10 @@ found_call:
   - insn_va: '0x140010000'
     insn_disasm: call sub_140020000
     func_name: ExReferenceCallBackBlock
+found_funcptr:
+  - insn_va: '0x140010004'
+    insn_disasm: lea rax, sub_140020100
+    funcptr_name: AlpcpDeletePort
 found_gv:
   - insn_va: '0x140010008'
     insn_disasm: mov rcx, cs:qword_140030000
@@ -88,6 +92,10 @@ found_struct_offset:
         self.assertEqual(
             "ExReferenceCallBackBlock",
             payload["found_call"][0]["func_name"],
+        )
+        self.assertEqual(
+            "AlpcpDeletePort",
+            payload["found_funcptr"][0]["funcptr_name"],
         )
         self.assertEqual(
             "PspCreateProcessNotifyRoutine",
@@ -564,6 +572,89 @@ found_struct_offset:
             },
             payload,
         )
+
+    async def test_resolve_symbol_via_llm_decompile_uses_found_funcptr(self) -> None:
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "_prepare_llm_decompile_request",
+                return_value={
+                    "prepared": True,
+                    "llm_symbol_name": "AlpcpDeletePort",
+                },
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "call_llm_decompile",
+                AsyncMock(
+                    return_value={
+                        "found_call": [],
+                        "found_funcptr": [
+                            {
+                                "insn_va": "0x1407C5BF8",
+                                "insn_disasm": "lea rax, AlpcpDeletePort",
+                                "funcptr_name": "AlpcpDeletePort",
+                            }
+                        ],
+                        "found_gv": [],
+                        "found_struct_offset": [],
+                    }
+                ),
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "_resolve_funcptr_target_via_mcp",
+                AsyncMock(return_value=0x1407C6000),
+            ),
+        ):
+            payload = await ida_mcp_resolver.resolve_symbol_via_llm_decompile(
+                session=AsyncMock(),
+                symbol_name="AlpcpDeletePort",
+                category="func",
+                binary_dir="/tmp",
+                image_base=0x140000000,
+                llm_decompile_specs=[
+                    (
+                        "AlpcpDeletePort",
+                        "AlpcpDeletePort",
+                        "prompt/call_llm_decompile.md",
+                        "references/ntoskrnl/AlpcpInitSystem.{arch}.yaml",
+                    )
+                ],
+                llm_config={"model": "test-model", "api_key": "test-key"},
+            )
+
+        self.assertEqual(
+            {
+                "func_name": "AlpcpDeletePort",
+                "func_va": 0x1407C6000,
+                "func_rva": 0x7C6000,
+            },
+            payload,
+        )
+
+    async def test_resolve_funcptr_target_via_mcp_requires_function_start(self) -> None:
+        session = AsyncMock()
+        session.call_tool.return_value.content = [
+            type("Text", (), {"text": '{"result":"{\\"matches\\": [\\"0x1407c6000\\"]}"}'})()
+        ]
+
+        payload = await ida_mcp_resolver._resolve_funcptr_target_via_mcp(
+            session,
+            "0x1407C5BF8",
+        )
+
+        session.call_tool.assert_awaited_once()
+        tool_name, tool_payload = session.call_tool.await_args.args
+        py_code = tool_payload["code"]
+
+        self.assertEqual("py_eval", tool_name)
+        self.assertEqual(0x1407C6000, payload)
+        self.assertIn("idautils.DataRefsFrom", py_code)
+        self.assertIn("ida_funcs.get_func", py_code)
+        self.assertIn("func.start_ea", py_code)
+        self.assertIn("target_ea", py_code)
+        self.assertNotIn("CodeRefsFrom", py_code)
 
     async def test_resolve_symbol_via_llm_decompile_uses_found_gv(self) -> None:
         with (

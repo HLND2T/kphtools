@@ -112,6 +112,7 @@ async def resolve_public_name_via_mcp(
 def _empty_llm_decompile_result() -> dict[str, list[dict[str, str]]]:
     return {
         "found_call": [],
+        "found_funcptr": [],
         "found_gv": [],
         "found_struct_offset": [],
     }
@@ -176,7 +177,7 @@ def _parse_yaml_mapping(text: str) -> dict[str, Any] | None:
 
 def _repair_glued_llm_yaml_headers(text: str) -> str:
     return re.sub(
-        r"([^\n])((?:found_call|found_gv|found_struct_offset):)",
+        r"([^\n])((?:found_call|found_funcptr|found_gv|found_struct_offset):)",
         r"\1\n\2",
         text,
     )
@@ -219,6 +220,10 @@ def parse_llm_decompile_response(response_text: str) -> dict[str, list[dict[str,
         "found_call": _normalize_llm_entries(
             parsed.get("found_call", []),
             ("insn_va", "insn_disasm", "func_name"),
+        ),
+        "found_funcptr": _normalize_llm_entries(
+            parsed.get("found_funcptr", []),
+            ("insn_va", "insn_disasm", "funcptr_name"),
         ),
         "found_gv": _normalize_llm_entries(
             parsed.get("found_gv", []),
@@ -757,6 +762,34 @@ async def _resolve_direct_call_target_via_mcp(session, insn_va: Any) -> int | No
         return None
 
 
+async def _resolve_funcptr_target_via_mcp(session, insn_va: Any) -> int | None:
+    try:
+        insn_va_int = _parse_offset_value(insn_va)
+    except Exception:
+        return None
+    py_code = (
+        "import ida_funcs, idautils, json\n"
+        f"insn_ea = {insn_va_int}\n"
+        "matches = []\n"
+        "for target_ea in idautils.DataRefsFrom(insn_ea):\n"
+        "    func = ida_funcs.get_func(target_ea)\n"
+        "    if func is not None and int(func.start_ea) == int(target_ea):\n"
+        "        matches.append(hex(int(target_ea)))\n"
+        "result = json.dumps({'matches': sorted(set(matches))})\n"
+    )
+    try:
+        payload = _parse_py_eval_result(await session.call_tool("py_eval", {"code": py_code}))
+    except Exception:
+        return None
+    matches = payload.get("matches") if isinstance(payload, dict) else None
+    if not isinstance(matches, list) or len(matches) != 1:
+        return None
+    try:
+        return int(str(matches[0]), 0)
+    except (TypeError, ValueError):
+        return None
+
+
 async def _resolve_direct_gv_target_via_mcp(session, insn_va: Any) -> int | None:
     try:
         insn_va_int = _parse_offset_value(insn_va)
@@ -878,6 +911,7 @@ async def resolve_symbol_via_llm_decompile(
         debug,
         "llm_decompile result for "
         f"{symbol_name}: found_call={len(result.get('found_call', []))}, "
+        f"found_funcptr={len(result.get('found_funcptr', []))}, "
         f"found_gv={len(result.get('found_gv', []))}, "
         f"found_struct_offset={len(result.get('found_struct_offset', []))}",
     )
@@ -887,6 +921,16 @@ async def resolve_symbol_via_llm_decompile(
             if entry.get("func_name") not in {symbol_name, llm_symbol_name}:
                 continue
             func_va = await _resolve_direct_call_target_via_mcp(session, entry.get("insn_va"))
+            if func_va is not None:
+                return {
+                    "func_name": symbol_name,
+                    "func_va": func_va,
+                    "func_rva": func_va - image_base,
+                }
+        for entry in result.get("found_funcptr", []):
+            if entry.get("funcptr_name") not in {symbol_name, llm_symbol_name}:
+                continue
+            func_va = await _resolve_funcptr_target_via_mcp(session, entry.get("insn_va"))
             if func_va is not None:
                 return {
                     "func_name": symbol_name,

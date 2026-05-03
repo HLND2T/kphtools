@@ -7,6 +7,11 @@ modules:
   - name: find-AlpcpInitSystem
     expected_output:
     - AlpcpInitSystem.yaml
+  - name: find-AlpcpDeletePort
+    expected_input:
+    - AlpcpInitSystem.yaml
+    expected_output:
+    - AlpcpDeletePort.yaml
   - name: find-EgeGuid-AND-EreGuidEntry
     expected_output:
     - EgeGuid.yaml
@@ -42,6 +47,8 @@ modules:
     - AlpcConnectionPort.yaml
     - AlpcServerCommunicationPort.yaml
     - AlpcClientCommunicationPort.yaml
+    expected_input:
+    - AlpcpDeletePort.yaml
   - name: find-AlpcSequenceNo-AND-AlpcState
     expected_output:
     - AlpcSequenceNo.yaml
@@ -171,6 +178,9 @@ modules:
     category: struct_offset
     data_type: uint16
   - name: AlpcpInitSystem
+    category: func
+    data_type: uint32
+  - name: AlpcpDeletePort
     category: func
     data_type: uint32
   - name: KtInitialStack

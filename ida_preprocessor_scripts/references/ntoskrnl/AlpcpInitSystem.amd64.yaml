@@ -1,0 +1,275 @@
+func_name: AlpcpInitSystem
+func_va: '0x1407c5b0c'
+disasm_code: |-
+  PAGE:00000001407C5B0C                 mov     [rsp-8+arg_0], rbx
+  PAGE:00000001407C5B11                 push    rbp
+  PAGE:00000001407C5B12                 lea     rbp, [rsp-20h]
+  PAGE:00000001407C5B17                 sub     rsp, 120h
+  PAGE:00000001407C5B1E                 mov     rax, cs:__security_cookie
+  PAGE:00000001407C5B25                 xor     rax, rsp
+  PAGE:00000001407C5B28                 mov     [rbp+20h+var_10], rax
+  PAGE:00000001407C5B2C                 ; Val
+  PAGE:00000001407C5B2C                 xor     edx, edx; Val
+  PAGE:00000001407C5B2E                 ; void *
+  PAGE:00000001407C5B2E                 lea     rcx, [rbp+20h+var_50]; void *
+  PAGE:00000001407C5B32                 xorps   xmm0, xmm0
+  PAGE:00000001407C5B35                 movups  xmmword ptr [rsp+120h+DestinationString.Length], xmm0
+  PAGE:00000001407C5B3A                 ; Size
+  PAGE:00000001407C5B3A                 lea     r8d, [rdx+40h]; Size
+  PAGE:00000001407C5B3E                 call    memset
+  PAGE:00000001407C5B43                 mov     rax, gs:188h
+  PAGE:00000001407C5B4C                 dec     word ptr [rax+1E4h]
+  PAGE:00000001407C5B53                 ; NumberOfBytes
+  PAGE:00000001407C5B53                 mov     edx, 18h; NumberOfBytes
+  PAGE:00000001407C5B58                 ; PoolType
+  PAGE:00000001407C5B58                 mov     ecx, 200h; PoolType
+  PAGE:00000001407C5B5D                 ; Tag
+  PAGE:00000001407C5B5D                 mov     r8d, 6E496C41h; Tag
+  PAGE:00000001407C5B63                 call    ExAllocatePoolWithTag
+  PAGE:00000001407C5B68                 mov     cs:AlpcpDummyEvent, rax
+  PAGE:00000001407C5B6F                 test    rax, rax
+  PAGE:00000001407C5B72                 jz      loc_140860434
+  PAGE:00000001407C5B78                 ; State
+  PAGE:00000001407C5B78                 mov     r8b, 1; State
+  PAGE:00000001407C5B7B                 ; Type
+  PAGE:00000001407C5B7B                 xor     edx, edx; Type
+  PAGE:00000001407C5B7D                 ; Event
+  PAGE:00000001407C5B7D                 mov     rcx, rax; Event
+  PAGE:00000001407C5B80                 call    KeInitializeEvent
+  PAGE:00000001407C5B85                 and     cs:AlpcpPortListLock, 0
+  PAGE:00000001407C5B8D                 lea     rax, AlpcpPortList
+  PAGE:00000001407C5B94                 lea     rdx, aAlpcPort; "ALPC Port"
+  PAGE:00000001407C5B9B                 mov     cs:qword_140C2A7B8, rax
+  PAGE:00000001407C5BA2                 ; DestinationString
+  PAGE:00000001407C5BA2                 lea     rcx, [rsp+120h+DestinationString]; DestinationString
+  PAGE:00000001407C5BA7                 mov     cs:AlpcpPortList, rax
+  PAGE:00000001407C5BAE                 call    RtlInitUnicodeString
+  PAGE:00000001407C5BB3                 mov     ebx, 78h ; 'x'
+  PAGE:00000001407C5BB8                 ; void *
+  PAGE:00000001407C5BB8                 lea     rcx, [rsp+120h+var_D0]; void *
+  PAGE:00000001407C5BBD                 ; Size
+  PAGE:00000001407C5BBD                 mov     r8d, ebx; Size
+  PAGE:00000001407C5BC0                 ; Val
+  PAGE:00000001407C5BC0                 xor     edx, edx; Val
+  PAGE:00000001407C5BC2                 call    memset
+  PAGE:00000001407C5BC7                 movups  xmm0, cs:AlpcpPortMapping
+  PAGE:00000001407C5BCE                 and     [rsp+120h+var_A8], 0
+  PAGE:00000001407C5BD3                 lea     rax, AlpcpOpenPort   ; function pointer: AlpcpOpenPort (DeleteProcedure sibling)
+  PAGE:00000001407C5BDA                 mov     [rbp+20h+var_98], rax
+  PAGE:00000001407C5BDE                 lea     rdx, [rsp+120h+var_D0]
+  PAGE:00000001407C5BE3                 lea     rax, AlpcpClosePort  ; function pointer: AlpcpClosePort (DeleteProcedure sibling)
+  PAGE:00000001407C5BEA                 mov     [rsp+120h+var_D0], bx
+  PAGE:00000001407C5BEF                 mov     [rbp+20h+var_90], rax
+  PAGE:00000001407C5BF3                 ; SourceString
+  PAGE:00000001407C5BF3                 lea     rcx, [rsp+120h+DestinationString]; SourceString
+  PAGE:00000001407C5BF8                 lea     rax, AlpcpDeletePort ; function pointer: AlpcpDeletePort - OB_OBJECT_TYPE DeleteProcedure callback
+  PAGE:00000001407C5BFF                 mov     [rsp+120h+var_AC], 200h
+  PAGE:00000001407C5C07                 mov     [rbp+20h+var_88], rax
+  PAGE:00000001407C5C0B                 mov     r9d, 0F9h
+  PAGE:00000001407C5C11                 mov     al, [rsp+120h+var_CE]
+  PAGE:00000001407C5C15                 xor     r8d, r8d
+  PAGE:00000001407C5C18                 and     al, 0DBh
+  PAGE:00000001407C5C1A                 mov     [rsp+120h+var_A4], 1F8h
+  PAGE:00000001407C5C22                 or      al, 10h
+  PAGE:00000001407C5C24                 mov     [rsp+120h+var_C8], 80h
+  PAGE:00000001407C5C2C                 mov     [rsp+120h+var_CE], al
+  PAGE:00000001407C5C30                 lea     rax, AlpcPortObjectType
+  PAGE:00000001407C5C37                 ; __int64
+  PAGE:00000001407C5C37                 mov     [rsp+120h+Size], rax; __int64
+  PAGE:00000001407C5C3C                 movdqu  [rsp+120h+var_C4], xmm0
+  PAGE:00000001407C5C42                 mov     [rsp+120h+var_B4], 1F0001h
+  PAGE:00000001407C5C4A                 call    ObCreateObjectTypeEx
+  PAGE:00000001407C5C4F                 mov     ebx, eax
+  PAGE:00000001407C5C51                 test    eax, eax
+  PAGE:00000001407C5C53                 js      loc_1407C5DC2
+  PAGE:00000001407C5C59                 xor     edx, edx
+  PAGE:00000001407C5C5B                 xor     ecx, ecx
+  PAGE:00000001407C5C5D                 call    ExCreateHandleTable
+  PAGE:00000001407C5C62                 mov     ebx, 20h ; ' '
+  PAGE:00000001407C5C67                 mov     cs:AlpcMessageTable, rax
+  PAGE:00000001407C5C6E                 ; Depth
+  PAGE:00000001407C5C6E                 mov     [rsp+120h+Depth], bx; Depth
+  PAGE:00000001407C5C73                 ; Free
+  PAGE:00000001407C5C73                 lea     r8, AlpcpFreeMessageFunction; Free
+  PAGE:00000001407C5C7A                 ; Tag
+  PAGE:00000001407C5C7A                 mov     [rsp+120h+Tag], 734D6C41h; Tag
+  PAGE:00000001407C5C82                 ; Allocate
+  PAGE:00000001407C5C82                 lea     rdx, AlpcpAllocateMessageFunction; Allocate
+  PAGE:00000001407C5C89                 ; Flags
+  PAGE:00000001407C5C89                 xor     r9d, r9d; Flags
+  PAGE:00000001407C5C8C                 ; Size
+  PAGE:00000001407C5C8C                 mov     [rsp+120h+Size], 348h; Size
+  PAGE:00000001407C5C95                 ; Lookaside
+  PAGE:00000001407C5C95                 lea     rcx, AlpcpLookasides; Lookaside
+  PAGE:00000001407C5C9C                 call    ExInitializePagedLookasideList
+  PAGE:00000001407C5CA1                 ; Depth
+  PAGE:00000001407C5CA1                 mov     [rsp+120h+Depth], bx; Depth
+  PAGE:00000001407C5CA6                 ; Free
+  PAGE:00000001407C5CA6                 lea     r8, ?Free@SC_ENV@@SAXPEAX@Z; Free
+  PAGE:00000001407C5CAD                 ; Tag
+  PAGE:00000001407C5CAD                 mov     [rsp+120h+Tag], 49436C41h; Tag
+  PAGE:00000001407C5CB5                 ; Allocate
+  PAGE:00000001407C5CB5                 lea     rdx, AlpcpAllocateBuffer; Allocate
+  PAGE:00000001407C5CBC                 ; Flags
+  PAGE:00000001407C5CBC                 xor     r9d, r9d; Flags
+  PAGE:00000001407C5CBF                 ; Size
+  PAGE:00000001407C5CBF                 mov     [rsp+120h+Size], 80h; Size
+  PAGE:00000001407C5CC8                 ; Lookaside
+  PAGE:00000001407C5CC8                 lea     rcx, stru_140CEBC80; Lookaside
+  PAGE:00000001407C5CCF                 call    ExInitializePagedLookasideList
+  PAGE:00000001407C5CD4                 ; Depth
+  PAGE:00000001407C5CD4                 mov     [rsp+120h+Depth], bx; Depth
+  PAGE:00000001407C5CD9                 ; Lookaside
+  PAGE:00000001407C5CD9                 lea     rcx, stru_140CEBD00; Lookaside
+  PAGE:00000001407C5CE0                 ; Tag
+  PAGE:00000001407C5CE0                 mov     [rsp+120h+Tag], 61486C41h; Tag
+  PAGE:00000001407C5CE8                 ; Flags
+  PAGE:00000001407C5CE8                 xor     r9d, r9d; Flags
+  PAGE:00000001407C5CEB                 ; Free
+  PAGE:00000001407C5CEB                 xor     r8d, r8d; Free
+  PAGE:00000001407C5CEE                 ; Size
+  PAGE:00000001407C5CEE                 mov     [rsp+120h+Size], 80h; Size
+  PAGE:00000001407C5CF7                 ; Allocate
+  PAGE:00000001407C5CF7                 xor     edx, edx; Allocate
+  PAGE:00000001407C5CF9                 call    ExInitializePagedLookasideList
+  PAGE:00000001407C5CFE                 ; Depth
+  PAGE:00000001407C5CFE                 mov     [rsp+120h+Depth], bx; Depth
+  PAGE:00000001407C5D03                 ; Lookaside
+  PAGE:00000001407C5D03                 lea     rcx, AlpcpNPLookasides; Lookaside
+  PAGE:00000001407C5D0A                 ; Tag
+  PAGE:00000001407C5D0A                 mov     [rsp+120h+Tag], 65536C41h; Tag
+  PAGE:00000001407C5D12                 ; Flags
+  PAGE:00000001407C5D12                 mov     r9d, 200h; Flags
+  PAGE:00000001407C5D18                 ; Free
+  PAGE:00000001407C5D18                 xor     r8d, r8d; Free
+  PAGE:00000001407C5D1B                 ; Size
+  PAGE:00000001407C5D1B                 mov     [rsp+120h+Size], rbx; Size
+  PAGE:00000001407C5D20                 ; Allocate
+  PAGE:00000001407C5D20                 xor     edx, edx; Allocate
+  PAGE:00000001407C5D22                 call    ExInitializeNPagedLookasideList
+  PAGE:00000001407C5D27                 xor     r9d, r9d
+  PAGE:00000001407C5D2A                 lea     r8d, [rbx+20h]
+  PAGE:00000001407C5D2E                 lea     rdx, [rbp+20h+var_50]
+  PAGE:00000001407C5D32                 xor     ecx, ecx
+  PAGE:00000001407C5D34                 call    NtQuerySystemInformation
+  PAGE:00000001407C5D39                 mov     ebx, eax
+  PAGE:00000001407C5D3B                 test    eax, eax
+  PAGE:00000001407C5D3D                 js      short loc_1407C5D51
+  PAGE:00000001407C5D3F                 mov     eax, [rbp+20h+var_38]
+  PAGE:00000001407C5D42                 mov     cs:AlpcpRegionGranularity, eax
+  PAGE:00000001407C5D48                 mov     eax, [rbp+20h+var_48]
+  PAGE:00000001407C5D4B                 mov     cs:AlpcpViewGranularity, eax
+  PAGE:00000001407C5D51                 cmp     cs:AlpcpMessageLogEnabled, 0
+  PAGE:00000001407C5D58                 jnz     loc_14086043E
+  PAGE:00000001407C5D5E                 and     cs:AlpcpMessageLogLock, 0
+  PAGE:00000001407C5D66                 lea     rax, AlpcpMessageLogListHead
+  PAGE:00000001407C5D6D                 mov     cs:qword_140C2A828, rax
+  PAGE:00000001407C5D74                 mov     cs:AlpcpMessageLogListHead, rax
+  PAGE:00000001407C5D7B                 lea     rax, AlpcpFreeMessageLogListHead
+  PAGE:00000001407C5D82                 mov     cs:qword_140C2A858, rax
+  PAGE:00000001407C5D89                 mov     cs:AlpcpFreeMessageLogListHead, rax
+  PAGE:00000001407C5D90                 lea     rax, AlpcpFreeMessageSnapshotListHead
+  PAGE:00000001407C5D97                 mov     cs:qword_140C2A848, rax
+  PAGE:00000001407C5D9E                 mov     cs:AlpcpFreeMessageSnapshotListHead, rax
+  PAGE:00000001407C5DA5                 and     cs:AlpcpCompletionListDatabase, 0
+  PAGE:00000001407C5DAD                 lea     rax, qword_140C2A7D0
+  PAGE:00000001407C5DB4                 mov     cs:qword_140C2A7D8, rax
+  PAGE:00000001407C5DBB                 mov     cs:qword_140C2A7D0, rax
+  PAGE:00000001407C5DC2                 call    KeLeaveCriticalRegion
+  PAGE:00000001407C5DC7                 mov     eax, ebx
+  PAGE:00000001407C5DC9                 mov     rcx, [rbp+20h+var_10]
+  PAGE:00000001407C5DCD                 ; StackCookie
+  PAGE:00000001407C5DCD                 xor     rcx, rsp; StackCookie
+  PAGE:00000001407C5DD0                 call    __security_check_cookie
+  PAGE:00000001407C5DD5                 mov     rbx, [rsp+120h+arg_0]
+  PAGE:00000001407C5DDD                 add     rsp, 120h
+  PAGE:00000001407C5DE4                 pop     rbp
+  PAGE:00000001407C5DE5                 retn
+  PAGE:0000000140860434                 mov     ebx, 0C000009Ah
+  PAGE:0000000140860439                 jmp     loc_1407C5DC2
+  PAGE:000000014086043E                 mov     edx, 8000h
+  PAGE:0000000140860443                 mov     ecx, 1000h
+  PAGE:0000000140860448                 call    AlpcpInitializeMessageLog
+  PAGE:000000014086044D                 nop
+  PAGE:000000014086044E                 jmp     loc_1407C5DA5
+procedure: |-
+  __int64 AlpcpInitSystem()
+  {
+    struct _KTHREAD *CurrentThread; // rax
+    struct _KEVENT *PoolWithTag; // rax
+    int SystemInformation; // ebx
+    UNICODE_STRING DestinationString; // [rsp+40h] [rbp-C0h] BYREF
+    _QWORD v5[16]; // [rsp+50h] [rbp-B0h] BYREF
+    _DWORD v6[16]; // [rsp+D0h] [rbp-30h] BYREF
+
+    DestinationString = 0;
+    memset(v6, 0, sizeof(v6));
+    CurrentThread = KeGetCurrentThread();
+    --CurrentThread->KernelApcDisable;
+    PoolWithTag = (struct _KEVENT *)ExAllocatePoolWithTag(NonPagedPoolNx, 0x18u, 'nIlA');
+    AlpcpDummyEvent = (__int64)PoolWithTag;
+    if ( PoolWithTag )
+    {
+      KeInitializeEvent(PoolWithTag, NotificationEvent, 1u);
+      AlpcpPortListLock = 0;
+      qword_140C2A7B8 = (__int64)&AlpcpPortList;
+      AlpcpPortList = (__int64)&AlpcpPortList;
+      RtlInitUnicodeString(&DestinationString, L"ALPC Port");
+      memset(v5, 0, 0x78u);
+      v5[5] = 0x1F800000000LL;
+      v5[7] = AlpcpOpenPort;   // function pointer: AlpcpOpenPort  (OpenProcedure)
+      LOWORD(v5[0]) = 120;
+      v5[8] = AlpcpClosePort;  // function pointer: AlpcpClosePort (CloseProcedure)
+      HIDWORD(v5[4]) = 512;
+      v5[9] = AlpcpDeletePort; // function pointer: AlpcpDeletePort - OB_OBJECT_TYPE DeleteProcedure callback
+      LODWORD(v5[1]) = 128;
+      BYTE2(v5[0]) = BYTE2(v5[0]) & 0xCB | 0x10;
+      *(_OWORD *)((char *)&v5[1] + 4) = AlpcpPortMapping;
+      HIDWORD(v5[3]) = 2031617;
+      SystemInformation = ObCreateObjectTypeEx(&DestinationString, (__int64)v5, 0, (__int16 *)0xF9, &AlpcPortObjectType);
+      if ( SystemInformation >= 0 )
+      {
+        AlpcMessageTable = ExCreateHandleTable(0, 0);
+        ExInitializePagedLookasideList(
+          (PPAGED_LOOKASIDE_LIST)&AlpcpLookasides,
+          AlpcpAllocateMessageFunction,
+          AlpcpFreeMessageFunction,
+          0,
+          0x348u,
+          'sMlA',
+          0x20u);
+        ExInitializePagedLookasideList(&stru_140CEBC80, AlpcpAllocateBuffer, SC_ENV::Free, 0, 0x80u, 0x49436C41u, 0x20u);
+        ExInitializePagedLookasideList((PPAGED_LOOKASIDE_LIST)&stru_140CEBD00, nullptr, nullptr, 0, 0x80u, 'aHlA', 0x20u);
+        ExInitializeNPagedLookasideList(&AlpcpNPLookasides, nullptr, nullptr, 0x200u, 0x20u, 0x65536C41u, 0x20u);
+        SystemInformation = NtQuerySystemInformation(0, v6, 64, 0);
+        if ( SystemInformation >= 0 )
+        {
+          AlpcpRegionGranularity = v6[6];
+          AlpcpViewGranularity = v6[2];
+        }
+        if ( AlpcpMessageLogEnabled )
+        {
+          AlpcpInitializeMessageLog(4096, 0x8000);
+        }
+        else
+        {
+          AlpcpMessageLogLock = 0;
+          qword_140C2A828 = (__int64)&AlpcpMessageLogListHead;
+          AlpcpMessageLogListHead = (__int64)&AlpcpMessageLogListHead;
+          qword_140C2A858 = (__int64)&AlpcpFreeMessageLogListHead;
+          AlpcpFreeMessageLogListHead = (__int64)&AlpcpFreeMessageLogListHead;
+          qword_140C2A848 = (__int64)&AlpcpFreeMessageSnapshotListHead;
+          AlpcpFreeMessageSnapshotListHead = (__int64)&AlpcpFreeMessageSnapshotListHead;
+        }
+        AlpcpCompletionListDatabase = 0;
+        qword_140C2A7D8 = (__int64)&qword_140C2A7D0;
+        qword_140C2A7D0 = (__int64)&qword_140C2A7D0;
+      }
+    }
+    else
+    {
+      SystemInformation = -1073741670;
+    }
+    KeLeaveCriticalRegion();
+    return (unsigned int)SystemInformation;
+  }
