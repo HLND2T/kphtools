@@ -2,9 +2,21 @@ from __future__ import annotations
 
 import ida_preprocessor_common as preprocessor_common
 
-TARGET_STRUCT_MEMBER_NAMES = ["HtHandleContentionEvent"]
+TARGET_STRUCT_MEMBER_NAMES = ["ObAttributesShift", "ObDecodeShift", "HtHandleContentionEvent"]
 
 LLM_DECOMPILE = [
+    (
+        "ObAttributesShift",
+        "_HANDLE_TABLE_ENTRY->Attributes",
+        "prompt/call_llm_decompile.md",
+        "references/ntoskrnl/ObpEnumFindHandleProcedure.{arch}.yaml",
+    ),
+    (
+        "ObDecodeShift",
+        "_HANDLE_TABLE_ENTRY->ObjectPointerBits",
+        "prompt/call_llm_decompile.md",
+        "references/ntoskrnl/ObpEnumFindHandleProcedure.{arch}.yaml",
+    ),
     (
         "HtHandleContentionEvent",
         "_HANDLE_TABLE->HandleContentionEvent",
@@ -14,15 +26,29 @@ LLM_DECOMPILE = [
 ]
 
 STRUCT_METADATA = {
+    "ObAttributesShift": {
+        "symbol_expr": "_HANDLE_TABLE_ENTRY->Attributes",
+        "struct_name": "_HANDLE_TABLE_ENTRY",
+        "member_name": "Attributes",
+        "bits": True,
+    },
+    "ObDecodeShift": {
+        "symbol_expr": "_HANDLE_TABLE_ENTRY->ObjectPointerBits",
+        "struct_name": "_HANDLE_TABLE_ENTRY",
+        "member_name": "ObjectPointerBits",
+        "bits": True,
+    },
     "HtHandleContentionEvent": {
         "symbol_expr": "_HANDLE_TABLE->HandleContentionEvent",
         "struct_name": "_HANDLE_TABLE",
         "member_name": "HandleContentionEvent",
         "bits": False,
-    }
+    },
 }
 
 GENERATE_YAML_DESIRED_FIELDS = {
+    "ObAttributesShift": ['struct_name', 'member_name', 'offset', 'bit_offset'],
+    "ObDecodeShift": ['struct_name', 'member_name', 'offset', 'bit_offset'],
     "HtHandleContentionEvent": ['struct_name', 'member_name', 'offset'],
 }
 

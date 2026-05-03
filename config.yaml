@@ -11,19 +11,17 @@ modules:
   - name: find-EpObjectTable
     expected_output:
     - EpObjectTable.yaml
-  - name: find-HtHandleContentionEvent
-    expected_output:
-    - HtHandleContentionEvent.yaml
   - name: find-OtName
     expected_output:
     - OtName.yaml
   - name: find-OtIndex
     expected_output:
     - OtIndex.yaml
-  - name: find-ObAttributesShift-AND-ObDecodeShift
+  - name: find-ObAttributesShift-AND-ObDecodeShift-AND-HtHandleContentionEvent
     expected_output:
     - ObAttributesShift.yaml
     - ObDecodeShift.yaml
+    - HtHandleContentionEvent.yaml
   - name: find-AlpcHandleTable-AND-AlpcPortContext-AND-AlpcPortObjectLock
     expected_output:
     - AlpcHandleTable.yaml
