@@ -290,3 +290,51 @@ class TestExtractNtApi(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(_extract_ntapi.PREPROCESS_STATUS_FAILED, status)
             self.assertFalse((Path(temp_dir) / "NtSecureConnectPort.yaml").exists())
+
+    async def test_deduplicates_multiple_matches_for_same_func_va(self) -> None:
+        session = AsyncMock()
+        session.call_tool.side_effect = [
+            _tool_result(
+                [
+                    {
+                        "pattern": "5D 53 26 88 09 00 00 00",
+                        "matches": ["0x140989840", "0x1409898c0"],
+                    }
+                ]
+            ),
+            _tool_result(
+                {
+                    "candidates": [
+                        {
+                            "match_ea": "0x140989840",
+                            "ptr_ea": "0x140989848",
+                            "func_va": "0x1405e8d70",
+                            "func_rva": "0x5e8d70",
+                            "segment": "PAGE",
+                        },
+                        {
+                            "match_ea": "0x1409898c0",
+                            "ptr_ea": "0x1409898c8",
+                            "func_va": "0x1405e8d70",
+                            "func_rva": "0x5e8d70",
+                            "segment": ".text",
+                        },
+                    ]
+                }
+            ),
+        ]
+
+        with TemporaryDirectory() as temp_dir:
+            status = await _extract_ntapi.preprocess_ntapi_symbols(
+                **_base_kwargs(temp_dir, session, pdb_path=None)
+            )
+
+            self.assertEqual(_extract_ntapi.PREPROCESS_STATUS_SUCCESS, status)
+            self.assertEqual(
+                {
+                    "category": "func",
+                    "func_name": "NtSecureConnectPort",
+                    "func_rva": 0x5E8D70,
+                },
+                load_artifact(Path(temp_dir) / "NtSecureConnectPort.yaml"),
+            )
