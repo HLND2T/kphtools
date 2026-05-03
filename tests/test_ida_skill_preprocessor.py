@@ -420,8 +420,12 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
             status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
                 session=AsyncMock(),
                 skill=SkillSpec(
-                    name="find-ObDecodeShift",
-                    expected_output=["ObDecodeShift.yaml"],
+                    name="find-ObAttributesShift-AND-ObDecodeShift-AND-HtHandleContentionEvent",
+                    expected_output=[
+                        "ObAttributesShift.yaml",
+                        "ObDecodeShift.yaml",
+                        "HtHandleContentionEvent.yaml",
+                    ],
                     expected_input=[],
                 ),
                 symbol=SymbolSpec(
@@ -438,25 +442,23 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
         self.assertEqual(
             {
-                "ObDecodeShift": {
-                    "symbol_expr": "_HANDLE_TABLE_ENTRY->ObjectPointerBits",
-                    "struct_name": "_HANDLE_TABLE_ENTRY",
-                    "member_name": "ObjectPointerBits",
-                    "bits": True,
-                }
+                "symbol_expr": "_HANDLE_TABLE_ENTRY->ObjectPointerBits",
+                "struct_name": "_HANDLE_TABLE_ENTRY",
+                "member_name": "ObjectPointerBits",
+                "bits": True,
             },
-            mock_common.await_args.kwargs["struct_metadata"],
+            mock_common.await_args.kwargs["struct_metadata"]["ObDecodeShift"],
         )
         self.assertEqual(
-            {
-                "ObDecodeShift": [
-                    "struct_name",
-                    "member_name",
-                    "offset",
-                    "bit_offset",
-                ]
-            },
-            mock_common.await_args.kwargs["generate_yaml_desired_fields"],
+            [
+                "struct_name",
+                "member_name",
+                "offset",
+                "bit_offset",
+            ],
+            mock_common.await_args.kwargs["generate_yaml_desired_fields"][
+                "ObDecodeShift"
+            ],
         )
 
     async def test_gv_script_dispatches_alias_metadata(
