@@ -294,6 +294,194 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
                 payload,
             )
 
+    async def test_preprocess_common_skill_rejects_unknown_func_xrefs_key(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            status = await ida_preprocessor_common.preprocess_common_skill(
+                session=AsyncMock(),
+                skill=SimpleNamespace(name="find-AlpcpInitSystem"),
+                symbol=SimpleNamespace(
+                    name="AlpcpInitSystem",
+                    category="func",
+                    data_type="uint32",
+                ),
+                binary_dir=Path(temp_dir),
+                pdb_path=None,
+                debug=True,
+                llm_config=None,
+                func_names=["AlpcpInitSystem"],
+                func_xrefs=[
+                    {
+                        "func_name": "AlpcpInitSystem",
+                        "xref_unicode_strings": ["FULLMATCH:ALPC Port"],
+                        "unknown": [],
+                    }
+                ],
+                generate_yaml_desired_fields={
+                    "AlpcpInitSystem": ["func_name", "func_rva"]
+                },
+            )
+
+        self.assertEqual(ida_preprocessor_common.PREPROCESS_STATUS_FAILED, status)
+
+    async def test_preprocess_common_skill_rejects_empty_func_xrefs_sources(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            status = await ida_preprocessor_common.preprocess_common_skill(
+                session=AsyncMock(),
+                skill=SimpleNamespace(name="find-AlpcpInitSystem"),
+                symbol=SimpleNamespace(
+                    name="AlpcpInitSystem",
+                    category="func",
+                    data_type="uint32",
+                ),
+                binary_dir=Path(temp_dir),
+                pdb_path=None,
+                debug=True,
+                llm_config=None,
+                func_names=["AlpcpInitSystem"],
+                func_xrefs=[
+                    {
+                        "func_name": "AlpcpInitSystem",
+                        "xref_strings": [],
+                        "xref_unicode_strings": [],
+                        "xref_gvs": [],
+                        "xref_signatures": [],
+                        "xref_funcs": [],
+                        "exclude_funcs": [],
+                        "exclude_strings": [],
+                        "exclude_unicode_strings": [],
+                        "exclude_gvs": [],
+                        "exclude_signatures": [],
+                    }
+                ],
+                generate_yaml_desired_fields={
+                    "AlpcpInitSystem": ["func_name", "func_rva"]
+                },
+            )
+
+        self.assertEqual(ida_preprocessor_common.PREPROCESS_STATUS_FAILED, status)
+
+    async def test_preprocess_common_skill_routes_func_xrefs_without_pdb(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            with (
+                patch.object(
+                    ida_preprocessor_common,
+                    "preprocess_func_symbol",
+                    new=AsyncMock(
+                        return_value={
+                            "func_name": "AlpcpInitSystem",
+                            "func_va": 0x140123000,
+                            "func_rva": 0x123000,
+                        }
+                    ),
+                ) as mock_func,
+                patch.object(
+                    ida_preprocessor_common,
+                    "resolve_symbol_via_llm_decompile",
+                    new=AsyncMock(return_value=None),
+                ) as mock_llm,
+            ):
+                status = await ida_preprocessor_common.preprocess_common_skill(
+                    session=AsyncMock(),
+                    skill=SimpleNamespace(name="find-AlpcpInitSystem"),
+                    symbol=SimpleNamespace(
+                        name="AlpcpInitSystem",
+                        category="func",
+                        data_type="uint32",
+                    ),
+                    binary_dir=Path(temp_dir),
+                    pdb_path=None,
+                    debug=True,
+                    llm_config=None,
+                    func_names=["AlpcpInitSystem"],
+                    func_xrefs=[
+                        {
+                            "func_name": "AlpcpInitSystem",
+                            "xref_strings": [],
+                            "xref_unicode_strings": ["FULLMATCH:ALPC Port"],
+                            "xref_gvs": [],
+                            "xref_signatures": ["41 B8 41 6C 49 6E"],
+                            "xref_funcs": [],
+                            "exclude_funcs": [],
+                            "exclude_strings": [],
+                            "exclude_unicode_strings": [],
+                            "exclude_gvs": [],
+                            "exclude_signatures": [],
+                        }
+                    ],
+                    generate_yaml_desired_fields={
+                        "AlpcpInitSystem": ["func_name", "func_rva"]
+                    },
+                )
+
+                self.assertEqual(
+                    ida_preprocessor_common.PREPROCESS_STATUS_SUCCESS,
+                    status,
+                )
+                mock_func.assert_awaited_once()
+                mock_llm.assert_not_awaited()
+                self.assertEqual(
+                    ["FULLMATCH:ALPC Port"],
+                    mock_func.await_args.kwargs["func_xref"]["xref_unicode_strings"],
+                )
+                self.assertEqual(
+                    Path(temp_dir),
+                    mock_func.await_args.kwargs["binary_dir"],
+                )
+                payload = load_artifact(Path(temp_dir) / "AlpcpInitSystem.yaml")
+                self.assertEqual(
+                    {
+                        "category": "func",
+                        "func_name": "AlpcpInitSystem",
+                        "func_rva": 0x123000,
+                    },
+                    payload,
+                )
+
+    async def test_preprocess_common_skill_allows_xref_only_function_target(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir, patch.object(
+            ida_preprocessor_common,
+            "preprocess_func_symbol",
+            new=AsyncMock(
+                return_value={
+                    "func_name": "AlpcpInitSystem",
+                    "func_rva": 0x123000,
+                }
+            ),
+        ):
+            status = await ida_preprocessor_common.preprocess_common_skill(
+                session=AsyncMock(),
+                skill=SimpleNamespace(name="find-AlpcpInitSystem"),
+                symbol=SimpleNamespace(
+                    name="AlpcpInitSystem",
+                    category="func",
+                    data_type="uint32",
+                ),
+                binary_dir=Path(temp_dir),
+                pdb_path=None,
+                debug=False,
+                llm_config=None,
+                func_names=[],
+                func_xrefs=[
+                    {
+                        "func_name": "AlpcpInitSystem",
+                        "xref_unicode_strings": ["FULLMATCH:ALPC Port"],
+                    }
+                ],
+                generate_yaml_desired_fields={
+                    "AlpcpInitSystem": ["func_name", "func_rva"]
+                },
+            )
+
+        self.assertEqual(ida_preprocessor_common.PREPROCESS_STATUS_SUCCESS, status)
+
     async def test_preprocess_common_skill_falls_back_to_llm_decompile_for_struct_specs(
         self,
     ) -> None:

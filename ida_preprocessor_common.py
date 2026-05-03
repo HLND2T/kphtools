@@ -20,6 +20,43 @@ _ALLOWED_FIELDS_BY_CATEGORY = {
     "func": frozenset({"func_name", "func_rva", "func_va", "func_size"}),
 }
 
+_FUNC_XREFS_ALLOWED_KEYS = frozenset(
+    {
+        "func_name",
+        "xref_strings",
+        "xref_unicode_strings",
+        "xref_gvs",
+        "xref_signatures",
+        "xref_funcs",
+        "exclude_funcs",
+        "exclude_strings",
+        "exclude_unicode_strings",
+        "exclude_gvs",
+        "exclude_signatures",
+    }
+)
+
+_FUNC_XREFS_LIST_KEYS = (
+    "xref_strings",
+    "xref_unicode_strings",
+    "xref_gvs",
+    "xref_signatures",
+    "xref_funcs",
+    "exclude_funcs",
+    "exclude_strings",
+    "exclude_unicode_strings",
+    "exclude_gvs",
+    "exclude_signatures",
+)
+
+_FUNC_XREFS_POSITIVE_KEYS = (
+    "xref_strings",
+    "xref_unicode_strings",
+    "xref_gvs",
+    "xref_signatures",
+    "xref_funcs",
+)
+
 
 def _normalize_desired_fields(
     generate_yaml_desired_fields: Any,
@@ -63,6 +100,52 @@ def _filter_payload(
     return {field: payload[field] for field in desired_fields}
 
 
+def _normalize_func_xrefs(
+    func_xrefs: Any,
+    *,
+    debug: bool = False,
+) -> dict[str, dict[str, list[Any]]] | None:
+    if func_xrefs is None:
+        return {}
+    if not isinstance(func_xrefs, Iterable) or isinstance(func_xrefs, (str, bytes)):
+        return None
+
+    normalized: dict[str, dict[str, list[Any]]] = {}
+    for spec in func_xrefs:
+        if not isinstance(spec, Mapping):
+            return None
+        unknown_keys = sorted(set(spec) - _FUNC_XREFS_ALLOWED_KEYS)
+        if unknown_keys:
+            if debug:
+                print(
+                    "    Preprocess: unknown func_xrefs keys for "
+                    f"{spec.get('func_name')}: {unknown_keys}"
+                )
+            return None
+        func_name = spec.get("func_name")
+        if not isinstance(func_name, str) or not func_name:
+            return None
+        if func_name in normalized:
+            return None
+
+        normalized_spec: dict[str, list[Any]] = {}
+        for field_name in _FUNC_XREFS_LIST_KEYS:
+            field_value = spec.get(field_name, [])
+            if not isinstance(field_value, (list, tuple)):
+                return None
+            normalized_spec[field_name] = list(field_value)
+
+        if not any(
+            normalized_spec[field_name] for field_name in _FUNC_XREFS_POSITIVE_KEYS
+        ):
+            if debug:
+                print(f"    Preprocess: empty func_xrefs spec for {func_name}")
+            return None
+
+        normalized[func_name] = normalized_spec
+    return normalized
+
+
 async def preprocess_common_skill(
     *,
     session,
@@ -78,6 +161,7 @@ async def preprocess_common_skill(
     gv_metadata: dict[str, dict[str, Any]] | None = None,
     func_names: list[str] | None = None,
     func_metadata: dict[str, dict[str, Any]] | None = None,
+    func_xrefs=None,
     llm_decompile_specs=None,
     generate_yaml_desired_fields=None,
 ):
@@ -86,6 +170,9 @@ async def preprocess_common_skill(
 
     desired_fields_by_symbol = _normalize_desired_fields(generate_yaml_desired_fields)
     if desired_fields_by_symbol is None:
+        return PREPROCESS_STATUS_FAILED
+    func_xrefs_map = _normalize_func_xrefs(func_xrefs, debug=debug)
+    if func_xrefs_map is None:
         return PREPROCESS_STATUS_FAILED
 
     desired_fields = desired_fields_by_symbol.get(target_symbol_name)
@@ -129,12 +216,14 @@ async def preprocess_common_skill(
             )
         writer = write_gv_yaml
     elif symbol.category == "func":
-        if func_names is not None and target_symbol_name not in func_names:
+        allowed_func_names = set(func_names or []) | set(func_xrefs_map)
+        if func_names is not None and target_symbol_name not in allowed_func_names:
             return PREPROCESS_STATUS_FAILED
         metadata = (func_metadata or {}).get(target_symbol_name, {})
         if not isinstance(metadata, dict):
             return PREPROCESS_STATUS_FAILED
-        if has_pdb:
+        func_xref = func_xrefs_map.get(target_symbol_name)
+        if has_pdb or func_xref is not None:
             payload = await preprocess_func_symbol(
                 session=session,
                 symbol_name=target_symbol_name,
@@ -142,6 +231,9 @@ async def preprocess_common_skill(
                 pdb_path=pdb_path,
                 debug=debug,
                 llm_config=llm_config,
+                binary_dir=Path(binary_dir),
+                image_base=0x140000000,
+                func_xref=func_xref,
             )
         writer = write_func_yaml
     else:
