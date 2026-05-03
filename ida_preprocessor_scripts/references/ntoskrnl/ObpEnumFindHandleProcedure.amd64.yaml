@@ -129,9 +129,13 @@ procedure: |-
     return v5;
   }
 
-  //A simple decoding function is called here to decode Object pointer from HandleTableEntry
+  //A simple decoding function to decode ObjectPointer from HandleTableEntry
   unsigned __int64 __fastcall ExGetHandlePointer(__int64 *a1)
   {
+    // Object pointer is recovered by: (VolatileLowValue >> 16) & ~0xF
+    //   = (VolatileLowValue >> 20) << 4
+    //   = VolatileLowValue >> ObDecodeShift << 4   (ObDecodeShift = 0x14 = 20 = _HANDLE_TABLE_ENTRY->ObjectPointerBits bit offset)
+
     return (*a1 >> 16) & 0xFFFFFFFFFFFFFFF0uLL;
   }
 
