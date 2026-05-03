@@ -477,6 +477,29 @@ class TestUpdateSymbols(unittest.TestCase):
         sync_mock.assert_called_once()
         load_config_mock.assert_not_called()
 
+    def test_main_without_syncfile_keeps_export_flow(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            xml_path = Path(temp_dir) / "kphdyn.xml"
+            xml_path.write_text("<kphdyn />", encoding="utf-8")
+
+            config = self._build_config()
+            with (
+                patch.object(update_symbols, "load_config", return_value=config) as load_mock,
+                patch.object(update_symbols, "export_xml") as export_mock,
+            ):
+                exit_code = update_symbols.main(
+                    [
+                        "-xml",
+                        str(xml_path),
+                        "-symboldir",
+                        str(Path(temp_dir) / "symbols"),
+                    ]
+                )
+
+        self.assertEqual(0, exit_code)
+        load_mock.assert_called_once()
+        export_mock.assert_called_once()
+
     def test_calculate_sha256_returns_lowercase_digest(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_path = Path(temp_dir) / "binary.bin"
