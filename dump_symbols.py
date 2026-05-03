@@ -68,11 +68,155 @@ def _string_list(item: Any, name: str) -> list[str]:
     return [str(value) for value in values if value]
 
 
+def _unique_strings(values: list[str]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
+
+
+def _skill_output_names(skill: Any) -> list[str]:
+    return _unique_strings(
+        _string_list(skill, "expected_output")
+        + _string_list(skill, "optional_output")
+    )
+
+
 def _output_symbol_names(skill: Any) -> list[str]:
     return [
         symbol_name_from_artifact_name(output_path)
-        for output_path in _string_list(skill, "expected_output")
+        for output_path in _skill_output_names(skill)
     ]
+
+
+def _artifact_paths(binary_dir: str | Path, names: list[str]) -> list[str]:
+    return [str(Path(binary_dir) / name) for name in names]
+
+
+def _all_paths_exist(paths: list[str]) -> bool:
+    return bool(paths) and all(Path(path).exists() for path in paths)
+
+
+def _should_skip_for_existing_outputs(
+    required_outputs: list[str],
+    optional_outputs: list[str],
+) -> bool:
+    if required_outputs:
+        return _all_paths_exist(required_outputs)
+    return _all_paths_exist(optional_outputs)
+
+
+def _should_skip_for_existing_artifacts(binary_dir: str | Path, skill: Any) -> bool:
+    skip_paths = _artifact_paths(binary_dir, _string_list(skill, "skip_if_exists"))
+    return _all_paths_exist(skip_paths)
+
+
+def _skill_output_paths(
+    binary_dir: str | Path,
+    skill: Any,
+) -> tuple[list[str], list[str]]:
+    expected_outputs = _artifact_paths(
+        binary_dir,
+        _string_list(skill, "expected_output"),
+    )
+    optional_outputs = _artifact_paths(
+        binary_dir,
+        _string_list(skill, "optional_output"),
+    )
+    return expected_outputs, optional_outputs
+
+
+def _required_output_symbol_names(skill: Any) -> set[str]:
+    return {
+        symbol_name_from_artifact_name(path)
+        for path in _string_list(skill, "expected_output")
+    }
+
+
+async def _preprocess_skill_outputs(
+    *,
+    skill_name: str,
+    skill: Any,
+    symbol_map: dict[str, Any],
+    binary_dir: str | Path,
+    pdb_path: Path | None,
+    debug: bool,
+    llm_config: dict[str, Any] | None,
+    session: Any,
+    has_required_outputs: bool,
+) -> bool:
+    preprocessed_all = has_required_outputs
+    required_symbol_names = _required_output_symbol_names(skill)
+    for symbol_name in _output_symbol_names(skill):
+        status = await preprocess_single_skill_via_mcp(
+            session=session,
+            skill=skill,
+            symbol=symbol_map[symbol_name],
+            binary_dir=Path(binary_dir),
+            pdb_path=pdb_path,
+            debug=debug,
+            llm_config=llm_config,
+        )
+        _debug_log(debug, f"preprocess status for {skill_name}/{symbol_name}: {status}")
+        if status != PREPROCESS_STATUS_SUCCESS and symbol_name in required_symbol_names:
+            return False
+    return preprocessed_all
+
+
+async def _process_one_skill(
+    *,
+    skill_name: str,
+    skill: Any,
+    symbol_map: dict[str, Any],
+    binary_dir: str | Path,
+    pdb_path: Path | None,
+    agent: str,
+    debug: bool, force: bool,
+    llm_config: dict[str, Any] | None,
+    session: Any,
+    activity: dict[str, bool] | None,
+) -> bool:
+    _debug_log(debug, f"skill {skill_name} started")
+    expected_outputs, optional_outputs = _skill_output_paths(binary_dir, skill)
+    if not force and _should_skip_for_existing_outputs(expected_outputs, optional_outputs):
+        _debug_log(debug, f"skipping {skill_name}; expected outputs already exist")
+        return True
+    if _should_skip_for_existing_artifacts(binary_dir, skill):
+        _debug_log(debug, f"skipping {skill_name}; skip_if_exists artifacts exist")
+        return True
+    if activity is not None:
+        activity["did_work"] = True
+
+    preprocessed_all = await _preprocess_skill_outputs(
+        skill_name=skill_name,
+        skill=skill,
+        symbol_map=symbol_map,
+        binary_dir=binary_dir,
+        pdb_path=pdb_path,
+        debug=debug,
+        llm_config=llm_config,
+        session=session,
+        has_required_outputs=bool(expected_outputs),
+    )
+    if preprocessed_all:
+        return True
+    if not expected_outputs and optional_outputs:
+        _debug_log(debug, f"skipping {skill_name}; optional outputs not generated")
+        return True
+
+    skill_max_retries = _field(skill, "max_retries") or 3
+    _debug_log(debug, f"falling back to run_skill for {skill_name}")
+    return run_skill(
+        skill_name,
+        agent=agent,
+        debug=debug,
+        expected_yaml_paths=expected_outputs,
+        max_retries=skill_max_retries,
+    )
 
 
 def _parse_arches(raw_value: str) -> list[str]:
@@ -294,8 +438,8 @@ def topological_sort_skills(skills):
         consumer_name = _field(skill, "name")
         inputs = []
         inputs.extend(_string_list(skill, "expected_input"))
-        inputs.extend(_string_list(skill, "expected_input_windows"))
-        inputs.extend(_string_list(skill, "expected_input_linux"))
+        inputs.extend(_string_list(skill, "expected_input_amd64"))
+        inputs.extend(_string_list(skill, "expected_input_arm64"))
         for input_path in inputs:
             normalized = normalize(input_path)
             basename = normalize(os.path.basename(input_path))
@@ -401,44 +545,20 @@ async def process_binary_dir(
     symbol_map = {_field(symbol, "name"): symbol for symbol in symbols}
 
     for skill_name in topological_sort_skills(skills):
-        _debug_log(debug, f"skill {skill_name} started")
-        skill = skill_map[skill_name]
-        expected_outputs = [
-            str(Path(binary_dir) / name) for name in _string_list(skill, "expected_output")
-        ]
-        if not force and expected_outputs and all(Path(path).exists() for path in expected_outputs):
-            _debug_log(debug, f"skipping {skill_name}; expected outputs already exist")
-            continue
-        if activity is not None:
-            activity["did_work"] = True
-
-        preprocessed_all = bool(expected_outputs)
-        for symbol_name in _output_symbol_names(skill):
-            status = await preprocess_single_skill_via_mcp(
-                session=session,
-                skill=skill,
-                symbol=symbol_map[symbol_name],
-                binary_dir=Path(binary_dir),
-                pdb_path=resolved_pdb_path,
-                debug=debug,
-                llm_config=llm_config,
-            )
-            _debug_log(debug, f"preprocess status for {skill_name}/{symbol_name}: {status}")
-            if status != PREPROCESS_STATUS_SUCCESS:
-                preprocessed_all = False
-                break
-        if preprocessed_all:
-            continue
-
-        skill_max_retries = _field(skill, "max_retries") or 3
-        _debug_log(debug, f"falling back to run_skill for {skill_name}")
-        if not run_skill(
-            skill_name,
+        ok = await _process_one_skill(
+            skill_name=skill_name,
+            skill=skill_map[skill_name],
+            symbol_map=symbol_map,
+            binary_dir=binary_dir,
+            pdb_path=resolved_pdb_path,
             agent=agent,
             debug=debug,
-            expected_yaml_paths=expected_outputs,
-            max_retries=skill_max_retries,
-        ):
+            force=force,
+            llm_config=llm_config,
+            session=session,
+            activity=activity,
+        )
+        if not ok:
             return False
     return True
 

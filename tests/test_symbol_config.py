@@ -79,6 +79,74 @@ class TestSymbolConfig(unittest.TestCase):
             config.modules[0].skills[0].produced_symbols,
         )
 
+    def test_load_config_reads_optional_and_arch_specific_skill_fields(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-Required
+                            expected_output: [Required.yaml]
+                            optional_output: [Optional.yaml]
+                            skip_if_exists: [Substitute.yaml]
+                            expected_input_amd64: [InputAmd64.yaml]
+                            expected_input_arm64: [InputArm64.yaml]
+                        symbols:
+                          - name: Required
+                            category: func
+                            data_type: uint32
+                          - name: Optional
+                            category: func
+                            data_type: uint32
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            config = symbol_config.load_config(config_path)
+
+        skill = config.modules[0].skills[0]
+        self.assertEqual(["Required.yaml"], skill.expected_output)
+        self.assertEqual(["Optional.yaml"], skill.optional_output)
+        self.assertEqual(["Substitute.yaml"], skill.skip_if_exists)
+        self.assertEqual(["InputAmd64.yaml"], skill.expected_input_amd64)
+        self.assertEqual(["InputArm64.yaml"], skill.expected_input_arm64)
+        self.assertEqual(["Required", "Optional"], skill.produced_symbols)
+
+    def test_load_config_accepts_optional_only_skill(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-Optional
+                            optional_output: [Optional.yaml]
+                        symbols:
+                          - name: Optional
+                            category: func
+                            data_type: uint32
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            config = symbol_config.load_config(config_path)
+
+        skill = config.modules[0].skills[0]
+        self.assertEqual([], skill.expected_output)
+        self.assertEqual(["Optional.yaml"], skill.optional_output)
+        self.assertEqual(["Optional"], skill.produced_symbols)
+
     def test_load_config_rejects_agent_skill_override(self) -> None:
         with TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "config.yaml"
@@ -399,7 +467,7 @@ class TestSymbolConfig(unittest.TestCase):
                 """,
             ),
             (
-                "expected_output must be a non-empty list",
+                "expected_output or optional_output must be a non-empty list",
                 """
                 modules:
                   - name: ntoskrnl
