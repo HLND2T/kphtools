@@ -209,17 +209,13 @@ modules:
         expected_input:
           - MmCreateProcessAddressSpace.yaml
 
-      - name: find-PspCreateProcessNotifyRoutine
+      - name: find-PspCreateProcessNotifyRoutine-AND-PspCreateThreadNotifyRoutine-AND-PspLoadImageNotifyRoutine
         expected_output:
           - PspCreateProcessNotifyRoutine.yaml
-
-      - name: find-PspLoadImageNotifyRoutine
-        expected_output:
-          - PspLoadImageNotifyRoutine.yaml
-
-      - name: find-PspCreateThreadNotifyRoutine
-        expected_output:
           - PspCreateThreadNotifyRoutine.yaml
+          - PspLoadImageNotifyRoutine.yaml
+        expected_input:
+          - PspEnumerateCallback.yaml
 
       # find-PgInitContextFnptrs as alternative workaround 
       - name: find-ExReferenceCallBackBlock
