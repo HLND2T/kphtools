@@ -278,6 +278,10 @@ modules:
         expected_output:
           - SwapContext.yaml
 
+      - name: find-PspThreadDelete
+        expected_output:
+          - PspThreadDelete.yaml
+
     symbols:
       - name: EgeGuid
         category: struct_offset
