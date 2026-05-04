@@ -138,6 +138,22 @@ modules:
         expected_input:
           - KeFoldProcessStatisticsThread.yaml
 
+      - name: find-MiSectionInitialization
+        expected_output:
+          - MiSectionInitialization.yaml
+
+      - name: find-MiSectionOpen
+        expected_input:
+          - MiSectionInitialization.yaml
+        expected_output:
+          - MiSectionOpen.yaml
+
+      - name: find-MiSectionControlArea
+        expected_input:
+          - MiSectionOpen.yaml
+        expected_output:
+          - MiSectionControlArea.yaml
+
       - name: find-MmSectionControlArea
         expected_output:
           - MmSectionControlArea.yaml
