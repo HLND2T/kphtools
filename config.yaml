@@ -229,15 +229,6 @@ modules:
   - name: AlpcState
     category: struct_offset
     data_type: uint16
-  - name: AlpcpInitSystem
-    category: func
-    data_type: uint32
-  - name: AlpcpDeletePort
-    category: func
-    data_type: uint32
-  - name: AlpcpCreateSection
-    category: func
-    data_type: uint32
   - name: KtInitialStack
     category: struct_offset
     data_type: uint16
