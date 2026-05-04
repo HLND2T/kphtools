@@ -131,7 +131,7 @@ For the target module:
 
 - Add one `skills` entry whose `name` exactly matches the script basename.
 - Add every produced YAML under `expected_output`.
-- Add or update every symbol under `symbols` with correct `name`, `category`, and `data_type`.
+- **Only** add a `symbols` entry when the user explicitly requests it. Do not add symbols entries by default — many finders produce reference anchors (e.g. function RVAs) consumed only as `expected_input` by downstream finders, not as kphtools output symbols.
 - Avoid duplicate symbol entries.
 - If the finder depends on prior outputs, add `expected_input` so dependency artifacts are produced first.
 - When renaming or merging a finder, remove stale skill entries for old scripts.
@@ -220,6 +220,7 @@ Stage only relevant files (finder scripts, reference YAMLs, `config.yaml`). Do n
 - Script filename and `config.yaml` skill name do not match.
 - NtAPI finder uses `preprocess_common_skill` instead of `_extract_ntapi.preprocess_ntapi_symbols`.
 - NtAPI finder result YAML gets a `symbols` entry — it should not; it is a reference anchor for downstream `expected_input`, not a kphtools output symbol.
+- Function finder (LLM_DECOMPILE or direct) result YAML gets a `symbols` entry without user request — do not add `symbols` entries unless the user explicitly asks.
 - `expected_output` omits one artifact from a merged finder.
 - Symbol exists in script output but not in `config.yaml` `symbols`.
 - Old finder scripts or old skill entries remain after an authorized merge.
