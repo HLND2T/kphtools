@@ -18,7 +18,7 @@
 - `update_symbols.py` - `export_xml`, `_load_module_yaml`, `collect_symbol_values`, `fallback_value`.
 - `generate_reference_yaml.py` - `_match_module_spec`, `infer_context_from_binary_path`, `run_reference_generation`.
 - `tests/test_symbol_config.py` - schema acceptance and rejection coverage for `config.yaml` fields.
-- `tests/test_dump_symbols.py` - dependency ordering, explicit `prerequisite` ordering, optional output, preprocessor-only output, `skip_if_exists`, and retry/fallback behavior.
+- `tests/test_dump_symbols.py` - dependency ordering, explicit `prerequisite` ordering, optional output, preprocessor-only output, skip-if-any/all existing artifact behavior, and retry/fallback behavior.
 
 ## Architecture
 `symbol_config.load_config()` parses the YAML with `yaml.safe_load`, requires a non-empty top-level `modules` list, and returns typed dataclasses. Skill and symbol entries reject unknown fields, but top-level and module-level unknown keys are currently ignored by the loader.
@@ -35,7 +35,8 @@ Field semantics:
 - `skills[].preprocessor_only_output`: required generated artifacts intended for helper/internal data. They participate in required output checks and dependency ordering, but XML export still depends on whether the symbol also appears in `modules[].symbols`.
 - `skills[].expected_input`: artifact dependency list used only for topological sorting. Inputs are matched against producers by normalized path or basename.
 - `skills[].expected_input_amd64` and `skills[].expected_input_arm64`: architecture-labeled dependency lists accepted by the schema; the current sorter includes both lists when ordering skills, rather than filtering by the current run architecture.
-- `skills[].skip_if_exists`: artifact list that skips the skill when all listed artifacts already exist in the binary directory.
+- `skills[].skip_if_any_exists`: artifact list that skips the skill when any listed artifact already exists in the binary directory.
+- `skills[].skip_if_all_exists`: artifact list that skips the skill when all listed artifacts already exist in the binary directory.
 - `skills[].prerequisite`: optional skill-name dependency list used by `dump_symbols.topological_sort_skills()` to force ordering even when the prerequisite skill has only optional outputs. This is useful for skills such as `find-PgInitContext` that should run after `find-CmpEnumerateCallback` without requiring `CmpEnumerateCallback.yaml` to exist.
 - `skills[].max_retries`: integer or null; `_process_one_skill()` defaults to `3` and passes this value to `run_skill()`, although the current fallback implementation invokes the agent subprocess once.
 - `symbols[].name`: required non-empty string; logical exported symbol name and expected YAML artifact basename (`<name>.yaml`).
@@ -74,10 +75,10 @@ flowchart TD
 - Runtime resources: `ida_preprocessor_scripts/<skill>.py`, optional `.claude/skills/<skill>/SKILL.md`, `symboldir/<arch>/<file>.<version>/<sha>/`, generated `<symbol>.yaml` artifacts, PE/PDB files.
 
 ## Notes
-- Artifact output filenames in `expected_output`, `optional_output`, `preprocessor_only_output`, and `skip_if_exists` must be architecture-neutral `.yaml` names; arch-specific reference YAML files live elsewhere and are not valid output names here.
+- Artifact output filenames in `expected_output`, `optional_output`, `preprocessor_only_output`, `skip_if_any_exists`, and `skip_if_all_exists` must be architecture-neutral `.yaml` names; arch-specific reference YAML files live elsewhere and are not valid output names here.
 - `symbols[]` is the authoritative XML export inventory. A skill can generate an artifact without a matching symbol spec, but `update_symbols.py` will not export it unless it appears in `symbols[]`.
 - `collect_symbol_values()` reads `offset` or `offset` plus `bit_offset` for `struct_offset`, `gv_rva` for `gv`, and `func_rva` for `func`.
-- Legacy skill fields such as `agent_skill` and `symbol`, and legacy symbol locating fields such as `symbol_expr`, `struct_name`, `member_name`, `bits`, and `alias`, are explicitly rejected.
+- Legacy skill fields such as `agent_skill`, `symbol`, and `skip_if_exists`, and legacy symbol locating fields such as `symbol_expr`, `struct_name`, `member_name`, `bits`, and `alias`, are explicitly rejected.
 - `skills[].prerequisite` is now accepted by `symbol_config.load_config()` and participates in `dump_symbols.topological_sort_skills()` as an explicit skill-name dependency. It is independent of artifact producer/consumer matching and can order a consumer after an optional-only producer.
 - The repository baseline test asserts that the current config has one module named `ntoskrnl`, at least one exported symbol, no exported `NtSecureConnectPort` symbol, and that every skill has at least one produced symbol.
 

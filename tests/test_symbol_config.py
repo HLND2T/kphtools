@@ -93,7 +93,8 @@ class TestSymbolConfig(unittest.TestCase):
                             arch: AMD64
                             expected_output: [Required.yaml]
                             optional_output: [Optional.yaml]
-                            skip_if_exists: [Substitute.yaml]
+                            skip_if_any_exists: [AnySubstitute.yaml]
+                            skip_if_all_exists: [AllSubstituteA.yaml, AllSubstituteB.yaml]
                             prerequisite: [find-Prereq]
                             expected_input_amd64: [InputAmd64.yaml]
                             expected_input_arm64: [InputArm64.yaml]
@@ -117,7 +118,11 @@ class TestSymbolConfig(unittest.TestCase):
         self.assertEqual(["Required.yaml"], skill.expected_output)
         self.assertEqual(["Optional.yaml"], skill.optional_output)
         self.assertEqual([], skill.preprocessor_only_output)
-        self.assertEqual(["Substitute.yaml"], skill.skip_if_exists)
+        self.assertEqual(["AnySubstitute.yaml"], skill.skip_if_any_exists)
+        self.assertEqual(
+            ["AllSubstituteA.yaml", "AllSubstituteB.yaml"],
+            skill.skip_if_all_exists,
+        )
         self.assertEqual(["find-Prereq"], skill.prerequisite)
         self.assertEqual(["InputAmd64.yaml"], skill.expected_input_amd64)
         self.assertEqual(["InputArm64.yaml"], skill.expected_input_arm64)
@@ -298,6 +303,32 @@ class TestSymbolConfig(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(ValueError, "skill.unexpected_skill_field"):
+                symbol_config.load_config(config_path)
+
+    def test_load_config_rejects_legacy_skip_if_exists_field(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-EgeGuid
+                            expected_output: [EgeGuid.yaml]
+                            skip_if_exists: [Substitute.yaml]
+                        symbols:
+                          - name: EgeGuid
+                            category: struct_offset
+                            data_type: uint16
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "skill.skip_if_exists"):
                 symbol_config.load_config(config_path)
 
     def test_load_config_rejects_unknown_symbol_field(self) -> None:

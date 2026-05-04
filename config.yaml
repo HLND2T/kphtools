@@ -188,10 +188,12 @@ modules:
       - name: find-PgInitContext
         expected_output:
           - PgInitContext.yaml
-        skip_if_exists:
+        skip_if_all_exists:
           - CmpEnumerateCallback.yaml
+          - PspEnumerateCallback.yaml
         prerequisite:
           - find-CmpEnumerateCallback
+          - find-PspEnumerateCallback
         arch: amd64
 
       - name: find-PgInitContextFnptrs

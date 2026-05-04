@@ -16,7 +16,8 @@ class SkillSpec:
     max_retries: int | None = None
     optional_output: list[str] = field(default_factory=list)
     preprocessor_only_output: list[str] = field(default_factory=list)
-    skip_if_exists: list[str] = field(default_factory=list)
+    skip_if_any_exists: list[str] = field(default_factory=list)
+    skip_if_all_exists: list[str] = field(default_factory=list)
     prerequisite: list[str] = field(default_factory=list)
     expected_input_amd64: list[str] = field(default_factory=list)
     expected_input_arm64: list[str] = field(default_factory=list)
@@ -63,7 +64,8 @@ _ALLOWED_SKILL_FIELDS = frozenset(
         "expected_output",
         "optional_output",
         "preprocessor_only_output",
-        "skip_if_exists",
+        "skip_if_any_exists",
+        "skip_if_all_exists",
         "prerequisite",
         "max_retries",
     }
@@ -74,6 +76,9 @@ _LEGACY_FIELD_MESSAGES = {
     "skill": {
         "agent_skill": "is not supported; use skill.name",
         "symbol": "is not supported; declare artifacts with skill.expected_output",
+        "skip_if_exists": (
+            "is not supported; use skill.skip_if_any_exists or skill.skip_if_all_exists"
+        ),
     },
     "symbol": {
         "symbol_expr": "is not supported; move it to the skill script",
@@ -184,7 +189,14 @@ def _load_skill(entry: dict[str, Any]) -> SkillSpec:
         entry.get("expected_input_arm64", []),
         "expected_input_arm64",
     )
-    skip_if_exists = _require_string_list(entry.get("skip_if_exists", []), "skip_if_exists")
+    skip_if_any_exists = _require_string_list(
+        entry.get("skip_if_any_exists", []),
+        "skip_if_any_exists",
+    )
+    skip_if_all_exists = _require_string_list(
+        entry.get("skip_if_all_exists", []),
+        "skip_if_all_exists",
+    )
     prerequisite = _require_string_list(entry.get("prerequisite", []), "prerequisite")
     max_retries = entry.get("max_retries")
     if max_retries is not None and type(max_retries) is not int:
@@ -203,8 +215,13 @@ def _load_skill(entry: dict[str, Any]) -> SkillSpec:
         expected_input=expected_input,
         expected_input_amd64=expected_input_amd64,
         expected_input_arm64=expected_input_arm64,
-        skip_if_exists=[
-            _validate_artifact_name(item, "skip_if_exists") for item in skip_if_exists
+        skip_if_any_exists=[
+            _validate_artifact_name(item, "skip_if_any_exists")
+            for item in skip_if_any_exists
+        ],
+        skip_if_all_exists=[
+            _validate_artifact_name(item, "skip_if_all_exists")
+            for item in skip_if_all_exists
         ],
         prerequisite=prerequisite,
         max_retries=max_retries,

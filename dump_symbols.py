@@ -145,6 +145,10 @@ def _all_paths_exist(paths: list[str]) -> bool:
     return bool(paths) and all(Path(path).exists() for path in paths)
 
 
+def _any_path_exists(paths: list[str]) -> bool:
+    return bool(paths) and any(Path(path).exists() for path in paths)
+
+
 def _should_skip_for_existing_outputs(
     required_outputs: list[str],
     optional_outputs: list[str],
@@ -155,8 +159,9 @@ def _should_skip_for_existing_outputs(
 
 
 def _should_skip_for_existing_artifacts(binary_dir: str | Path, skill: Any) -> bool:
-    skip_paths = _artifact_paths(binary_dir, _string_list(skill, "skip_if_exists"))
-    return _all_paths_exist(skip_paths)
+    any_paths = _artifact_paths(binary_dir, _string_list(skill, "skip_if_any_exists"))
+    all_paths = _artifact_paths(binary_dir, _string_list(skill, "skip_if_all_exists"))
+    return _any_path_exists(any_paths) or _all_paths_exist(all_paths)
 
 
 def _skill_output_paths(
@@ -283,7 +288,7 @@ async def _process_one_skill(
         _debug_log(debug, f"skipping {skill_name}; expected outputs already exist")
         return True
     if not force and _should_skip_for_existing_artifacts(binary_dir, skill):
-        _debug_log(debug, f"skipping {skill_name}; skip_if_exists artifacts exist")
+        _debug_log(debug, f"skipping {skill_name}; skip_if artifacts exist")
         return True
     if activity is not None:
         activity["did_work"] = True
