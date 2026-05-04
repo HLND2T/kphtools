@@ -64,7 +64,7 @@ modules:
         expected_output:
           - EpObjectTable.yaml
         expected_input:
-          - ObFindHandleForObject.yaml
+          - ObReferenceProcessHandleTable.yaml
 
       - name: find-OtName
         expected_output:
@@ -234,6 +234,13 @@ modules:
       - name: find-ObFindHandleForObject
         expected_output:
           - ObFindHandleForObject.yaml
+
+      - name: find-ObReferenceProcessHandleTable-AND-ObpEnumFindHandleProcedure
+        expected_input:
+          - ObFindHandleForObject.yaml
+        expected_output:
+          - ObReferenceProcessHandleTable.yaml
+          - ObpEnumFindHandleProcedure.yaml
 
       - name: find-IoGetStackLimits
         expected_output:

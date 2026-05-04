@@ -1,0 +1,72 @@
+func_name: ObFindHandleForObject
+func_va: '0x1406c91c0'
+disasm_code: |-
+  PAGE:00000001406C91C0                 mov     rax, rsp
+  PAGE:00000001406C91C3                 mov     [rax+8], rbx
+  PAGE:00000001406C91C7                 mov     [rax+10h], rbp
+  PAGE:00000001406C91CB                 mov     [rax+18h], rsi
+  PAGE:00000001406C91CF                 mov     [rax+20h], rdi
+  PAGE:00000001406C91D3                 push    r14
+  PAGE:00000001406C91D5                 sub     rsp, 40h
+  PAGE:00000001406C91D9                 mov     rbp, r9
+  PAGE:00000001406C91DC                 mov     r14, r8
+  PAGE:00000001406C91DF                 mov     rdi, rdx
+  PAGE:00000001406C91E2                 mov     rsi, rcx
+  PAGE:00000001406C91E5                 xor     ebx, ebx
+  PAGE:00000001406C91E7                 call    ObReferenceProcessHandleTable ; ObReferenceProcessHandleTable - target function to find
+  PAGE:00000001406C91EC                 mov     rcx, rax
+  PAGE:00000001406C91EF                 test    rax, rax
+  PAGE:00000001406C91F2                 jz      short loc_1406C923B
+  PAGE:00000001406C91F4                 test    rdi, rdi
+  PAGE:00000001406C91F7                 jz      short loc_1406C9259
+  PAGE:00000001406C91F9                 lea     rax, [rdi-30h]
+  PAGE:00000001406C91FD                 mov     [rsp+48h+var_28], rax
+  PAGE:00000001406C9202                 mov     r9, [rsp+48h+arg_20]
+  PAGE:00000001406C9207                 lea     r8, [rsp+48h+var_28]
+  PAGE:00000001406C920C                 lea     rdx, ObpEnumFindHandleProcedure ; ObpEnumFindHandleProcedure - target function to find (passed as callback to ExEnumHandleTable)
+  PAGE:00000001406C9213                 mov     [rsp+48h+var_20], r14
+  PAGE:00000001406C9218                 mov     [rsp+48h+var_18], rbp
+  PAGE:00000001406C921D                 call    ExEnumHandleTable
+  PAGE:00000001406C9222                 test    al, al
+  PAGE:00000001406C9224                 movzx   ebx, bl
+  PAGE:00000001406C9227                 mov     edx, 1
+  PAGE:00000001406C922C                 ; RunRef
+  PAGE:00000001406C922C                 lea     rcx, [rsi+458h]; RunRef
+  PAGE:00000001406C9233                 cmovnz  ebx, edx
+  PAGE:00000001406C9236                 call    ExReleaseRundownProtection_0
+  PAGE:00000001406C923B                 mov     rbp, [rsp+48h+arg_8]
+  PAGE:00000001406C9240                 mov     al, bl
+  PAGE:00000001406C9242                 mov     rbx, [rsp+48h+arg_0]
+  PAGE:00000001406C9247                 mov     rsi, [rsp+48h+arg_10]
+  PAGE:00000001406C924C                 mov     rdi, [rsp+48h+arg_18]
+  PAGE:00000001406C9251                 add     rsp, 40h
+  PAGE:00000001406C9255                 pop     r14
+  PAGE:00000001406C9257                 retn
+  PAGE:00000001406C9259                 mov     [rsp+48h+var_28], rbx
+  PAGE:00000001406C925E                 jmp     short loc_1406C9202
+procedure: |-
+  bool __fastcall ObFindHandleForObject(_EPROCESS *a1, __int64 a2, __int64 a3, __int64 a4, _QWORD *a5)
+  {
+    bool v9; // bl
+    _HANDLE_TABLE *v10; // rcx
+    _QWORD v12[5]; // [rsp+20h] [rbp-28h] BYREF
+
+    v9 = 0;
+    v10 = ObReferenceProcessHandleTable(a1); // ObReferenceProcessHandleTable - target function to find
+    if ( v10 )
+    {
+      if ( a2 )
+        v12[0] = a2 - 48;
+      else
+        v12[0] = 0;
+      v12[1] = a3;
+      v12[2] = a4;
+      v9 = (unsigned __int8)ExEnumHandleTable(
+                              (__int64)v10,
+                              (__int64 (__fastcall *)(__int64, signed __int64 *, _QWORD, __int64))ObpEnumFindHandleProcedure, // ObpEnumFindHandleProcedure - target function to find (passed as callback)
+                              (__int64)v12,
+                              a5) != 0;
+      ExReleaseRundownProtection_0(&a1->RundownProtect);
+    }
+    return v9;
+  }
