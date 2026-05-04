@@ -498,6 +498,10 @@ async def autostart_mcp_session(
     port: int,
     debug: bool,
 ):
+    def _suppress_cleanup_error(exc: BaseException) -> None:
+        if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+            raise exc
+
     process = None
     streams = None
     session = None
@@ -542,11 +546,17 @@ async def autostart_mcp_session(
                     ),
                     timeout=dump_symbols.IDALIB_QEXIT_TIMEOUT_SECONDS,
                 )
-            except Exception:
-                pass
-            await session.__aexit__(None, None, None)
+            except BaseException as exc:
+                _suppress_cleanup_error(exc)
+            try:
+                await session.__aexit__(None, None, None)
+            except BaseException as exc:
+                _suppress_cleanup_error(exc)
         if streams is not None:
-            await streams.__aexit__(None, None, None)
+            try:
+                await streams.__aexit__(None, None, None)
+            except BaseException as exc:
+                _suppress_cleanup_error(exc)
         if process is not None and process.poll() is None:
             try:
                 await asyncio.to_thread(process.wait, timeout=10)

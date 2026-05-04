@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import asyncio
 from io import StringIO
 import json
 from pathlib import Path
@@ -591,6 +592,53 @@ class TestGenerateReferenceYamlWorkflow(unittest.IsolatedAsyncioTestCase):
             output_path=expected_export_path,
             debug=False,
         )
+
+    async def test_autostart_cleanup_cancelled_qexit_preserves_body_error(
+        self,
+    ) -> None:
+        fake_session = AsyncMock()
+        fake_session.call_tool = AsyncMock(
+            side_effect=asyncio.CancelledError("Cancelled via cancel scope abc")
+        )
+        fake_session.__aexit__ = AsyncMock()
+        fake_streams = AsyncMock()
+        fake_streams.__aexit__ = AsyncMock()
+
+        class FakeProcess:
+            def poll(self) -> int:
+                return 0
+
+        fake_dump_symbols = type(
+            "FakeDumpSymbols",
+            (),
+            {
+                "IDALIB_QEXIT_TIMEOUT_SECONDS": 1,
+                "start_idalib_mcp": staticmethod(lambda *args, **kwargs: FakeProcess()),
+                "_open_session": AsyncMock(return_value=(fake_streams, fake_session)),
+                "_session_matches_binary": AsyncMock(return_value=True),
+            },
+        )
+
+        with patch.object(
+            generate_reference_yaml,
+            "_load_dump_symbols_module",
+            return_value=fake_dump_symbols,
+        ):
+            with self.assertRaisesRegex(ReferenceGenerationError, "primary failure"):
+                async with generate_reference_yaml.autostart_mcp_session(
+                    Path("/repo/ntoskrnl.exe"),
+                    "127.0.0.1",
+                    13337,
+                    False,
+                ):
+                    raise ReferenceGenerationError("primary failure")
+
+        fake_session.call_tool.assert_awaited_once_with(
+            name="py_eval",
+            arguments={"code": "import idc; idc.qexit(0)"},
+        )
+        fake_session.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
 
     def test_main_prints_generated_path(self) -> None:
         stdout = StringIO()

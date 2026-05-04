@@ -1,8 +1,10 @@
 import json
 from pathlib import Path
+import sys
 from tempfile import TemporaryDirectory
+import types
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import ida_reference_export
 
@@ -73,6 +75,48 @@ class TestIdaReferenceExport(unittest.IsolatedAsyncioTestCase):
         self.assertIn("get_code_region_disasm", py_code)
         self.assertIn("format_name = 'yaml'", py_code)
         self.assertNotIn("'procedure'", py_code)
+
+    def test_code_region_detail_export_runs_with_separate_exec_namespaces(
+        self,
+    ) -> None:
+        ida_bytes = types.ModuleType("ida_bytes")
+        ida_bytes.get_flags = lambda ea: 1
+        ida_bytes.is_code = lambda flags: True
+
+        ida_lines = types.ModuleType("ida_lines")
+        ida_lines.tag_remove = lambda text: text
+
+        ida_segment = types.ModuleType("ida_segment")
+        ida_segment.getseg = lambda ea: None
+        ida_segment.get_segm_name = lambda seg: ""
+
+        idc = types.ModuleType("idc")
+        idc.BADADDR = -1
+        idc.generate_disasm_line = lambda ea, flags: "nop"
+        idc.get_cmt = lambda ea, repeatable: None
+        idc.next_head = lambda ea, end_ea: idc.BADADDR
+
+        py_code = ida_reference_export.build_code_region_detail_export_py_eval(
+            0x1000,
+            1,
+            code_name="PgInitContext",
+        )
+        namespace: dict[str, object] = {}
+
+        with patch.dict(
+            sys.modules,
+            {
+                "ida_bytes": ida_bytes,
+                "ida_lines": ida_lines,
+                "ida_segment": ida_segment,
+                "idc": idc,
+            },
+        ):
+            exec(py_code, {}, namespace)
+
+        payload = json.loads(str(namespace["result"]))
+        self.assertEqual("PgInitContext", payload["func_name"])
+        self.assertIn("0000000000001000                 nop", payload["disasm_code"])
 
     def test_validate_reference_yaml_payload_rejects_missing_disasm(self) -> None:
         with self.assertRaisesRegex(

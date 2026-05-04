@@ -68,6 +68,8 @@ def get_code_region_disasm(start_ea, size):
         ea = int(next_ea)
     return "\n".join(lines).strip()
 
+globals().update(locals())
+
 result = json.dumps(
     {
         'func_name': "__CODE_NAME__",
