@@ -63,6 +63,8 @@ modules:
       - name: find-EpObjectTable
         expected_output:
           - EpObjectTable.yaml
+        expected_input:
+          - ObFindHandleForObject.yaml
 
       - name: find-OtName
         expected_output:
@@ -175,21 +177,22 @@ modules:
         expected_output:
           - PspCreateThreadNotifyRoutine.yaml
 
+      # find-PgInitContextFnptrs as alternative workaround 
       - name: find-ExReferenceCallBackBlock
-        expected_output:
+        optional_output:
           - ExReferenceCallBackBlock.yaml
 
       - name: find-ExDereferenceCallBackBlock
-        expected_output:
+        optional_output:
           - ExDereferenceCallBackBlock.yaml
 
-      - name: find-ObFindHandleForObject
-        expected_output:
-          - ObFindHandleForObject.yaml
-
       - name: find-PspEnumerateCallback
-        expected_output:
+        optional_output:
           - PspEnumerateCallback.yaml
+
+      - name: find-CmpEnumerateCallback
+        optional_output:
+          - CmpEnumerateCallback.yaml
 
       - name: find-PspTerminateAllThreads
         expected_output:
@@ -199,23 +202,29 @@ modules:
         expected_output:
           - PspAllocateProcess.yaml
 
-      - name: find-CmpEnumerateCallback
-        optional_output:
-          - CmpEnumerateCallback.yaml
+      - name: find-ObFindHandleForObject
+        expected_output:
+          - ObFindHandleForObject.yaml
 
       - name: find-PgInitContext
         expected_output:
           - PgInitContext.yaml
         skip_if_all_exists:
+          - ExReferenceCallBackBlock.yaml
+          - ExDereferenceCallBackBlock.yaml
           - CmpEnumerateCallback.yaml
           - PspEnumerateCallback.yaml
         prerequisite:
+          - find-ExReferenceCallBackBlock
+          - find-ExDereferenceCallBackBlock
           - find-CmpEnumerateCallback
           - find-PspEnumerateCallback
         arch: amd64
 
       - name: find-PgInitContextFnptrs
         expected_output:
+          - ExReferenceCallBackBlock.yaml
+          - ExDereferenceCallBackBlock.yaml
           - PspEnumerateCallback.yaml
           - CmpEnumerateCallback.yaml
         prerequisite:

@@ -9,6 +9,18 @@ TARGET_FUNCTION_NAMES = ["PspEnumerateCallback", "CmpEnumerateCallback"]
 
 LLM_DECOMPILE = [
     (
+        "ExReferenceCallBackBlock",
+        "ExReferenceCallBackBlock",
+        "prompt/call_llm_decompile.md",
+        "references/ntoskrnl/PgInitContext.{buildnum}.{arch}.yaml",
+    ),
+    (
+        "ExDereferenceCallBackBlock",
+        "ExDereferenceCallBackBlock",
+        "prompt/call_llm_decompile.md",
+        "references/ntoskrnl/PgInitContext.{buildnum}.{arch}.yaml",
+    ),
+    (
         "PspEnumerateCallback",
         "PspEnumerateCallback",
         "prompt/call_llm_decompile.md",
@@ -23,6 +35,12 @@ LLM_DECOMPILE = [
 ]
 
 FUNC_METADATA = {
+    "ExReferenceCallBackBlock": {
+        "alias": ["ExReferenceCallBackBlock"],
+    },
+    "ExDereferenceCallBackBlock": {
+        "alias": ["ExDereferenceCallBackBlock"],
+    },
     "PspEnumerateCallback": {
         "alias": ["PspEnumerateCallback"],
     },
@@ -32,6 +50,8 @@ FUNC_METADATA = {
 }
 
 GENERATE_YAML_DESIRED_FIELDS = {
+    "ExReferenceCallBackBlock": ["func_name", "func_rva"],
+    "ExDereferenceCallBackBlock": ["func_name", "func_rva"],
     "PspEnumerateCallback": ["func_name", "func_rva"],
     "CmpEnumerateCallback": ["func_name", "func_rva"],
 }
