@@ -25,6 +25,10 @@ modules:
     expected_output:
     - NtAlpcCreatePortSection.yaml
 
+  - name: find-NtAlpcDisconnectPort
+    expected_output:
+    - NtAlpcDisconnectPort.yaml
+
   - name: find-AlpcpCreateSection
     expected_input:
     - NtAlpcCreatePortSection.yaml
