@@ -135,6 +135,8 @@ modules:
           - KtReadTransferCount.yaml
           - KtWriteTransferCount.yaml
           - KtOtherTransferCount.yaml
+        expected_input:
+          - KeFoldProcessStatisticsThread.yaml
 
       - name: find-MmSectionControlArea
         expected_output:
@@ -287,6 +289,10 @@ modules:
           - PspThreadDelete.yaml
         expected_output:
           - KeFoldProcessStatisticsThread.yaml
+
+      - name: find-PfSnInitializePrefetcher
+        expected_output:
+          - PfSnInitializePrefetcher.yaml
 
     symbols:
       - name: EgeGuid
