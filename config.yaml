@@ -144,10 +144,11 @@ modules:
         expected_output:
           - MmControlAreaLock.yaml
 
-      - name: find-EpCookie-AND-EpSectionObject
+      - name: find-EpCookie-AND-EpSectionObject-AND-MmCreateProcessAddressSpace
         expected_output:
           - EpCookie.yaml
           - EpSectionObject.yaml
+          - MmCreateProcessAddressSpace.yaml
         expected_input:
           - PspAllocateProcess.yaml
 

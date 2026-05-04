@@ -4,6 +4,8 @@ import ida_preprocessor_common as preprocessor_common
 
 TARGET_STRUCT_MEMBER_NAMES = ["EpCookie", "EpSectionObject"]
 
+TARGET_FUNCTION_NAMES = ["MmCreateProcessAddressSpace"]
+
 LLM_DECOMPILE = [
     (
         "EpCookie",
@@ -14,6 +16,12 @@ LLM_DECOMPILE = [
     (
         "EpSectionObject",
         "_EPROCESS->SectionObject",
+        "prompt/call_llm_decompile.md",
+        "references/ntoskrnl/PspAllocateProcess.{arch}.yaml",
+    ),
+    (
+        "MmCreateProcessAddressSpace",
+        "MmCreateProcessAddressSpace",
         "prompt/call_llm_decompile.md",
         "references/ntoskrnl/PspAllocateProcess.{arch}.yaml",
     ),
@@ -34,9 +42,16 @@ STRUCT_METADATA = {
     },
 }
 
+FUNC_METADATA = {
+    "MmCreateProcessAddressSpace": {
+        "alias": ["MmCreateProcessAddressSpace"],
+    }
+}
+
 GENERATE_YAML_DESIRED_FIELDS = {
     "EpCookie": ['struct_name', 'member_name', 'offset'],
     "EpSectionObject": ['struct_name', 'member_name', 'offset'],
+    "MmCreateProcessAddressSpace": ["func_name", "func_rva"],
 }
 
 
@@ -51,6 +66,8 @@ async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, 
         llm_config=llm_config,
         struct_member_names=TARGET_STRUCT_MEMBER_NAMES,
         struct_metadata=STRUCT_METADATA,
+        func_names=TARGET_FUNCTION_NAMES,
+        func_metadata=FUNC_METADATA,
         llm_decompile_specs=LLM_DECOMPILE,
         generate_yaml_desired_fields=GENERATE_YAML_DESIRED_FIELDS,
     )

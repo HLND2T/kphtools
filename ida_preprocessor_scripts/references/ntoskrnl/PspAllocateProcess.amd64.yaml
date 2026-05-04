@@ -1103,7 +1103,7 @@ disasm_code: |-
   PAGE:000000014065811A                 mov     [rsp+768h+var_740], r15
   PAGE:000000014065811F                 mov     [rsp+768h+var_748], eax
   PAGE:0000000140658123                 mov     rcx, [rsp+768h+var_608]
-  PAGE:000000014065812B                 call    MmCreateProcessAddressSpace
+  PAGE:000000014065812B                 call    MmCreateProcessAddressSpace ; MmCreateProcessAddressSpace - target function to find
   PAGE:0000000140658130                 movzx   eax, al
   PAGE:0000000140658133                 and     eax, r14d
   PAGE:0000000140658136                 shl     eax, 5
@@ -2809,7 +2809,7 @@ procedure: |-
             if ( (BYTE4(v194) & 1) != 0 )
               v72 = DWORD2(v195);
             v19 |= 32
-                 * (MmCreateProcessAddressSpace(
+                 * (MmCreateProcessAddressSpace( // MmCreateProcessAddressSpace - target function to find
                       (_DWORD)v156,
                       v70,
                       v72,
