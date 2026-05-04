@@ -194,11 +194,14 @@ class TestUpdateSymbols(unittest.TestCase):
                 path.write_bytes(b"binary")
 
             binaries = update_symbols.scan_symbol_directory(root)
+            expected_binaries = [valid_binary, invalid_sha_binary]
+            if any(path.name == "ntoskrnl.exe." for path in (root / "amd64").iterdir()):
+                expected_binaries.insert(0, empty_version_binary)
 
-        self.assertEqual(
-            [empty_version_binary, valid_binary, invalid_sha_binary],
-            binaries,
-        )
+            self.assertEqual(
+                expected_binaries,
+                binaries,
+            )
 
     def test_parse_file_path_info_rejects_invalid_sha_directory(self) -> None:
         with TemporaryDirectory() as temp_dir:

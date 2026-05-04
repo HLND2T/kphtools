@@ -68,7 +68,7 @@ _ALLOWED_SYMBOL_FIELDS = frozenset({"name", "category", "data_type"})
 _LEGACY_FIELD_MESSAGES = {
     "skill": {
         "agent_skill": "is not supported; use skill.name",
-        "symbol": "is not supported; derive it from skill.expected_output",
+        "symbol": "is not supported; declare artifacts with skill.expected_output",
     },
     "symbol": {
         "symbol_expr": "is not supported; move it to the skill script",
@@ -223,14 +223,6 @@ def load_config(path: str | Path) -> ConfigSpec:
 
         symbols = [_load_symbol(_require_mapping(item, "symbol")) for item in symbol_items]
         skills = [_load_skill(_require_mapping(item, "skill")) for item in skill_items]
-        symbol_names = {symbol.name for symbol in symbols}
-        for skill in skills:
-            for output_name in skill.expected_output + skill.optional_output:
-                symbol_name = symbol_name_from_artifact_name(output_name)
-                if symbol_name not in symbol_names:
-                    raise ValueError(
-                        f"skill output references unknown symbol: {symbol_name}"
-                    )
 
         modules.append(
             ModuleSpec(

@@ -579,6 +579,49 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(ida_preprocessor_common.PREPROCESS_STATUS_SUCCESS, status)
 
+    async def test_preprocess_common_skill_infers_func_category_for_mapping_symbol(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir, patch.object(
+            ida_preprocessor_common,
+            "preprocess_func_symbol",
+            new=AsyncMock(
+                return_value={
+                    "func_name": "AlpcpCreateClientPort",
+                    "func_rva": 0x5E8D70,
+                }
+            ),
+        ):
+            status = await ida_preprocessor_common.preprocess_common_skill(
+                session=AsyncMock(),
+                skill=SimpleNamespace(name="find-AlpcpCreateClientPort"),
+                symbol={"name": "AlpcpCreateClientPort"},
+                binary_dir=Path(temp_dir),
+                pdb_path=Path(temp_dir) / "ntkrnlmp.pdb",
+                debug=False,
+                llm_config=None,
+                func_names=["AlpcpCreateClientPort"],
+                func_metadata={
+                    "AlpcpCreateClientPort": {
+                        "alias": ["AlpcpCreateClientPort"],
+                    }
+                },
+                generate_yaml_desired_fields={
+                    "AlpcpCreateClientPort": ["func_name", "func_rva"]
+                },
+            )
+
+            self.assertEqual(ida_preprocessor_common.PREPROCESS_STATUS_SUCCESS, status)
+            payload = load_artifact(Path(temp_dir) / "AlpcpCreateClientPort.yaml")
+            self.assertEqual(
+                {
+                    "category": "func",
+                    "func_name": "AlpcpCreateClientPort",
+                    "func_rva": 0x5E8D70,
+                },
+                payload,
+            )
+
     async def test_preprocess_common_skill_falls_back_to_llm_decompile_for_struct_specs(
         self,
     ) -> None:

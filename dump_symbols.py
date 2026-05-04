@@ -159,6 +159,12 @@ def _preprocessor_only_output_symbol_names(skill: Any) -> set[str]:
     }
 
 
+def _internal_output_symbol_names(skill: Any, symbol_map: dict[str, Any]) -> set[str]:
+    return _preprocessor_only_output_symbol_names(skill) | (
+        _required_output_symbol_names(skill) - set(symbol_map)
+    )
+
+
 async def _preprocess_skill_outputs(
     *,
     skill_name: str,
@@ -171,7 +177,7 @@ async def _preprocess_skill_outputs(
     session: Any,
 ) -> tuple[bool, set[str]]:
     required_symbol_names = _required_output_symbol_names(skill)
-    preprocessor_only_symbol_names = _preprocessor_only_output_symbol_names(skill)
+    internal_symbol_names = _internal_output_symbol_names(skill, symbol_map)
     failed_required_symbol_names: set[str] = set()
     for symbol_name in _output_symbol_names(skill):
         status = await preprocess_single_skill_via_mcp(
@@ -186,7 +192,7 @@ async def _preprocess_skill_outputs(
         _debug_log(debug, f"preprocess status for {skill_name}/{symbol_name}: {status}")
         if status == PREPROCESS_STATUS_SUCCESS or symbol_name not in required_symbol_names:
             continue
-        if symbol_name in preprocessor_only_symbol_names:
+        if symbol_name in internal_symbol_names:
             if status == PREPROCESS_STATUS_ABSENT_OK:
                 continue
         failed_required_symbol_names.add(symbol_name)
@@ -235,11 +241,11 @@ async def _process_one_skill(
         _debug_log(debug, f"skipping {skill_name}; optional outputs not generated")
         return True
     if failed_required_symbol_names.issubset(
-        _preprocessor_only_output_symbol_names(skill)
+        _internal_output_symbol_names(skill, symbol_map)
     ):
         _debug_log(
             debug,
-            f"required preprocessor-only outputs failed for {skill_name}; not falling back",
+            f"required internal outputs failed for {skill_name}; not falling back",
         )
         return False
 
@@ -462,7 +468,10 @@ def topological_sort_skills(skills):
     producers: dict[str, set[str]] = {}
     for skill in skills:
         skill_name = _field(skill, "name")
-        for output_path in _string_list(skill, "expected_output"):
+        output_paths = _string_list(skill, "expected_output") + _string_list(
+            skill, "preprocessor_only_output"
+        )
+        for output_path in output_paths:
             normalized = normalize(output_path)
             basename = normalize(os.path.basename(output_path))
             producers.setdefault(normalized, set()).add(skill_name)

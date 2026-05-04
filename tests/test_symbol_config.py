@@ -149,7 +149,7 @@ class TestSymbolConfig(unittest.TestCase):
         self.assertEqual([], skill.preprocessor_only_output)
         self.assertEqual(["Optional"], skill.produced_symbols)
 
-    def test_load_config_rejects_unknown_skill_output_symbol(self) -> None:
+    def test_load_config_accepts_skill_output_without_symbol_spec(self) -> None:
         with TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "config.yaml"
             config_path.write_text(
@@ -171,11 +171,16 @@ class TestSymbolConfig(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with self.assertRaisesRegex(
-                ValueError,
-                "skill output references unknown symbol: MissingSymbol",
-            ):
-                symbol_config.load_config(config_path)
+            config = symbol_config.load_config(config_path)
+
+        self.assertEqual(
+            ["MissingSymbol.yaml"],
+            config.modules[0].skills[0].expected_output,
+        )
+        self.assertEqual(
+            {"EpObjectTable"},
+            {symbol.name for symbol in config.modules[0].symbols},
+        )
 
     def test_load_config_rejects_agent_skill_override(self) -> None:
         with TemporaryDirectory() as temp_dir:

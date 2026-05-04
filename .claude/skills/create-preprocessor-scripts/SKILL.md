@@ -23,7 +23,7 @@ Collect only what the task needs:
 - Symbol names and output YAML names.
 - Category: `struct_offset`, `gv`, or `func`.
 - `data_type`, module name, architecture, aliases, and dependencies if present.
-- Discovery source: direct PDB/name metadata or an LLM_DECOMPILE reference function.
+- Discovery source: direct PDB/name metadata, NtAPI syscall signature bytes, or an LLM_DECOMPILE reference function.
 - Target struct/member pairs, global variable names, or function names.
 - Desired YAML fields for each output artifact.
 
@@ -45,7 +45,53 @@ Place scripts at:
 ida_preprocessor_scripts/find-<SkillName>.py
 ```
 
-Use `ida_preprocessor_common.preprocess_common_skill` and keep the current kphtools function signature:
+There are two distinct caller shapes depending on discovery method.
+
+#### NtAPI Signature Pattern
+
+Use when the target is a Windows NT system call and a unique byte signature from the syscall stub is known. Import `_extract_ntapi` and call `preprocess_ntapi_symbols` directly — do **not** use `preprocess_common_skill` for this pattern.
+
+```python
+from __future__ import annotations
+
+from ida_preprocessor_scripts import _extract_ntapi
+
+TARGET_FUNCTION_NAMES = ["NtAlpcCreatePortSection"]
+
+NTAPI_SIGNATURES = {
+    "NtAlpcCreatePortSection": ["BE A7 FB 31 06 00 00 00"],
+}
+
+GENERATE_YAML_DESIRED_FIELDS = {
+    "NtAlpcCreatePortSection": ["func_name", "func_rva"],
+}
+
+
+async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, llm_config):
+    return await _extract_ntapi.preprocess_ntapi_symbols(
+        session=session,
+        skill=skill,
+        symbol=symbol,
+        binary_dir=binary_dir,
+        pdb_path=pdb_path,
+        debug=debug,
+        target_function_names=TARGET_FUNCTION_NAMES,
+        ntapi_signatures=NTAPI_SIGNATURES,
+        generate_yaml_desired_fields=GENERATE_YAML_DESIRED_FIELDS,
+    )
+```
+
+Module-level variables for this pattern: `TARGET_FUNCTION_NAMES`, `NTAPI_SIGNATURES`, `GENERATE_YAML_DESIRED_FIELDS`.
+
+The signature bytes come from the NT syscall stub (e.g. `mov eax, <syscall_number>` encodes the system call index). Each signature is a list to allow multiple candidates across OS versions.
+
+NT API finders produce a reference YAML (e.g. `NtAlpcCreatePortSection.yaml`) consumed as `expected_input` by downstream finders. They do **not** get a `symbols` entry in `config.yaml` because they are reference anchors, not kphtools output symbols.
+
+Examples: `ida_preprocessor_scripts/find-NtSecureConnectPort.py`, `ida_preprocessor_scripts/find-NtAlpcCreatePortSection.py`.
+
+#### PDB / Name / LLM Pattern
+
+Use `ida_preprocessor_common.preprocess_common_skill` for all other cases (struct offsets, global variables, named functions, LLM_DECOMPILE):
 
 ```python
 async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, llm_config):
@@ -61,14 +107,14 @@ async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, 
     )
 ```
 
-Common module-level variables:
+Module-level variables for this pattern:
 
 - Struct offsets: `TARGET_STRUCT_MEMBER_NAMES`, `STRUCT_METADATA`, `GENERATE_YAML_DESIRED_FIELDS`.
 - Global variables: `TARGET_GLOBALVAR_NAMES`, `GV_METADATA`, `GENERATE_YAML_DESIRED_FIELDS`.
 - Functions: `TARGET_FUNCTION_NAMES`, `FUNC_METADATA`, `GENERATE_YAML_DESIRED_FIELDS`.
 - LLM_DECOMPILE: `LLM_DECOMPILE`, passed as `llm_decompile_specs=LLM_DECOMPILE`.
 
-Use nearby examples:
+Examples:
 
 - Direct struct offset: `ida_preprocessor_scripts/find-EpObjectTable.py`.
 - Global variable: `ida_preprocessor_scripts/find-PspCreateProcessNotifyRoutine.py`.
@@ -172,6 +218,8 @@ Stage only relevant files (finder scripts, reference YAMLs, `config.yaml`). Do n
 ## Common Mistakes
 
 - Script filename and `config.yaml` skill name do not match.
+- NtAPI finder uses `preprocess_common_skill` instead of `_extract_ntapi.preprocess_ntapi_symbols`.
+- NtAPI finder result YAML gets a `symbols` entry — it should not; it is a reference anchor for downstream `expected_input`, not a kphtools output symbol.
 - `expected_output` omits one artifact from a merged finder.
 - Symbol exists in script output but not in `config.yaml` `symbols`.
 - Old finder scripts or old skill entries remain after an authorized merge.

@@ -153,6 +153,33 @@ class TestDumpSymbols(unittest.TestCase):
 
         self.assertEqual(["find-A", "find-Z"], dump_symbols.topological_sort_skills(skills))
 
+    def test_topological_sort_uses_preprocessor_only_output(self) -> None:
+        skills = [
+            {
+                "name": "find-AlpcHandleTable",
+                "expected_output": ["AlpcHandleTable.yaml"],
+                "expected_input": ["AlpcpCreateClientPort.yaml"],
+            },
+            {
+                "name": "find-AlpcpCreateClientPort",
+                "expected_input": ["NtSecureConnectPort.yaml"],
+                "preprocessor_only_output": ["AlpcpCreateClientPort.yaml"],
+            },
+            {
+                "name": "find-NtSecureConnectPort",
+                "preprocessor_only_output": ["NtSecureConnectPort.yaml"],
+            },
+        ]
+
+        self.assertEqual(
+            [
+                "find-NtSecureConnectPort",
+                "find-AlpcpCreateClientPort",
+                "find-AlpcHandleTable",
+            ],
+            dump_symbols.topological_sort_skills(skills),
+        )
+
     def test_parse_args_reads_arch_and_force(self) -> None:
         args = dump_symbols.parse_args(
             [
@@ -430,7 +457,7 @@ class TestDumpSymbols(unittest.TestCase):
                 "skills": [
                     {
                         "name": "find-NtSecureConnectPort",
-                        "preprocessor_only_output": ["NtSecureConnectPort.yaml"],
+                        "expected_output": ["NtSecureConnectPort.yaml"],
                     }
                 ],
                 "symbols": [],
@@ -467,14 +494,14 @@ class TestDumpSymbols(unittest.TestCase):
         )
         mock_run_skill.assert_not_called()
 
-    def test_process_binary_returns_false_for_failed_preprocessor_only_output(self) -> None:
+    def test_process_binary_returns_false_for_failed_internal_expected_output(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             config = {
                 "skills": [
                     {
                         "name": "find-NtSecureConnectPort",
-                        "preprocessor_only_output": ["NtSecureConnectPort.yaml"],
+                        "expected_output": ["NtSecureConnectPort.yaml"],
                     }
                 ],
                 "symbols": [],
@@ -511,14 +538,14 @@ class TestDumpSymbols(unittest.TestCase):
         )
         mock_run_skill.assert_not_called()
 
-    def test_process_binary_accepts_absent_ok_for_preprocessor_only_output(self) -> None:
+    def test_process_binary_accepts_absent_ok_for_internal_expected_output(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             config = {
                 "skills": [
                     {
                         "name": "find-NtSecureConnectPort",
-                        "preprocessor_only_output": ["NtSecureConnectPort.yaml"],
+                        "expected_output": ["NtSecureConnectPort.yaml"],
                     }
                 ],
                 "symbols": [],
@@ -1780,7 +1807,7 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertEqual(0, exit_code)
         mock_print.assert_has_calls(
             [
-                call("Scanning symbols/amd64"),
+                call(f"Scanning {Path('symbols') / 'amd64'}"),
                 call("Found 0 candidate binary directories"),
                 call("No processable binary directories found"),
             ]
@@ -1820,7 +1847,7 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertEqual(0, exit_code)
         mock_print.assert_has_calls(
             [
-                call("Scanning symbols/amd64"),
+                call(f"Scanning {Path('symbols') / 'amd64'}"),
                 call("Found 1 candidate binary directories"),
                 call(f"Processing {binary_dir}"),
                 call(f"Processed {binary_dir} successfully"),
@@ -1881,7 +1908,7 @@ class TestDumpSymbols(unittest.TestCase):
         mock_start.assert_not_called()
         mock_print.assert_has_calls(
             [
-                call("Scanning symbols/amd64"),
+                call(f"Scanning {Path('symbols') / 'amd64'}"),
                 call("Found 1 candidate binary directories"),
                 call(f"Processing {binary_dir}"),
                 call(f"Skipped {binary_dir} (no work required)"),
@@ -1923,7 +1950,7 @@ class TestDumpSymbols(unittest.TestCase):
 
         mock_print.assert_has_calls(
             [
-                call("Scanning symbols/amd64"),
+                call(f"Scanning {Path('symbols') / 'amd64'}"),
                 call("Found 1 candidate binary directories"),
                 call(f"Processing {binary_dir}"),
                 call(f"Processing {binary_dir} failed"),
@@ -1967,11 +1994,11 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertEqual(0, exit_code)
         mock_print.assert_has_calls(
             [
-                call("Scanning symbols/amd64"),
+                call(f"Scanning {Path('symbols') / 'amd64'}"),
                 call("Found 1 candidate binary directories"),
                 call(f"Processing {amd64_dir}"),
                 call(f"Processed {amd64_dir} successfully"),
-                call("Scanning symbols/arm64"),
+                call(f"Scanning {Path('symbols') / 'arm64'}"),
                 call("Found 1 candidate binary directories"),
                 call(f"Processing {arm64_dir}"),
                 call(f"Skipped {arm64_dir} (no work required)"),

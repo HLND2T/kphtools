@@ -58,6 +58,29 @@ _FUNC_XREFS_POSITIVE_KEYS = (
 )
 
 
+def _field(value: Any, field_name: str) -> Any:
+    if isinstance(value, Mapping):
+        return value.get(field_name)
+    return getattr(value, field_name, None)
+
+
+def _infer_symbol_category(*, symbol: Any, desired_fields: list[str]) -> str | None:
+    explicit_category = _field(symbol, "category")
+    if explicit_category in _ALLOWED_FIELDS_BY_CATEGORY:
+        return explicit_category
+    if explicit_category is not None:
+        return None
+
+    candidates = [
+        category
+        for category, allowed_fields in _ALLOWED_FIELDS_BY_CATEGORY.items()
+        if all(field in allowed_fields for field in desired_fields)
+    ]
+    if len(candidates) != 1:
+        return None
+    return candidates[0]
+
+
 def _normalize_desired_fields(
     generate_yaml_desired_fields: Any,
 ) -> dict[str, list[str]] | None:
@@ -165,7 +188,9 @@ async def preprocess_common_skill(
     llm_decompile_specs=None,
     generate_yaml_desired_fields=None,
 ):
-    target_symbol_name = symbol.name
+    target_symbol_name = _field(symbol, "name")
+    if not isinstance(target_symbol_name, str) or not target_symbol_name:
+        return PREPROCESS_STATUS_FAILED
     has_pdb = pdb_path is not None
 
     desired_fields_by_symbol = _normalize_desired_fields(generate_yaml_desired_fields)
@@ -179,9 +204,16 @@ async def preprocess_common_skill(
     if not desired_fields:
         return PREPROCESS_STATUS_FAILED
 
+    symbol_category = _infer_symbol_category(
+        symbol=symbol,
+        desired_fields=desired_fields,
+    )
+    if symbol_category is None:
+        return PREPROCESS_STATUS_FAILED
+
     metadata: dict[str, Any] | None = None
     payload: dict[str, Any] | None = None
-    if symbol.category == "struct_offset":
+    if symbol_category == "struct_offset":
         if struct_member_names is not None and target_symbol_name not in struct_member_names:
             return PREPROCESS_STATUS_FAILED
         metadata = (struct_metadata or {}).get(target_symbol_name)
@@ -199,7 +231,7 @@ async def preprocess_common_skill(
                 llm_decompile_specs=llm_decompile_specs,
             )
         writer = write_struct_yaml
-    elif symbol.category == "gv":
+    elif symbol_category == "gv":
         if gv_names is not None and target_symbol_name not in gv_names:
             return PREPROCESS_STATUS_FAILED
         metadata = (gv_metadata or {}).get(target_symbol_name, {})
@@ -215,7 +247,7 @@ async def preprocess_common_skill(
                 llm_config=llm_config,
             )
         writer = write_gv_yaml
-    elif symbol.category == "func":
+    elif symbol_category == "func":
         allowed_func_names = set(func_names or []) | set(func_xrefs_map)
         if func_names is not None and target_symbol_name not in allowed_func_names:
             return PREPROCESS_STATUS_FAILED
@@ -243,12 +275,12 @@ async def preprocess_common_skill(
         payload = await resolve_symbol_via_llm_decompile(
             session=session,
             symbol_name=target_symbol_name,
-            category=symbol.category,
+            category=symbol_category,
             binary_dir=binary_dir,
             image_base=0x140000000,
             llm_decompile_specs=llm_decompile_specs,
             llm_config=llm_config,
-            struct_metadata=metadata if symbol.category == "struct_offset" else None,
+            struct_metadata=metadata if symbol_category == "struct_offset" else None,
             debug=debug,
         )
     if payload is None:
@@ -256,7 +288,7 @@ async def preprocess_common_skill(
 
     filtered_payload = _filter_payload(
         payload=payload,
-        category=symbol.category,
+        category=symbol_category,
         desired_fields=desired_fields,
     )
     if filtered_payload is None:
