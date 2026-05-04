@@ -123,6 +123,16 @@ def _output_symbol_names(skill: Any) -> list[str]:
     ]
 
 
+def _output_symbol_path_pairs(
+    binary_dir: str | Path,
+    skill: Any,
+) -> list[tuple[str, Path]]:
+    return [
+        (symbol_name_from_artifact_name(output_path), Path(binary_dir) / output_path)
+        for output_path in _skill_output_names(skill)
+    ]
+
+
 def _symbol_for_output(symbol_map: dict[str, Any], symbol_name: str) -> Any:
     return symbol_map.get(symbol_name, {"name": symbol_name})
 
@@ -190,6 +200,37 @@ def _internal_output_symbol_names(skill: Any, symbol_map: dict[str, Any]) -> set
     )
 
 
+def _debug_log_written_yaml(debug: bool, path: str | Path) -> None:
+    output_path = Path(path)
+    if not output_path.exists():
+        return
+    _debug_log(
+        debug,
+        f"successfully wrote YAML: {output_path.resolve(strict=False)}",
+    )
+
+
+def _run_fallback_skill_and_log_outputs(
+    *,
+    skill_name: str,
+    agent: str,
+    debug: bool,
+    required_outputs: list[str],
+    max_retries: int,
+) -> bool:
+    fallback_ok = run_skill(
+        skill_name,
+        agent=agent,
+        debug=debug,
+        expected_yaml_paths=required_outputs,
+        max_retries=max_retries,
+    )
+    if fallback_ok:
+        for output_path in required_outputs:
+            _debug_log_written_yaml(debug, output_path)
+    return fallback_ok
+
+
 async def _preprocess_skill_outputs(
     *,
     skill_name: str,
@@ -204,7 +245,7 @@ async def _preprocess_skill_outputs(
     required_symbol_names = _required_output_symbol_names(skill)
     internal_symbol_names = _internal_output_symbol_names(skill, symbol_map)
     failed_required_symbol_names: set[str] = set()
-    for symbol_name in _output_symbol_names(skill):
+    for symbol_name, output_path in _output_symbol_path_pairs(binary_dir, skill):
         status = await preprocess_single_skill_via_mcp(
             session=session,
             skill=skill,
@@ -215,7 +256,10 @@ async def _preprocess_skill_outputs(
             llm_config=llm_config,
         )
         _debug_log(debug, f"preprocess status for {skill_name}/{symbol_name}: {status}")
-        if status == PREPROCESS_STATUS_SUCCESS or symbol_name not in required_symbol_names:
+        if status == PREPROCESS_STATUS_SUCCESS:
+            _debug_log_written_yaml(debug, output_path)
+            continue
+        if symbol_name not in required_symbol_names:
             continue
         if symbol_name in internal_symbol_names:
             if status == PREPROCESS_STATUS_ABSENT_OK:
@@ -228,16 +272,10 @@ async def _preprocess_skill_outputs(
 
 async def _process_one_skill(
     *,
-    skill_name: str,
-    skill: Any,
-    symbol_map: dict[str, Any],
-    binary_dir: str | Path,
-    pdb_path: Path | None,
-    agent: str,
-    debug: bool, force: bool,
-    llm_config: dict[str, Any] | None,
-    session: Any,
-    activity: dict[str, bool] | None,
+    skill_name: str, skill: Any, symbol_map: dict[str, Any],
+    binary_dir: str | Path, pdb_path: Path | None,
+    agent: str, debug: bool, force: bool,
+    llm_config: dict[str, Any] | None, session: Any, activity: dict[str, bool] | None,
 ) -> bool:
     _debug_log(debug, f"skill {skill_name} started")
     required_outputs, optional_outputs = _skill_output_paths(binary_dir, skill)
@@ -265,22 +303,19 @@ async def _process_one_skill(
     if not required_outputs and optional_outputs:
         _debug_log(debug, f"skipping {skill_name}; optional outputs not generated")
         return True
-    if failed_required_symbol_names.issubset(
-        _internal_output_symbol_names(skill, symbol_map)
-    ):
-        _debug_log(
-            debug,
-            f"required internal outputs failed for {skill_name}; not falling back",
-        )
+    internal_symbols = _internal_output_symbol_names(skill, symbol_map)
+    if failed_required_symbol_names.issubset(internal_symbols):
+        message = f"required internal outputs failed for {skill_name}; not falling back"
+        _debug_log(debug, message)
         return False
 
     skill_max_retries = _field(skill, "max_retries") or 3
     _debug_log(debug, f"falling back to run_skill for {skill_name}")
-    return run_skill(
-        skill_name,
+    return _run_fallback_skill_and_log_outputs(
+        skill_name=skill_name,
         agent=agent,
         debug=debug,
-        expected_yaml_paths=required_outputs,
+        required_outputs=required_outputs,
         max_retries=skill_max_retries,
     )
 

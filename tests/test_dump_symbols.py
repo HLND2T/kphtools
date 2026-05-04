@@ -415,6 +415,58 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertTrue(ok)
         mock_run_skill.assert_not_called()
 
+    def test_process_binary_debug_logs_successfully_written_yaml_path(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            output_path = binary_dir / "EpObjectTable.yaml"
+            config = {
+                "skills": [
+                    {
+                        "name": "find-EpObjectTable",
+                        "expected_output": ["EpObjectTable.yaml"],
+                    }
+                ],
+                "symbols": [
+                    {
+                        "name": "EpObjectTable",
+                        "category": "struct_offset",
+                        "data_type": "uint16",
+                    }
+                ],
+            }
+
+            async def preprocess_side_effect(**kwargs: object) -> str:
+                output_path.write_text("name: EpObjectTable\n", encoding="utf-8")
+                return dump_symbols.PREPROCESS_STATUS_SUCCESS
+
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=AsyncMock(side_effect=preprocess_side_effect),
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+                patch("builtins.print") as mock_print,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=True,
+                        force=False,
+                        llm_config=None,
+                    )
+                )
+
+        self.assertTrue(ok)
+        mock_run_skill.assert_not_called()
+        mock_print.assert_any_call(
+            f"[debug] successfully wrote YAML: {output_path.resolve(strict=False)}"
+        )
+
     def test_process_binary_preprocesses_each_symbol_derived_from_outputs(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
@@ -1103,6 +1155,7 @@ class TestDumpSymbols(unittest.TestCase):
     def test_process_binary_dir_debug_logs_preprocess_failure_and_fallback(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
+            output_path = binary_dir / "EpObjectTable.yaml"
             config = {
                 "skills": [
                     {
@@ -1124,7 +1177,13 @@ class TestDumpSymbols(unittest.TestCase):
                     "preprocess_single_skill_via_mcp",
                     new=AsyncMock(return_value="failed"),
                 ),
-                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+                patch.object(
+                    dump_symbols,
+                    "run_skill",
+                    side_effect=lambda *args, **kwargs: (
+                        output_path.write_text("ready", encoding="utf-8") or True
+                    ),
+                ) as mock_run_skill,
                 patch("builtins.print") as mock_print,
             ):
                 ok = asyncio.run(
@@ -1160,6 +1219,10 @@ class TestDumpSymbols(unittest.TestCase):
         )
         self.assertIn(
             "[debug] falling back to run_skill for find-EpObjectTable",
+            printed_messages,
+        )
+        self.assertIn(
+            f"[debug] successfully wrote YAML: {output_path.resolve(strict=False)}",
             printed_messages,
         )
 
