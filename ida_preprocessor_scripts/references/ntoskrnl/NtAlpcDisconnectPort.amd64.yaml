@@ -1,0 +1,78 @@
+func_name: NtAlpcDisconnectPort
+func_va: '0x1406e8970'
+disasm_code: |-
+  PAGE:00000001406E8970                 mov     r11, rsp
+  PAGE:00000001406E8973                 mov     [r11+8], rbx
+  PAGE:00000001406E8977                 push    rdi
+  PAGE:00000001406E8978                 sub     rsp, 30h
+  PAGE:00000001406E897C                 mov     rax, gs:188h
+  PAGE:00000001406E8985                 mov     edi, edx
+  PAGE:00000001406E8987                 dec     word ptr [rax+1E4h]
+  PAGE:00000001406E898E                 test    edx, 0FFFFFFFEh
+  PAGE:00000001406E8994                 jnz     short loc_1406E8A03
+  PAGE:00000001406E8996                 mov     rax, gs:188h
+  PAGE:00000001406E899F                 ; DesiredAccess
+  PAGE:00000001406E899F                 mov     edx, 1; DesiredAccess
+  PAGE:00000001406E89A4                 and     qword ptr [r11-10h], 0
+  PAGE:00000001406E89A9                 ; ObjectType
+  PAGE:00000001406E89A9                 mov     r8, cs:AlpcPortObjectType; ObjectType
+  PAGE:00000001406E89B0                 and     qword ptr [r11+18h], 0
+  PAGE:00000001406E89B5                 ; AccessMode
+  PAGE:00000001406E89B5                 mov     r9b, [rax+232h]; AccessMode
+  PAGE:00000001406E89BC                 lea     rax, [r11+18h]
+  PAGE:00000001406E89C0                 mov     [r11-18h], rax
+  PAGE:00000001406E89C4                 call    ObReferenceObjectByHandle
+  PAGE:00000001406E89C9                 mov     ebx, eax
+  PAGE:00000001406E89CB                 test    eax, eax
+  PAGE:00000001406E89CD                 js      short loc_1406E89E7
+  PAGE:00000001406E89CF                 ; DmaAdapter
+  PAGE:00000001406E89CF                 mov     rcx, [rsp+38h+DmaAdapter]; DmaAdapter
+  PAGE:00000001406E89D4                 mov     edx, edi
+  PAGE:00000001406E89D6                 call    AlpcpDisconnectPort ; AlpcpDisconnectPort - target function to find
+  PAGE:00000001406E89DB                 ; DmaAdapter
+  PAGE:00000001406E89DB                 mov     rcx, [rsp+38h+DmaAdapter]; DmaAdapter
+  PAGE:00000001406E89E0                 mov     ebx, eax
+  PAGE:00000001406E89E2                 call    ObDereferenceObjectWithTag
+  PAGE:00000001406E89E7                 mov     rcx, gs:188h
+  PAGE:00000001406E89F0                 call    KeLeaveCriticalRegionThread
+  PAGE:00000001406E89F5                 mov     eax, ebx
+  PAGE:00000001406E89F7                 mov     rbx, [rsp+38h+arg_0]
+  PAGE:00000001406E89FC                 add     rsp, 30h
+  PAGE:00000001406E8A00                 pop     rdi
+  PAGE:00000001406E8A01                 retn
+  PAGE:00000001406E8A03                 mov     ebx, 0C000000Dh
+  PAGE:00000001406E8A08                 jmp     short loc_1406E89E7
+procedure: |-
+  __int64 __fastcall NtAlpcDisconnectPort(void *a1, int a2)
+  {
+    struct _KTHREAD *CurrentThread; // rax
+    char v3; // di
+    int v4; // ebx
+    PADAPTER_OBJECT DmaAdapter; // [rsp+50h] [rbp+18h] BYREF
+
+    CurrentThread = KeGetCurrentThread();
+    v3 = a2;
+    --CurrentThread->KernelApcDisable;
+    if ( (a2 & 0xFFFFFFFE) != 0 )
+    {
+      v4 = -1073741811;
+    }
+    else
+    {
+      DmaAdapter = nullptr;
+      v4 = ObReferenceObjectByHandle(
+             a1,
+             1u,
+             AlpcPortObjectType,
+             KeGetCurrentThread()->PreviousMode,
+             (PVOID *)&DmaAdapter,
+             nullptr);
+      if ( v4 >= 0 )
+      {
+        v4 = AlpcpDisconnectPort((_ALPC_PORT *)DmaAdapter, v3); // AlpcpDisconnectPort - target function to find
+        ObDereferenceObjectWithTag(DmaAdapter);
+      }
+    }
+    KeLeaveCriticalRegionThread(KeGetCurrentThread());
+    return (unsigned int)v4;
+  }
