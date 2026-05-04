@@ -300,6 +300,12 @@ modules:
         expected_output:
           - KiSetTimerEx.yaml
 
+      - name: find-MiInsertUnusedSegment
+        expected_input:
+          - KiSetTimerEx.yaml
+        expected_output:
+          - MiInsertUnusedSegment.yaml
+
     symbols:
       - name: EgeGuid
         category: struct_offset
