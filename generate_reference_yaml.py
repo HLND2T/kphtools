@@ -4,6 +4,7 @@ Reference YAML Generator for LLM_DECOMPILE
 
 Generates a single reference YAML for kphtools at:
     ida_preprocessor_scripts/references/<module>/<func_name>.<arch>.yaml
+or at a manual file name under the same module directory when -outyaml is set.
 
 Usage:
     Attach to an existing MCP session:
@@ -13,7 +14,8 @@ Usage:
         uv run python generate_reference_yaml.py -func_name=ExReferenceCallBackBlock -auto_start_mcp -binary=symbols/amd64/ntoskrnl.exe.10.0.26100.1/deadbeef/ntoskrnl.exe
 
 Behavior:
-    - Exports both `procedure` and `disasm_code`
+    - Exports function `procedure` and `disasm_code`
+    - Exports code-region `disasm_code` only for category=code artifacts
     - Preserves instruction comments in exported output
     - Includes discontinuous function chunks when IDA associates them with the same function
     - Infers `module` and `arch` from the current binary path unless overridden
@@ -27,6 +29,7 @@ Parameters:
     -debug           Enable debug mode
     -binary          Binary path used only with -auto_start_mcp
     -auto_start_mcp  Launch idalib-mcp automatically for -binary instead of attaching
+    -outyaml         Optional output YAML file name under the module reference directory
 """
 
 from __future__ import annotations
@@ -37,11 +40,20 @@ import json
 import subprocess
 import sys
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 SUPPORTED_ARCHES = ("amd64", "arm64")
 _INVALID_FILENAME_CHARS = frozenset(':?*<>|"')
+
+
+@dataclass(frozen=True)
+class ReferenceTarget:
+    kind: str
+    name: str
+    va: str
+    size: int | None = None
 
 
 def _reference_generation_error(message: str) -> Exception:
@@ -76,6 +88,12 @@ def _load_export_reference_yaml_via_mcp():
     from ida_reference_export import export_reference_yaml_via_mcp
 
     return export_reference_yaml_via_mcp
+
+
+def _load_export_code_region_yaml_via_mcp():
+    from ida_reference_export import export_code_region_yaml_via_mcp
+
+    return export_code_region_yaml_via_mcp
 
 
 def _load_function_artifact(binary_dir: Path, func_name: str) -> dict[str, Any] | None:
@@ -197,6 +215,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("-debug", action="store_true")
     parser.add_argument("-binary")
     parser.add_argument("-auto_start_mcp", action="store_true")
+    parser.add_argument("-outyaml")
 
     args = parser.parse_args(argv)
     if args.auto_start_mcp and not args.binary:
@@ -212,24 +231,32 @@ def build_reference_output_path(
     module: str,
     func_name: str,
     arch: str,
+    outyaml: str | None = None,
 ) -> Path:
     module_name = _normalize_component(module)
     function_name = _normalize_component(func_name)
     normalized_arch = _normalize_component(arch)
+    output_yaml_name = _normalize_component(outyaml) if outyaml is not None else None
     if normalized_arch is not None:
         normalized_arch = normalized_arch.lower()
     if (
         module_name is None
         or function_name is None
         or normalized_arch not in SUPPORTED_ARCHES
+        or (outyaml is not None and output_yaml_name is None)
+        or (
+            output_yaml_name is not None
+            and Path(output_yaml_name).suffix.lower() != ".yaml"
+        )
     ):
         raise _invalid_reference_output_target_error()
+    output_name = output_yaml_name or f"{function_name}.{normalized_arch}.yaml"
     return (
         Path(repo_root)
         / "ida_preprocessor_scripts"
         / "references"
         / module_name
-        / f"{function_name}.{normalized_arch}.yaml"
+        / output_name
     )
 
 
@@ -326,6 +353,61 @@ async def resolve_func_va(*, session: Any, binary_dir: Path, func_name: str) -> 
     return hex(next(iter(matched_addresses)))
 
 
+async def _resolve_code_region_target(
+    *,
+    session: Any,
+    artifact: dict[str, Any],
+    func_name: str,
+) -> ReferenceTarget:
+    code_size = artifact.get("code_size")
+    if not isinstance(code_size, int) or code_size <= 0:
+        raise _reference_generation_error("unable to resolve code region")
+
+    code_va = artifact.get("code_va")
+    if isinstance(code_va, int):
+        resolved_code_va = hex(code_va)
+    else:
+        code_rva = artifact.get("code_rva")
+        if not isinstance(code_rva, int):
+            raise _reference_generation_error("unable to resolve code region")
+        image_base = await _query_image_base_via_ida(session)
+        resolved_code_va = hex(image_base + code_rva)
+
+    code_name = artifact.get("code_name")
+    if not isinstance(code_name, str) or not code_name.strip():
+        code_name = func_name
+    return ReferenceTarget(
+        kind="code",
+        name=code_name.strip(),
+        va=resolved_code_va,
+        size=code_size,
+    )
+
+
+async def resolve_reference_target(
+    *,
+    session: Any,
+    binary_dir: Path,
+    func_name: str,
+) -> ReferenceTarget:
+    artifact = _load_function_artifact(binary_dir, func_name)
+    if artifact is not None and artifact.get("category") == "code":
+        return await _resolve_code_region_target(
+            session=session,
+            artifact=artifact,
+            func_name=func_name,
+        )
+    return ReferenceTarget(
+        kind="func",
+        name=func_name,
+        va=await resolve_func_va(
+            session=session,
+            binary_dir=binary_dir,
+            func_name=func_name,
+        ),
+    )
+
+
 async def export_reference_yaml_via_mcp(
     session: Any,
     *,
@@ -339,6 +421,26 @@ async def export_reference_yaml_via_mcp(
         session,
         func_name=func_name,
         func_va=func_va,
+        output_path=output_path,
+        debug=debug,
+    )
+
+
+async def export_code_region_yaml_via_mcp(
+    session: Any,
+    *,
+    code_name: str,
+    code_va: str,
+    code_size: int,
+    output_path: str | Path,
+    debug: bool = False,
+) -> Path:
+    export_fn = _load_export_code_region_yaml_via_mcp()
+    return await export_fn(
+        session,
+        code_name=code_name,
+        code_va=code_va,
+        code_size=code_size,
         output_path=output_path,
         debug=debug,
     )
@@ -487,7 +589,7 @@ async def run_reference_generation(
             module=args.module,
             arch=args.arch,
         )
-        func_va = await resolve_func_va(
+        target = await resolve_reference_target(
             session=session,
             binary_dir=context["binary_dir"],
             func_name=args.func_name,
@@ -497,11 +599,23 @@ async def run_reference_generation(
             module=context["module"],
             func_name=args.func_name,
             arch=context["arch"],
+            outyaml=args.outyaml,
         )
+        if target.kind == "code":
+            if target.size is None:
+                raise _reference_generation_error("unable to resolve code region")
+            return await export_code_region_yaml_via_mcp(
+                session,
+                code_name=target.name,
+                code_va=target.va,
+                code_size=target.size,
+                output_path=output_path,
+                debug=args.debug,
+            )
         return await export_reference_yaml_via_mcp(
             session,
-            func_name=args.func_name,
-            func_va=func_va,
+            func_name=target.name,
+            func_va=target.va,
             output_path=output_path,
             debug=args.debug,
         )

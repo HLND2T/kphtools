@@ -9,6 +9,7 @@ from typing import Any
 
 import yaml
 
+from ida_code_region_export_template import CODE_REGION_EXPORT_TEMPLATE
 from ida_reference_export_template import FUNCTION_DETAIL_EXPORT_TEMPLATE
 
 
@@ -166,6 +167,24 @@ def build_function_detail_export_py_eval(func_va_int: int) -> str:
     return FUNCTION_DETAIL_EXPORT_TEMPLATE.replace("__FUNC_VA_INT__", str(func_va_int), 1).strip() + "\n"
 
 
+def build_code_region_detail_export_py_eval(
+    code_va_int: int,
+    code_size_int: int,
+    *,
+    code_name: str,
+) -> str:
+    normalized_code_name = str(code_name).strip()
+    if not normalized_code_name or code_size_int <= 0:
+        raise ValueError("invalid code region")
+    return (
+        CODE_REGION_EXPORT_TEMPLATE.replace("__CODE_VA_INT__", hex(code_va_int), 1)
+        .replace("__CODE_SIZE_INT__", str(code_size_int), 1)
+        .replace('"__CODE_NAME__"', json.dumps(normalized_code_name), 1)
+        .strip()
+        + "\n"
+    )
+
+
 def build_reference_yaml_export_py_eval(
     func_va_int: int,
     *,
@@ -178,6 +197,43 @@ def build_reference_yaml_export_py_eval(
         + "\n"
         + "payload = json.loads(result)\n"
         + f"payload['func_name'] = {json.dumps(normalized_func_name)}\n"
+        + "import yaml\n"
+        + "class LiteralDumper(yaml.SafeDumper):\n"
+        + "    pass\n"
+        + "def _literal_str_representer(dumper, value):\n"
+        + "    style = '|' if '\\n' in value else None\n"
+        + "    return dumper.represent_scalar('tag:yaml.org,2002:str', value, style=style)\n"
+        + "LiteralDumper.add_representer(str, _literal_str_representer)\n"
+        + "payload_text = yaml.dump(\n"
+        + "    payload,\n"
+        + "    Dumper=LiteralDumper,\n"
+        + "    sort_keys=False,\n"
+        + "    allow_unicode=True,\n"
+        + ")\n"
+    )
+    return build_remote_text_export_py_eval(
+        output_path=output_path,
+        producer_code=producer_code,
+        content_var="payload_text",
+        format_name="yaml",
+    )
+
+
+def build_code_region_yaml_export_py_eval(
+    code_va_int: int,
+    code_size_int: int,
+    *,
+    output_path: str | Path,
+    code_name: str,
+) -> str:
+    producer_code = (
+        build_code_region_detail_export_py_eval(
+            code_va_int,
+            code_size_int,
+            code_name=code_name,
+        ).rstrip()
+        + "\n"
+        + "payload = json.loads(result)\n"
         + "import yaml\n"
         + "class LiteralDumper(yaml.SafeDumper):\n"
         + "    pass\n"
@@ -264,6 +320,48 @@ async def export_reference_yaml_via_mcp(
                     int(normalized_func_va, 0),
                     output_path=resolved_output_path,
                     func_name=func_name,
+                )
+            },
+        )
+        export_ack = _parse_py_eval_result_json(eval_result)
+        if not _is_valid_remote_export_ack(
+            export_ack,
+            output_path=resolved_output_path,
+            format_name="yaml",
+        ):
+            raise ReferenceGenerationError("unable to export reference YAML via IDA")
+        payload = yaml.safe_load(resolved_output_path.read_text(encoding="utf-8")) or {}
+        validate_reference_yaml_payload(payload)
+    except ReferenceGenerationError:
+        raise
+    except Exception as exc:
+        raise ReferenceGenerationError("unable to export reference YAML via IDA") from exc
+    return resolved_output_path
+
+
+async def export_code_region_yaml_via_mcp(
+    session: Any,
+    *,
+    code_name: str,
+    code_va: str,
+    code_size: int,
+    output_path: str | Path,
+    debug: bool = False,
+) -> Path:
+    del debug
+    normalized_code_va = _normalize_address_text(code_va)
+    if normalized_code_va is None or not isinstance(code_size, int) or code_size <= 0:
+        raise ReferenceGenerationError("unable to export reference YAML via IDA")
+    resolved_output_path = Path(output_path).resolve()
+    try:
+        eval_result = await session.call_tool(
+            name="py_eval",
+            arguments={
+                "code": build_code_region_yaml_export_py_eval(
+                    int(normalized_code_va, 0),
+                    code_size,
+                    output_path=resolved_output_path,
+                    code_name=code_name,
                 )
             },
         )

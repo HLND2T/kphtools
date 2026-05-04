@@ -12,10 +12,12 @@ class SkillSpec:
     name: str
     expected_output: list[str]
     expected_input: list[str]
+    arch: str | None = None
     max_retries: int | None = None
     optional_output: list[str] = field(default_factory=list)
     preprocessor_only_output: list[str] = field(default_factory=list)
     skip_if_exists: list[str] = field(default_factory=list)
+    prerequisite: list[str] = field(default_factory=list)
     expected_input_amd64: list[str] = field(default_factory=list)
     expected_input_arm64: list[str] = field(default_factory=list)
 
@@ -54,6 +56,7 @@ class ConfigSpec:
 _ALLOWED_SKILL_FIELDS = frozenset(
     {
         "name",
+        "arch",
         "expected_input",
         "expected_input_amd64",
         "expected_input_arm64",
@@ -61,10 +64,12 @@ _ALLOWED_SKILL_FIELDS = frozenset(
         "optional_output",
         "preprocessor_only_output",
         "skip_if_exists",
+        "prerequisite",
         "max_retries",
     }
 )
 _ALLOWED_SYMBOL_FIELDS = frozenset({"name", "category", "data_type"})
+_SUPPORTED_SKILL_ARCHES = frozenset({"amd64", "arm64"})
 _LEGACY_FIELD_MESSAGES = {
     "skill": {
         "agent_skill": "is not supported; use skill.name",
@@ -131,6 +136,17 @@ def _validate_expected_output_name(name: str) -> str:
     return _validate_artifact_name(name, "expected_output")
 
 
+def _validate_skill_arch(value: Any) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("skill.arch must be one of: amd64, arm64")
+    arch = value.strip().lower()
+    if arch not in _SUPPORTED_SKILL_ARCHES:
+        raise ValueError("skill.arch must be one of: amd64, arm64")
+    return arch
+
+
 def symbol_name_from_artifact_name(name: str) -> str:
     return Path(_validate_expected_output_name(name)).stem
 
@@ -169,11 +185,13 @@ def _load_skill(entry: dict[str, Any]) -> SkillSpec:
         "expected_input_arm64",
     )
     skip_if_exists = _require_string_list(entry.get("skip_if_exists", []), "skip_if_exists")
+    prerequisite = _require_string_list(entry.get("prerequisite", []), "prerequisite")
     max_retries = entry.get("max_retries")
     if max_retries is not None and type(max_retries) is not int:
         raise ValueError("skill.max_retries must be an integer or null")
     return SkillSpec(
         name=_require_non_empty_string(entry, "name", "skill"),
+        arch=_validate_skill_arch(entry.get("arch")),
         expected_output=[_validate_expected_output_name(item) for item in expected_output],
         optional_output=[
             _validate_artifact_name(item, "optional_output") for item in optional_output
@@ -188,6 +206,7 @@ def _load_skill(entry: dict[str, Any]) -> SkillSpec:
         skip_if_exists=[
             _validate_artifact_name(item, "skip_if_exists") for item in skip_if_exists
         ],
+        prerequisite=prerequisite,
         max_retries=max_retries,
     )
 

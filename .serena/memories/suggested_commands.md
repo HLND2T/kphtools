@@ -71,9 +71,17 @@ LLM_DECOMPILE 相关参数：
 
 ## 生成 LLM_DECOMPILE reference YAML
 
-连接现有 IDA MCP session：
+连接现有 IDA MCP session，按默认文件名 `<func_name>.<arch>.yaml` 输出：
 
 - `uv run python generate_reference_yaml.py -func_name="ExReferenceCallBackBlock"`
+
+手动指定输出 YAML 文件名，文件仍写到 `ida_preprocessor_scripts/references/<module>/` 下：
+
+- `uv run python generate_reference_yaml.py -func_name="ExReferenceCallBackBlock" -outyaml="ExReferenceCallBackBlock.yaml"`
+
+从 `category: code` artifact 导出 code-region 反汇编，例如 `symbols/amd64/.../PgInitContext.yaml` 包含 `code_rva`/`code_va` 与 `code_size` 时；code-region 输出不包含 `procedure`：
+
+- `uv run python generate_reference_yaml.py -func_name="PgInitContext" -outyaml="PgInitContext.yaml"`
 
 自动启动 `idalib-mcp`：
 
@@ -83,6 +91,7 @@ LLM_DECOMPILE 相关参数：
 
 - `-module=<module>`
 - `-arch=amd64|arm64`
+- `-outyaml=<name>.yaml`
 - `-mcp_host=127.0.0.1`
 - `-mcp_port=13337`
 - `-debug`

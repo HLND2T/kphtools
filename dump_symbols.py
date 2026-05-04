@@ -72,6 +72,28 @@ def _string_list(item: Any, name: str) -> list[str]:
     return [str(value) for value in values if value]
 
 
+def _infer_arch_from_binary_dir(binary_dir: str | Path) -> str | None:
+    for part in Path(binary_dir).parts:
+        normalized = part.lower()
+        if normalized in SUPPORTED_ARCHES:
+            return normalized
+    return None
+
+
+def _skill_arch(skill: Any) -> str | None:
+    arch = _field(skill, "arch")
+    if arch is None:
+        return None
+    return str(arch).strip().lower() or None
+
+
+def _skill_matches_arch(skill: Any, arch: str | None) -> bool:
+    required_arch = _skill_arch(skill)
+    if required_arch is None or arch is None:
+        return True
+    return required_arch == arch.lower()
+
+
 def _unique_strings(values: list[str]) -> list[str]:
     result: list[str] = []
     seen: set[str] = set()
@@ -580,18 +602,28 @@ async def process_binary_dir(
     llm_config,
     session=None,
     activity=None,
+    arch=None,
 ):
     if activity is not None and "did_work" not in activity:
         activity["did_work"] = False
 
+    current_arch = str(arch).strip().lower() if arch else _infer_arch_from_binary_dir(binary_dir)
     resolved_pdb_path = Path(pdb_path) if pdb_path is not None else None
     skill_map = {_field(skill, "name"): skill for skill in skills}
     symbol_map = {_field(symbol, "name"): symbol for symbol in symbols}
 
     for skill_name in topological_sort_skills(skills):
+        skill = skill_map[skill_name]
+        if not _skill_matches_arch(skill, current_arch):
+            _debug_log(
+                debug,
+                f"skipping {skill_name}; skill arch {_skill_arch(skill)} "
+                f"does not match {current_arch}",
+            )
+            continue
         ok = await _process_one_skill(
             skill_name=skill_name,
-            skill=skill_map[skill_name],
+            skill=skill,
             symbol_map=symbol_map,
             binary_dir=binary_dir,
             pdb_path=resolved_pdb_path,
@@ -951,6 +983,7 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
             llm_config=_build_llm_config(args),
             session=session,
             activity=activity,
+            arch=getattr(args, "current_arch", None),
         )
         return ok, bool(activity["did_work"])
     finally:
@@ -975,6 +1008,7 @@ def main(argv=None):
         for module, binary_dir, pdb_path in candidates:
             _progress(f"Processing {binary_dir}")
             try:
+                args.current_arch = arch
                 ok, did_work = asyncio.run(_process_module_binary(module, binary_dir, pdb_path, args))
             except Exception:
                 failed += 1

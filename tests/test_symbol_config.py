@@ -90,9 +90,11 @@ class TestSymbolConfig(unittest.TestCase):
                         path: [ntoskrnl.exe]
                         skills:
                           - name: find-Required
+                            arch: AMD64
                             expected_output: [Required.yaml]
                             optional_output: [Optional.yaml]
                             skip_if_exists: [Substitute.yaml]
+                            prerequisite: [find-Prereq]
                             expected_input_amd64: [InputAmd64.yaml]
                             expected_input_arm64: [InputArm64.yaml]
                         symbols:
@@ -111,10 +113,12 @@ class TestSymbolConfig(unittest.TestCase):
             config = symbol_config.load_config(config_path)
 
         skill = config.modules[0].skills[0]
+        self.assertEqual("amd64", skill.arch)
         self.assertEqual(["Required.yaml"], skill.expected_output)
         self.assertEqual(["Optional.yaml"], skill.optional_output)
         self.assertEqual([], skill.preprocessor_only_output)
         self.assertEqual(["Substitute.yaml"], skill.skip_if_exists)
+        self.assertEqual(["find-Prereq"], skill.prerequisite)
         self.assertEqual(["InputAmd64.yaml"], skill.expected_input_amd64)
         self.assertEqual(["InputArm64.yaml"], skill.expected_input_arm64)
         self.assertEqual(["Required", "Optional"], skill.produced_symbols)
@@ -346,6 +350,32 @@ class TestSymbolConfig(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(ValueError, "skill.max_retries"):
+                symbol_config.load_config(config_path)
+
+    def test_load_config_rejects_invalid_skill_arch(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-PgInitContext
+                            arch: x64
+                            expected_output: [PgInitContext.yaml]
+                        symbols:
+                          - name: EpObjectTable
+                            category: struct_offset
+                            data_type: uint16
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "skill.arch"):
                 symbol_config.load_config(config_path)
 
     def test_load_config_rejects_arch_suffix_in_expected_output(self) -> None:

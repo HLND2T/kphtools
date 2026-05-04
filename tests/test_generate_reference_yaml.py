@@ -49,6 +49,18 @@ class TestGenerateReferenceYaml(unittest.TestCase):
                 ]
             )
 
+    def test_parse_args_accepts_manual_output_yaml_name(self) -> None:
+        args = generate_reference_yaml.parse_args(
+            [
+                "-func_name",
+                "PgInitContext",
+                "-outyaml",
+                "PgInitContext.yaml",
+            ]
+        )
+
+        self.assertEqual("PgInitContext.yaml", args.outyaml)
+
     def test_build_reference_output_path(self) -> None:
         output_path = generate_reference_yaml.build_reference_output_path(
             Path("/repo"),
@@ -64,6 +76,37 @@ class TestGenerateReferenceYaml(unittest.TestCase):
             / "ExReferenceCallBackBlock.amd64.yaml",
             output_path,
         )
+
+    def test_build_reference_output_path_uses_manual_yaml_name(self) -> None:
+        output_path = generate_reference_yaml.build_reference_output_path(
+            Path("/repo"),
+            module="ntoskrnl",
+            func_name="PgInitContext",
+            arch="amd64",
+            outyaml="PgInitContext.yaml",
+        )
+
+        self.assertEqual(
+            Path("/repo")
+            / "ida_preprocessor_scripts"
+            / "references"
+            / "ntoskrnl"
+            / "PgInitContext.yaml",
+            output_path,
+        )
+
+    def test_build_reference_output_path_rejects_manual_subpath(self) -> None:
+        with self.assertRaisesRegex(
+            ReferenceGenerationError,
+            r"^invalid reference output target$",
+        ):
+            generate_reference_yaml.build_reference_output_path(
+                Path("/repo"),
+                module="ntoskrnl",
+                func_name="PgInitContext",
+                arch="amd64",
+                outyaml="../PgInitContext.yaml",
+            )
 
     def test_build_reference_output_path_rejects_invalid_target(self) -> None:
         with self.assertRaisesRegex(
@@ -270,6 +313,40 @@ class TestGenerateReferenceYamlResolution(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("0x140001234", func_va)
         session.call_tool.assert_awaited_once()
 
+    async def test_resolve_reference_target_builds_code_region_from_artifact(
+        self,
+    ) -> None:
+        session = AsyncMock()
+        session.call_tool.return_value = _make_py_eval_result(
+            {"image_base": "0x140000000"}
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            (binary_dir / "PgInitContext.yaml").write_text(
+                "\n".join(
+                    [
+                        "code_name: PgInitContext",
+                        "code_rva: '0xa20b1a'",
+                        "code_size: '0x647'",
+                        "category: code",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            target = await generate_reference_yaml.resolve_reference_target(
+                session=session,
+                binary_dir=binary_dir,
+                func_name="PgInitContext",
+            )
+
+        self.assertEqual("code", target.kind)
+        self.assertEqual("PgInitContext", target.name)
+        self.assertEqual("0x140a20b1a", target.va)
+        self.assertEqual(0x647, target.size)
+        session.call_tool.assert_awaited_once()
+
     async def test_resolve_func_va_falls_back_to_exact_name_lookup(self) -> None:
         session = AsyncMock()
         session.call_tool.return_value = _make_py_eval_result(
@@ -369,8 +446,14 @@ class TestGenerateReferenceYamlWorkflow(unittest.IsolatedAsyncioTestCase):
             ),
             patch.object(
                 generate_reference_yaml,
-                "resolve_func_va",
-                AsyncMock(return_value="0x140001234"),
+                "resolve_reference_target",
+                AsyncMock(
+                    return_value=generate_reference_yaml.ReferenceTarget(
+                        kind="func",
+                        name="ExReferenceCallBackBlock",
+                        va="0x140001234",
+                    )
+                ),
             ),
             patch.object(
                 generate_reference_yaml,
@@ -393,13 +476,106 @@ class TestGenerateReferenceYamlWorkflow(unittest.IsolatedAsyncioTestCase):
             ),
             output_path,
         )
+        expected_export_path = (
+            Path("/repo").resolve(strict=False)
+            / "ida_preprocessor_scripts"
+            / "references"
+            / "ntoskrnl"
+            / "ExReferenceCallBackBlock.amd64.yaml"
+        )
         mock_export.assert_awaited_once_with(
             fake_session,
             func_name="ExReferenceCallBackBlock",
             func_va="0x140001234",
-            output_path=Path(
-                "/repo/ida_preprocessor_scripts/references/ntoskrnl/ExReferenceCallBackBlock.amd64.yaml"
+            output_path=expected_export_path,
+            debug=False,
+        )
+
+    async def test_run_reference_generation_exports_code_region_with_manual_output(
+        self,
+    ) -> None:
+        fake_session = AsyncMock()
+
+        @asynccontextmanager
+        async def fake_attach_existing_mcp_session(host: str, port: int, debug: bool):
+            yield fake_session
+
+        args = generate_reference_yaml.parse_args(
+            ["-func_name", "PgInitContext", "-outyaml", "PgInitContext.yaml"]
+        )
+
+        with (
+            patch.object(
+                generate_reference_yaml,
+                "attach_existing_mcp_session",
+                fake_attach_existing_mcp_session,
             ),
+            patch.object(
+                generate_reference_yaml,
+                "survey_current_binary_path",
+                AsyncMock(
+                    return_value=Path(
+                        "/repo/symbols/amd64/ntoskrnl.exe.10.0.1/hash/ntoskrnl.exe.i64"
+                    )
+                ),
+            ),
+            patch.object(
+                generate_reference_yaml,
+                "infer_context_from_binary_path",
+                return_value={
+                    "module": "ntoskrnl",
+                    "arch": "amd64",
+                    "binary_dir": Path("/repo/symbols/amd64/ntoskrnl.exe.10.0.1/hash"),
+                    "binary_path": Path(
+                        "/repo/symbols/amd64/ntoskrnl.exe.10.0.1/hash/ntoskrnl.exe"
+                    ),
+                    "module_spec": object(),
+                },
+            ),
+            patch.object(
+                generate_reference_yaml,
+                "resolve_reference_target",
+                AsyncMock(
+                    return_value=generate_reference_yaml.ReferenceTarget(
+                        kind="code",
+                        name="PgInitContext",
+                        va="0x140a20b1a",
+                        size=0x647,
+                    )
+                ),
+            ),
+            patch.object(
+                generate_reference_yaml,
+                "export_code_region_yaml_via_mcp",
+                AsyncMock(
+                    return_value=Path(
+                        "/repo/ida_preprocessor_scripts/references/ntoskrnl/PgInitContext.yaml"
+                    )
+                ),
+            ) as mock_export,
+        ):
+            output_path = await generate_reference_yaml.run_reference_generation(
+                args,
+                repo_root="/repo",
+            )
+
+        self.assertEqual(
+            Path("/repo/ida_preprocessor_scripts/references/ntoskrnl/PgInitContext.yaml"),
+            output_path,
+        )
+        expected_export_path = (
+            Path("/repo").resolve(strict=False)
+            / "ida_preprocessor_scripts"
+            / "references"
+            / "ntoskrnl"
+            / "PgInitContext.yaml"
+        )
+        mock_export.assert_awaited_once_with(
+            fake_session,
+            code_name="PgInitContext",
+            code_va="0x140a20b1a",
+            code_size=0x647,
+            output_path=expected_export_path,
             debug=False,
         )
 
@@ -418,4 +594,4 @@ class TestGenerateReferenceYamlWorkflow(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(0, exit_code)
-        self.assertIn("/repo/out.yaml", stdout.getvalue())
+        self.assertIn(str(Path("/repo/out.yaml")), stdout.getvalue())

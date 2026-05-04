@@ -180,6 +180,24 @@ class TestDumpSymbols(unittest.TestCase):
             dump_symbols.topological_sort_skills(skills),
         )
 
+    def test_topological_sort_uses_prerequisite_with_optional_output(self) -> None:
+        skills = [
+            {
+                "name": "find-AConsumer",
+                "expected_output": ["Consumer.yaml"],
+                "prerequisite": ["find-ZOptionalPrereq"],
+            },
+            {
+                "name": "find-ZOptionalPrereq",
+                "optional_output": ["OptionalPrereq.yaml"],
+            },
+        ]
+
+        self.assertEqual(
+            ["find-ZOptionalPrereq", "find-AConsumer"],
+            dump_symbols.topological_sort_skills(skills),
+        )
+
     def test_parse_args_reads_arch_and_force(self) -> None:
         args = dump_symbols.parse_args(
             [
@@ -1192,6 +1210,48 @@ class TestDumpSymbols(unittest.TestCase):
 
         self.assertTrue(ok)
         self.assertTrue(activity["did_work"])
+        mock_run_skill.assert_not_called()
+
+    def test_process_binary_dir_skips_skill_when_arch_mismatches(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir) / "symbols" / "arm64" / "ntoskrnl.exe.10.0.1" / "hash"
+            skills = [
+                {
+                    "name": "find-PgInitContext",
+                    "expected_output": ["PgInitContext.yaml"],
+                    "arch": "amd64",
+                }
+            ]
+            activity = {"did_work": False}
+            preprocess_mock = AsyncMock(
+                return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS
+            )
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=skills,
+                        symbols=[],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                        activity=activity,
+                        arch="arm64",
+                    )
+                )
+
+        self.assertTrue(ok)
+        self.assertFalse(activity["did_work"])
+        preprocess_mock.assert_not_awaited()
         mock_run_skill.assert_not_called()
 
     def test_process_module_binary_sets_did_work_true_without_eager_start(self) -> None:
