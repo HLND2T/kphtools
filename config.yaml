@@ -106,6 +106,8 @@ modules:
     expected_output:
     - AlpcSequenceNo.yaml
     - AlpcState.yaml
+    expected_input:
+    - AlpcpDisconnectPort.yaml
 
   - name: find-KtInitialStack-AND-KtStackBase-AND-KtStackLimit
     expected_output:
