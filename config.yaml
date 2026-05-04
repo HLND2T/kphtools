@@ -204,6 +204,10 @@ modules:
           - find-PgInitContext
         arch: amd64
 
+      - name: find-PerfDiagInitialize
+        expected_output:
+          - PerfDiagInitialize.yaml
+
     symbols:
       - name: EgeGuid
         category: struct_offset
