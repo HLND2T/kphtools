@@ -24,6 +24,7 @@
 - 通用解析能力优先放在 `ida_preprocessor_common.py`、`generic_gv.py`、`generic_func.py`、`generic_struct_offset.py` 或 resolver helper 中，避免在每个 finder 中复制大量逻辑。
 - 异步 MCP 逻辑使用 `asyncio` 与 `IsolatedAsyncioTestCase` 测试；需要模拟 MCP/LLM 时使用 `AsyncMock`/`patch`，避免测试依赖真实 IDA。
 - LLM_DECOMPILE prompt/reference 路径遵循 README 中的 tuple contract：`(artifact_symbol_name, llm_query_name, prompt_path, reference_yaml_path)`。
+- 解析 MCP tool 返回值时不要假定所有工具都返回 `{"result": "..."}` 包装格式；`find_bytes` 已观察到会直接返回顶层 JSON list，helper 应兼容直接 JSON、`result` 字符串和 `result` 对象三种形态，并为新格式补定向测试。
 
 ## 测试风格
 

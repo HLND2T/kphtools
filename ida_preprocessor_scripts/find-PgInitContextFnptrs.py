@@ -4,7 +4,7 @@ from pathlib import Path
 
 import ida_preprocessor_common as preprocessor_common
 
-TARGET_FUNCTION_NAMES = ["PspEnumerateCallback", "CmpEnumerateCallback"]
+TARGET_FUNCTION_NAMES = ["ExReferenceCallBackBlock", "ExDereferenceCallBackBlock", "PspEnumerateCallback", "CmpEnumerateCallback"]
 
 LLM_DECOMPILE = [
     (

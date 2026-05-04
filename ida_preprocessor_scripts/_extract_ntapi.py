@@ -26,7 +26,12 @@ def _parse_tool_json_result(tool_result: Any) -> Any | None:
     try:
         text = tool_result.content[0].text
         payload = json.loads(text)
-        return json.loads(payload["result"])
+        if not isinstance(payload, dict) or "result" not in payload:
+            return payload
+        result_payload = payload["result"]
+        if isinstance(result_payload, str):
+            return json.loads(result_payload)
+        return result_payload
     except Exception:
         return None
 

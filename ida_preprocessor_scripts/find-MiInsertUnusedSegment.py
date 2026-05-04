@@ -10,7 +10,7 @@ FUNC_XREFS = [
         "xref_strings": [],
         "xref_unicode_strings": [],
         "xref_gvs": [],
-        "xref_signatures": ["F6 05 ?? ?? ?? ?? 21"],
+        "xref_signatures": ["0F BA E0 08", "B9 03 00 00 00 CD 29"],
         "xref_funcs": ["KiSetTimerEx"],
         "exclude_funcs": [],
         "exclude_strings": [],
