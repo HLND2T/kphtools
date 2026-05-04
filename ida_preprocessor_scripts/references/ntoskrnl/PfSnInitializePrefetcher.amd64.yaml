@@ -1,0 +1,121 @@
+func_name: PfSnInitializePrefetcher
+func_va: '0x140a6a8e0'
+disasm_code: |-
+  INIT:0000000140A6A8E0                 push    rbx
+  INIT:0000000140A6A8E2                 sub     rsp, 40h
+  INIT:0000000140A6A8E6                 xor     ebx, ebx
+  INIT:0000000140A6A8E8                 mov     cs:FastMutex.Count, 1
+  INIT:0000000140A6A8F2                 lea     rax, PfSnGlobals
+  INIT:0000000140A6A8F9                 mov     cs:SpinLock, rbx
+  INIT:0000000140A6A900                 mov     cs:qword_140C502C8, rax
+  INIT:0000000140A6A907                 lea     rdx, aKernelobjectsP_0; "\\KernelObjects\\PrefetchTracesReady"
+  INIT:0000000140A6A90E                 mov     cs:PfSnGlobals, rax
+  INIT:0000000140A6A915                 ; DestinationString
+  INIT:0000000140A6A915                 lea     rcx, [rsp+48h+DestinationString]; DestinationString
+  INIT:0000000140A6A91A                 lea     rax, qword_140C502D8
+  INIT:0000000140A6A921                 mov     cs:FastMutex.Owner, rbx
+  INIT:0000000140A6A928                 mov     cs:qword_140C502E0, rax
+  INIT:0000000140A6A92F                 xorps   xmm0, xmm0
+  INIT:0000000140A6A932                 mov     cs:qword_140C502D8, rax
+  INIT:0000000140A6A939                 lea     rax, FastMutex.Event.Header.WaitListHead
+  INIT:0000000140A6A940                 mov     cs:FastMutex.Event.Header.WaitListHead.Blink, rax
+  INIT:0000000140A6A947                 mov     cs:FastMutex.Event.Header.WaitListHead.Flink, rax
+  INIT:0000000140A6A94E                 movups  xmmword ptr [rsp+48h+DestinationString.Length], xmm0
+  INIT:0000000140A6A953                 mov     cs:FastMutex.Contention, ebx
+  INIT:0000000140A6A959                 mov     word ptr cs:FastMutex.Event.Header, 1
+  INIT:0000000140A6A962                 mov     byte ptr cs:FastMutex.Event.Header+2, 6
+  INIT:0000000140A6A969                 mov     cs:FastMutex.Event.Header.SignalState, ebx
+  INIT:0000000140A6A96F                 mov     cs:dword_140C50324, ebx
+  INIT:0000000140A6A975                 call    RtlInitUnicodeString
+  INIT:0000000140A6A97A                 lea     r8, qword_140C50328
+  INIT:0000000140A6A981                 lea     edx, [rbx+1]
+  INIT:0000000140A6A984                 lea     rcx, [rsp+48h+DestinationString]
+  INIT:0000000140A6A989                 call    PfpCreateEvent
+  INIT:0000000140A6A98E                 lea     rcx, unk_140C50338
+  INIT:0000000140A6A995                 call    PfSnPrefetchCacheCtxInitialize
+  INIT:0000000140A6A99A                 ; NumberOfBytes
+  INIT:0000000140A6A99A                 mov     edx, 0A0h; NumberOfBytes
+  INIT:0000000140A6A99F                 mov     cs:RegHandle, rbx
+  INIT:0000000140A6A9A6                 ; PoolType
+  INIT:0000000140A6A9A6                 mov     ecx, 200h; PoolType
+  INIT:0000000140A6A9AB                 ; Tag
+  INIT:0000000140A6A9AB                 mov     r8d, 66506343h; Tag
+  INIT:0000000140A6A9B1                 call    ExAllocatePoolWithTag
+  INIT:0000000140A6A9B6                 test    rax, rax
+  INIT:0000000140A6A9B9                 jz      short loc_140A6AA31
+  INIT:0000000140A6A9BB                 mov     [rax], rbx
+  INIT:0000000140A6A9BE                 lea     rcx, [rax+8]
+  INIT:0000000140A6A9C2                 mov     [rcx+8], rcx
+  INIT:0000000140A6A9C6                 lea     rdx, PfSnTracingStateDpcRoutine
+  INIT:0000000140A6A9CD                 mov     [rcx], rcx
+  INIT:0000000140A6A9D0                 xor     r9d, r9d
+  INIT:0000000140A6A9D3                 mov     byte ptr [rax], 8
+  INIT:0000000140A6A9D6                 lea     rcx, [rax+40h]
+  INIT:0000000140A6A9DA                 mov     [rax+18h], rbx
+  INIT:0000000140A6A9DE                 xor     r8d, r8d
+  INIT:0000000140A6A9E1                 mov     [rax+3Ch], ebx
+  INIT:0000000140A6A9E4                 mov     [rax+38h], bx
+  INIT:0000000140A6A9E8                 mov     [rcx+18h], rdx
+  INIT:0000000140A6A9EC                 lea     rdx, PfSnTracingStateExWorkerRoutine
+  INIT:0000000140A6A9F3                 mov     dword ptr [rcx], 113h
+  INIT:0000000140A6A9F9                 mov     [rcx+20h], rax
+  INIT:0000000140A6A9FD                 mov     [rcx+38h], rbx
+  INIT:0000000140A6AA01                 mov     [rcx+10h], rbx
+  INIT:0000000140A6AA05                 mov     [rax+90h], rdx
+  INIT:0000000140A6AA0C                 mov     rdx, 0FFFFFFFE9A5F4400h
+  INIT:0000000140A6AA16                 mov     [rsp+48h+var_28], rcx
+  INIT:0000000140A6AA1B                 mov     rcx, rax
+  INIT:0000000140A6AA1E                 mov     [rax+98h], rax
+  INIT:0000000140A6AA25                 mov     [rax+80h], rbx
+  INIT:0000000140A6AA2C                 call    KiSetTimerEx ; KiSetTimerEx - target function to find
+  INIT:0000000140A6AA31                 xor     eax, eax
+  INIT:0000000140A6AA33                 add     rsp, 40h
+  INIT:0000000140A6AA37                 pop     rbx
+  INIT:0000000140A6AA38                 retn
+procedure: |-
+  __int64 PfSnInitializePrefetcher()
+  {
+    _QWORD *PoolWithTag; // rax
+    UNICODE_STRING DestinationString; // [rsp+30h] [rbp-18h] BYREF
+
+    FastMutex.Count = 1;
+    SpinLock = 0;
+    qword_140C502C8 = (__int64)&PfSnGlobals;
+    PfSnGlobals = (__int64)&PfSnGlobals;
+    FastMutex.Owner = nullptr;
+    qword_140C502E0 = &qword_140C502D8;
+    qword_140C502D8 = &qword_140C502D8;
+    FastMutex.Event.Header.WaitListHead.Blink = &FastMutex.Event.Header.WaitListHead;
+    FastMutex.Event.Header.WaitListHead.Flink = &FastMutex.Event.Header.WaitListHead;
+    DestinationString = 0;
+    FastMutex.Contention = 0;
+    LOWORD(FastMutex.Event.Header.Lock) = 1;
+    FastMutex.Event.Header.Size = 6;
+    FastMutex.Event.Header.SignalState = 0;
+    dword_140C50324 = 0;
+    RtlInitUnicodeString(&DestinationString, L"\\KernelObjects\\PrefetchTracesReady");
+    PfpCreateEvent(&DestinationString, 1, &qword_140C50328);
+    PfSnPrefetchCacheCtxInitialize(&unk_140C50338);
+    RegHandle = 0;
+    PoolWithTag = ExAllocatePoolWithTag(NonPagedPoolNx, 0xA0u, 0x66506343u);
+    if ( PoolWithTag )
+    {
+      *PoolWithTag = 0;
+      PoolWithTag[2] = PoolWithTag + 1;
+      PoolWithTag[1] = PoolWithTag + 1;
+      *(_BYTE *)PoolWithTag = 8;
+      PoolWithTag[3] = 0;
+      *((_DWORD *)PoolWithTag + 15) = 0;
+      *((_WORD *)PoolWithTag + 28) = 0;
+      PoolWithTag[11] = PfSnTracingStateDpcRoutine;
+      *((_DWORD *)PoolWithTag + 16) = 275;
+      PoolWithTag[12] = PoolWithTag;
+      PoolWithTag[15] = 0;
+      PoolWithTag[10] = 0;
+      PoolWithTag[18] = PfSnTracingStateExWorkerRoutine;
+      PoolWithTag[19] = PoolWithTag;
+      PoolWithTag[16] = 0;
+      KiSetTimerEx((__int64)PoolWithTag, -6000000000LL, 0, 0, (__int64)(PoolWithTag + 8)); // KiSetTimerEx - target function to find
+    }
+    return 0;
+  }

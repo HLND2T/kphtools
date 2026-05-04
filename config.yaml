@@ -294,6 +294,12 @@ modules:
         expected_output:
           - PfSnInitializePrefetcher.yaml
 
+      - name: find-KiSetTimerEx
+        expected_input:
+          - PfSnInitializePrefetcher.yaml
+        expected_output:
+          - KiSetTimerEx.yaml
+
     symbols:
       - name: EgeGuid
         category: struct_offset
