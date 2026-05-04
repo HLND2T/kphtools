@@ -124,6 +124,8 @@ modules:
       - name: find-KtKernelStack
         expected_output:
           - KtKernelStack.yaml
+        expected_input:
+          - SwapContext.yaml
 
       - name: find-KtReadOperationCount-AND-KtWriteOperationCount-AND-KtOtherOperationCount-AND-KtReadTransferCount-AND-KtWriteTransferCount-AND-KtOtherTransferCount
         expected_output:
@@ -271,6 +273,10 @@ modules:
           - EtwWriteStartScenario.yaml
         expected_output:
           - EtwGetProviderIdFromHandle.yaml
+
+      - name: find-SwapContext
+        expected_output:
+          - SwapContext.yaml
 
     symbols:
       - name: EgeGuid
