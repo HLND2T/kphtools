@@ -308,6 +308,12 @@ modules:
         expected_output:
           - MiInsertUnusedSegment.yaml
 
+      - name: find-MiCheckControlArea
+        expected_input:
+          - MiInsertUnusedSegment.yaml
+        expected_output:
+          - MiCheckControlArea.yaml
+
     symbols:
       - name: EgeGuid
         category: struct_offset
