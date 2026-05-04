@@ -143,6 +143,8 @@ modules:
           - MmSectionControlArea.yaml
 
       - name: find-MmControlAreaListHead
+        expected_input:
+          - MiInsertUnusedSegment.yaml
         expected_output:
           - MmControlAreaListHead.yaml
 
