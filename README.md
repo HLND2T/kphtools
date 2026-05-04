@@ -77,10 +77,10 @@ Where `{sha256}` is the lowercase SHA256 hash of the PE file (e.g., `68d5867b5e6
 `dump_symbols.py` is the primary analysis entry point.
 
 ```bash
-uv run python dump_symbols.py [-debug]
+uv run python dump_symbols.py [-debug] [-version=10.0.26100.8246]
 ```
 
-By default it uses `./symbols`, `config.yaml`, and scans both `amd64,arm64`. Use `-symboldir`, `-configyaml`, or `-arch=amd64` to override.
+By default it uses `./symbols`, `config.yaml`, and scans both `amd64,arm64`. Use `-symboldir`, `-configyaml`, `-arch=amd64`, or `-version=10.0.26100.8246` to override.
 
 The script scans `symboldir/<arch>/<file>.<version>/<sha256>/`, resolves symbols into `{symbol}.yaml`, and writes them next to the corresponding PE/PDB files.
 

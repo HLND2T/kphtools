@@ -1,0 +1,3 @@
+interface:
+  display_name: "Generate Reference Yaml"
+  short_description: "Generate kphtools reference YAML for a versioned ntoskrnl target"

@@ -21,7 +21,8 @@ Behavior:
     - Infers `module` and `arch` from the current binary path unless overridden
 
 Parameters:
-    -func_name       Required function name to export
+    -func_name       Required function or code-region name to export
+    -code_name       Alias for -func_name, useful for category=code artifacts
     -module          Optional module override; must match the inferred current binary module
     -arch            Optional arch override; supported values: amd64, arm64
     -mcp_host        MCP host, default: 127.0.0.1
@@ -207,7 +208,7 @@ def _normalize_component(value: Any) -> str | None:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("-func_name", required=True)
+    parser.add_argument("-func_name", "-code_name", dest="func_name", required=True)
     parser.add_argument("-module")
     parser.add_argument("-arch", choices=SUPPORTED_ARCHES)
     parser.add_argument("-mcp_host", default="127.0.0.1")

@@ -41,6 +41,7 @@ Linux 上运行 `upload_server.py`/`signify` 相关功能前，按 README 安装
 - `uv run python dump_symbols.py`
 - `uv run python dump_symbols.py -symboldir="symbols" -configyaml="config.yaml" -arch=amd64`
 - `uv run python dump_symbols.py -symboldir="symbols" -configyaml="config.yaml" -arch=amd64,arm64 -force`
+- `uv run python dump_symbols.py -symboldir="symbols" -configyaml="config.yaml" -arch=amd64 -version=10.0.26100.8246`
 - 调试：`uv run python dump_symbols.py -debug`
 
 LLM_DECOMPILE 相关参数：

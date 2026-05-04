@@ -61,6 +61,19 @@ class TestGenerateReferenceYaml(unittest.TestCase):
 
         self.assertEqual("PgInitContext.yaml", args.outyaml)
 
+    def test_parse_args_accepts_code_name_alias(self) -> None:
+        args = generate_reference_yaml.parse_args(
+            [
+                "-code_name",
+                "PgInitContext",
+                "-auto_start_mcp",
+                "-binary",
+                "symbols/amd64/ntoskrnl.exe.10.0.22621.3640/hash/ntoskrnl.exe",
+            ]
+        )
+
+        self.assertEqual("PgInitContext", args.func_name)
+
     def test_build_reference_output_path(self) -> None:
         output_path = generate_reference_yaml.build_reference_output_path(
             Path("/repo"),
