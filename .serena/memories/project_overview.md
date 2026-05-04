@@ -6,5 +6,5 @@
   - `llvm-pdbutil`（更新符号偏移/解析 PDB）
   - IDA Pro（`ida64.exe`，用于逆向）
   - 需要访问 Microsoft Symbol Server 下载符号
-- **关键配置/数据文件**：`kphdyn.xml`, `kphdyn.yaml`, `kphdyn2.yaml`, `kphdyn.official.xml`。
-- **主要脚本**：`download_symbols.py`, `update_symbols.py`, `reverse_symbols.py`, `upload_server.py`, `migrate_symboldir.py`, `download_symbols.py`。
+- **关键配置/数据文件**：`config.yaml`, `kphdyn.xml`
+- **主要脚本**：`download_symbols.py`, `dump_symbols.py`, `update_symbols.py`, `upload_server.py`
