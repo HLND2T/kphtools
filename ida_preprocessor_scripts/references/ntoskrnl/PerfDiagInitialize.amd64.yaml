@@ -1,0 +1,117 @@
+func_name: PerfDiagInitialize
+func_va: '0x140a4abe4'
+disasm_code: |-
+  INIT:0000000140A4ABE4                 push    rbp
+  INIT:0000000140A4ABE6                 mov     rbp, rsp
+  INIT:0000000140A4ABE9                 sub     rsp, 50h
+  INIT:0000000140A4ABED                 mov     rax, cs:__security_cookie
+  INIT:0000000140A4ABF4                 xor     rax, rsp
+  INIT:0000000140A4ABF7                 mov     [rbp+var_8], rax
+  INIT:0000000140A4ABFB                 and     [rbp+RegHandle], 0
+  INIT:0000000140A4AC00                 ; RegHandle
+  INIT:0000000140A4AC00                 lea     r9, PerfDiagGlobals; RegHandle
+  INIT:0000000140A4AC07                 and     cs:qword_140C1A020, 0
+  INIT:0000000140A4AC0F                 ; EnableCallback
+  INIT:0000000140A4AC0F                 lea     rdx, PerfDiagpBootSystemProxyCallback; EnableCallback
+  INIT:0000000140A4AC16                 and     cs:dword_140C1A028, 0
+  INIT:0000000140A4AC1D                 ; ProviderId
+  INIT:0000000140A4AC1D                 lea     rcx, MS_Kernel_BootDiagnostics_SystemProxy_Provider; ProviderId
+  INIT:0000000140A4AC24                 ; CallbackContext
+  INIT:0000000140A4AC24                 xor     r8d, r8d; CallbackContext
+  INIT:0000000140A4AC27                 call    EtwRegister
+  INIT:0000000140A4AC2C                 ; RegHandle
+  INIT:0000000140A4AC2C                 lea     r9, qword_140C1A008; RegHandle
+  INIT:0000000140A4AC33                 ; CallbackContext
+  INIT:0000000140A4AC33                 xor     r8d, r8d; CallbackContext
+  INIT:0000000140A4AC36                 ; EnableCallback
+  INIT:0000000140A4AC36                 lea     rdx, PerfDiagpBootUserProxyCallback; EnableCallback
+  INIT:0000000140A4AC3D                 ; ProviderId
+  INIT:0000000140A4AC3D                 lea     rcx, MS_Kernel_BootDiagnostics_UserProxy_Provider; ProviderId
+  INIT:0000000140A4AC44                 call    EtwRegister
+  INIT:0000000140A4AC49                 ; RegHandle
+  INIT:0000000140A4AC49                 lea     r9, qword_140C1A010; RegHandle
+  INIT:0000000140A4AC50                 ; CallbackContext
+  INIT:0000000140A4AC50                 xor     r8d, r8d; CallbackContext
+  INIT:0000000140A4AC53                 ; EnableCallback
+  INIT:0000000140A4AC53                 lea     rdx, PerfDiagpSecondaryLogonProxyCallback; EnableCallback
+  INIT:0000000140A4AC5A                 ; ProviderId
+  INIT:0000000140A4AC5A                 lea     rcx, MS_Kernel_SecondaryLogonDiagnostics_Proxy_Provider; ProviderId
+  INIT:0000000140A4AC61                 call    EtwRegister
+  INIT:0000000140A4AC66                 ; RegHandle
+  INIT:0000000140A4AC66                 lea     r9, qword_140C1A018; RegHandle
+  INIT:0000000140A4AC6D                 ; CallbackContext
+  INIT:0000000140A4AC6D                 xor     r8d, r8d; CallbackContext
+  INIT:0000000140A4AC70                 ; EnableCallback
+  INIT:0000000140A4AC70                 lea     rdx, PerfDiagpShutdownProxyCallback; EnableCallback
+  INIT:0000000140A4AC77                 ; ProviderId
+  INIT:0000000140A4AC77                 lea     rcx, MS_Kernel_ShutdownDiagnostics_Proxy_Provider; ProviderId
+  INIT:0000000140A4AC7E                 call    EtwRegister
+  INIT:0000000140A4AC83                 ; RegHandle
+  INIT:0000000140A4AC83                 lea     r9, [rbp+RegHandle]; RegHandle
+  INIT:0000000140A4AC87                 ; CallbackContext
+  INIT:0000000140A4AC87                 xor     r8d, r8d; CallbackContext
+  INIT:0000000140A4AC8A                 ; EnableCallback
+  INIT:0000000140A4AC8A                 xor     edx, edx; EnableCallback
+  INIT:0000000140A4AC8C                 ; ProviderId
+  INIT:0000000140A4AC8C                 lea     rcx, MS_Kernel_BootDiagnostics_Provider; ProviderId
+  INIT:0000000140A4AC93                 call    EtwRegister
+  INIT:0000000140A4AC98                 test    eax, eax
+  INIT:0000000140A4AC9A                 js      short loc_140A4ACDE
+  INIT:0000000140A4AC9C                 ; RegHandle
+  INIT:0000000140A4AC9C                 mov     rcx, [rbp+RegHandle]; RegHandle
+  INIT:0000000140A4ACA0                 ; ActivityId
+  INIT:0000000140A4ACA0                 lea     r8, [rbp+ActivityId]; ActivityId
+  INIT:0000000140A4ACA4                 and     [rsp+50h+var_30], 0
+  INIT:0000000140A4ACAA                 ; EventDescriptor
+  INIT:0000000140A4ACAA                 lea     rdx, KMBootEvt_SystemBoot_Start; EventDescriptor
+  INIT:0000000140A4ACB1                 ; UserDataCount
+  INIT:0000000140A4ACB1                 xor     r9d, r9d; UserDataCount
+  INIT:0000000140A4ACB4                 mov     [rbp+ActivityId.Data1], 67144949h
+  INIT:0000000140A4ACBB                 mov     dword ptr [rbp+ActivityId.Data2], 48595132h
+  INIT:0000000140A4ACC2                 mov     dword ptr [rbp+ActivityId.Data4], 37A73680h
+  INIT:0000000140A4ACC9                 mov     dword ptr [rbp+ActivityId.Data4+4], 0D82538B4h
+  INIT:0000000140A4ACD0                 call    EtwWriteStartScenario ; EtwWriteStartScenario - target function to find
+  INIT:0000000140A4ACD5                 ; RegHandle
+  INIT:0000000140A4ACD5                 mov     rcx, [rbp+RegHandle]; RegHandle
+  INIT:0000000140A4ACD9                 call    EtwUnregister
+  INIT:0000000140A4ACDE                 mov     rcx, [rbp+var_8]
+  INIT:0000000140A4ACE2                 ; StackCookie
+  INIT:0000000140A4ACE2                 xor     rcx, rsp; StackCookie
+  INIT:0000000140A4ACE5                 call    __security_check_cookie
+  INIT:0000000140A4ACEA                 add     rsp, 50h
+  INIT:0000000140A4ACEE                 pop     rbp
+  INIT:0000000140A4ACEF                 retn
+procedure: |-
+  int PerfDiagInitialize()
+  {
+    int result; // eax
+    ULONGLONG RegHandle; // [rsp+30h] [rbp-20h] BYREF
+    GUID ActivityId; // [rsp+38h] [rbp-18h] BYREF
+
+    RegHandle = 0;
+    qword_140C1A020 = 0;
+    dword_140C1A028 = 0;
+    EtwRegister(
+      &MS_Kernel_BootDiagnostics_SystemProxy_Provider,
+      PerfDiagpBootSystemProxyCallback,
+      nullptr,
+      &PerfDiagGlobals);
+    EtwRegister(&MS_Kernel_BootDiagnostics_UserProxy_Provider, PerfDiagpBootUserProxyCallback, nullptr, &qword_140C1A008);
+    EtwRegister(
+      &MS_Kernel_SecondaryLogonDiagnostics_Proxy_Provider,
+      PerfDiagpSecondaryLogonProxyCallback,
+      nullptr,
+      &qword_140C1A010);
+    EtwRegister(&MS_Kernel_ShutdownDiagnostics_Proxy_Provider, PerfDiagpShutdownProxyCallback, nullptr, &qword_140C1A018);
+    result = EtwRegister(&MS_Kernel_BootDiagnostics_Provider, nullptr, nullptr, &RegHandle);
+    if ( result >= 0 )
+    {
+      ActivityId.Data1 = 0x67144949;
+      *(_DWORD *)&ActivityId.Data2 = 0x48595132;
+      *(_DWORD *)ActivityId.Data4 = 0x37A73680;
+      *(_DWORD *)&ActivityId.Data4[4] = 0xD82538B4;
+      EtwWriteStartScenario((_ETW_REG_ENTRY *)RegHandle, &KMBootEvt_SystemBoot_Start, &ActivityId, 0, nullptr); // EtwWriteStartScenario - target function to find
+      return EtwUnregister(RegHandle);
+    }
+    return result;
+  }

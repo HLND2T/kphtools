@@ -208,6 +208,12 @@ modules:
         expected_output:
           - PerfDiagInitialize.yaml
 
+      - name: find-EtwWriteStartScenario
+        expected_input:
+          - PerfDiagInitialize.yaml
+        expected_output:
+          - EtwWriteStartScenario.yaml
+
     symbols:
       - name: EgeGuid
         category: struct_offset
