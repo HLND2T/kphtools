@@ -189,6 +189,10 @@ modules:
         expected_output:
           - PspTerminateAllThreads.yaml
 
+      - name: find-PspAllocateProcess
+        expected_output:
+          - PspAllocateProcess.yaml
+
       - name: find-CmpEnumerateCallback
         optional_output:
           - CmpEnumerateCallback.yaml
