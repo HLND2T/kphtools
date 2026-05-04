@@ -22,9 +22,8 @@ The following information was summarized into Serena memories during onboarding 
 
 - Quick overview: `README.md`
 - Dependency information: `pyproject.toml`
-- Main script entry points: `download_symbols.py`, `update_symbols.py`, `reverse_symbols.py`, `upload_server.py`, `migrate_symboldir.py`
-- Reverse engineering related scripts: `ida/generate_mapping.py`, `ida/ida.py`
-- Configuration and data: `kphdyn.xml`, `kphdyn.yaml`, `kphdyn2.yaml`, `kphdyn.official.xml`
+- Main script entry points: `download_symbols.py`, `dump_symbols.py`, `update_symbols.py`, `upload_server.py`
+- Configuration and data: `kphdyn.xml`, `config.yaml`
 - Large directories. Avoid reading them in full: `symbols/`, `output/`, `uploads/`
 
 ## Progressive Disclosure Guidelines

@@ -77,7 +77,7 @@ Where `{sha256}` is the lowercase SHA256 hash of the PE file (e.g., `68d5867b5e6
 `dump_symbols.py` is the primary analysis entry point.
 
 ```bash
-uv run python dump_symbols.py
+uv run python dump_symbols.py [-debug]
 ```
 
 By default it uses `./symbols`, `config.yaml`, and scans both `amd64,arm64`. Use `-symboldir`, `-configyaml`, or `-arch=amd64` to override.
@@ -88,7 +88,7 @@ LLM fallback options are shared by preprocessor scripts that declare `LLM_DECOMP
 
 ```bash
 uv run python dump_symbols.py \
-  -llm_model=gpt-4o \
+  -llm_model=gpt-5.4 \
   -llm_apikey=your-key \
   -llm_baseurl=https://api.example.com/v1 \
   -llm_temperature=0.2 \
@@ -99,11 +99,11 @@ uv run python dump_symbols.py \
 The same values can be provided by `.env` or environment variables:
 
 ```bash
-KPHTOOLS_LLM_MODEL=gpt-4o
+KPHTOOLS_LLM_MODEL=gpt-5.4
 KPHTOOLS_LLM_APIKEY=your-key
 KPHTOOLS_LLM_BASEURL=https://api.example.com/v1
 KPHTOOLS_LLM_TEMPERATURE=0.2
-KPHTOOLS_LLM_EFFORT=medium
+KPHTOOLS_LLM_EFFORT=high
 KPHTOOLS_LLM_FAKE_AS=codex
 ```
 
@@ -127,7 +127,7 @@ Auto-start `idalib-mcp` for a specific binary:
 uv run python generate_reference_yaml.py \
   -func_name="ExReferenceCallBackBlock" \
   -auto_start_mcp \
-  -binary="symbols/amd64/ntoskrnl.exe.10.0.26100.1/deadbeef/ntoskrnl.exe"
+  -binary="symbols/amd64/ntoskrnl.exe.10.0.26100.1/{sha256}/ntoskrnl.exe"
 ```
 
 Check the generated YAML:
@@ -137,7 +137,7 @@ Check the generated YAML:
 - `disasm_code` includes discontinuous function chunks when IDA associates them with the same function
 - `procedure` is present; it may be an empty string if Hex-Rays is unavailable
 
-Attach the reference to a preprocessor script with the CS2_VibeSignatures-style prompt:
+Attach the reference to a preprocessor script with prompt:
 
 ```python
 LLM_DECOMPILE = [
