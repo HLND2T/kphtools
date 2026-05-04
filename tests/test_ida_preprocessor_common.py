@@ -10,6 +10,42 @@ from symbol_artifacts import load_artifact
 
 
 class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
+    def test_arch_from_binary_dir_reads_supported_arch_path_part(self) -> None:
+        self.assertEqual(
+            "amd64",
+            ida_preprocessor_common.arch_from_binary_dir(
+                Path("/symbols/ntoskrnl/amd64/.10.0.17763.1")
+            ),
+        )
+
+    def test_buildnum_from_binary_dir_reads_version_path_part(self) -> None:
+        self.assertEqual(
+            "17763",
+            ida_preprocessor_common.buildnum_from_binary_dir(
+                Path("/symbols/ntoskrnl/amd64/.10.0.17763.1")
+            ),
+        )
+        self.assertEqual(
+            17763,
+            ida_preprocessor_common.buildnum_int_from_binary_dir(
+                Path("/symbols/ntoskrnl/amd64/.10.0.17763.1")
+            ),
+        )
+
+    def test_has_current_stack_information_ex_checks_18305_boundary(self) -> None:
+        self.assertIs(
+            ida_preprocessor_common.has_current_stack_information_ex(
+                Path("/symbols/ntoskrnl/amd64/.10.0.17763.1")
+            ),
+            False,
+        )
+        self.assertIs(
+            ida_preprocessor_common.has_current_stack_information_ex(
+                Path("/symbols/ntoskrnl/amd64/.10.0.18305.1")
+            ),
+            True,
+        )
+
     async def test_preprocess_common_skill_writes_struct_yaml_from_script_metadata(
         self,
     ) -> None:

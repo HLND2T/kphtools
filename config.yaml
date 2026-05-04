@@ -118,6 +118,8 @@ modules:
           - KtInitialStack.yaml
           - KtStackBase.yaml
           - KtStackLimit.yaml
+        prerequisite:
+          - find-KeQueryCurrentStackInformation-OR-KeQueryCurrentStackInformationEx
 
       - name: find-KtKernelStack
         expected_output:
@@ -218,6 +220,16 @@ modules:
           - RtlpGetStackLimits.yaml
         prerequisite:
           - find-IoGetStackLimits
+
+      - name: find-KeQueryCurrentStackInformation-OR-KeQueryCurrentStackInformationEx
+        expected_output:
+          - KeQueryCurrentStackInformation.yaml
+          - KeQueryCurrentStackInformationEx.yaml
+        skip_if_any_exists:
+          - KeQueryCurrentStackInformation.yaml
+          - KeQueryCurrentStackInformationEx.yaml
+        prerequisite:
+          - find-RtlpGetStackLimits
 
       - name: find-PgInitContext
         expected_output:

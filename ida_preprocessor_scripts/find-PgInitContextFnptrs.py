@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import ida_preprocessor_common as preprocessor_common
@@ -56,28 +55,10 @@ GENERATE_YAML_DESIRED_FIELDS = {
     "CmpEnumerateCallback": ["func_name", "func_rva"],
 }
 
-_VERSION_DIR_RE = re.compile(r"\.(\d+)\.(\d+)\.(\d+)\.(\d+)$")
-
-
-def _arch_from_binary_dir(binary_dir: str | Path) -> str | None:
-    for part in Path(binary_dir).parts:
-        normalized = part.lower()
-        if normalized in {"amd64", "arm64"}:
-            return normalized
-    return None
-
-
-def _buildnum_from_binary_dir(binary_dir: str | Path) -> str | None:
-    for part in Path(binary_dir).parts:
-        match = _VERSION_DIR_RE.search(part)
-        if match:
-            return match.group(3)
-    return None
-
 
 def _llm_decompile_specs(binary_dir: str | Path) -> list[tuple[str, str, str, str]]:
-    arch = _arch_from_binary_dir(binary_dir)
-    buildnum = _buildnum_from_binary_dir(binary_dir)
+    arch = preprocessor_common.arch_from_binary_dir(binary_dir)
+    buildnum = preprocessor_common.buildnum_from_binary_dir(binary_dir)
     if not arch or not buildnum:
         return []
     return [

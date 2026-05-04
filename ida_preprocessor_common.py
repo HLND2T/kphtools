@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,11 @@ from symbol_artifacts import artifact_path, write_func_yaml, write_gv_yaml, writ
 
 PREPROCESS_STATUS_SUCCESS = "success"
 PREPROCESS_STATUS_FAILED = "failed"
+PREPROCESS_STATUS_ABSENT_OK = "absent_ok"
+STACK_INFORMATION_EX_BUILDNUM = 18305
+
+_VERSION_DIR_RE = re.compile(r"\.(\d+)\.(\d+)\.(\d+)\.(\d+)$")
+_SUPPORTED_BINARY_ARCHES = frozenset({"amd64", "arm64"})
 
 _ALLOWED_FIELDS_BY_CATEGORY = {
     "struct_offset": frozenset({"struct_name", "member_name", "offset", "bit_offset"}),
@@ -56,6 +62,36 @@ _FUNC_XREFS_POSITIVE_KEYS = (
     "xref_signatures",
     "xref_funcs",
 )
+
+
+def arch_from_binary_dir(binary_dir: str | Path) -> str | None:
+    for part in Path(binary_dir).parts:
+        normalized = part.lower()
+        if normalized in _SUPPORTED_BINARY_ARCHES:
+            return normalized
+    return None
+
+
+def buildnum_from_binary_dir(binary_dir: str | Path) -> str | None:
+    for part in Path(binary_dir).parts:
+        match = _VERSION_DIR_RE.search(part)
+        if match:
+            return match.group(3)
+    return None
+
+
+def buildnum_int_from_binary_dir(binary_dir: str | Path) -> int | None:
+    buildnum = buildnum_from_binary_dir(binary_dir)
+    if buildnum is None:
+        return None
+    return int(buildnum)
+
+
+def has_current_stack_information_ex(binary_dir: str | Path) -> bool | None:
+    buildnum = buildnum_int_from_binary_dir(binary_dir)
+    if buildnum is None:
+        return None
+    return buildnum >= STACK_INFORMATION_EX_BUILDNUM
 
 
 def _field(value: Any, field_name: str) -> Any:

@@ -3,6 +3,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import AsyncMock, patch
 
+import ida_preprocessor_common
 import ida_skill_preprocessor
 from symbol_config import SkillSpec, SymbolSpec, load_config
 
@@ -12,6 +13,10 @@ COMBINED_ALPC_SKILL_NAME = (
     "AND-AlpcOwnerProcess-AND-AlpcConnectionPort-"
     "AND-AlpcServerCommunicationPort-AND-AlpcClientCommunicationPort"
 )
+STACK_INFORMATION_SKILL_NAME = (
+    "find-KeQueryCurrentStackInformation-OR-KeQueryCurrentStackInformationEx"
+)
+KTHREAD_STACK_LIMITS_SKILL_NAME = "find-KtInitialStack-AND-KtStackBase-AND-KtStackLimit"
 
 
 class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
@@ -34,6 +39,197 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
             for skill in module.skills:
                 entry = ida_skill_preprocessor._get_preprocess_entry(skill.name)
                 self.assertTrue(callable(entry), skill.name)
+
+    async def test_stack_information_script_selects_pre_18305_target(self) -> None:
+        with patch(
+            "ida_preprocessor_common.preprocess_common_skill",
+            new=AsyncMock(return_value=ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS),
+        ) as mock_common:
+            status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
+                session=AsyncMock(),
+                skill=SkillSpec(
+                    name=STACK_INFORMATION_SKILL_NAME,
+                    expected_output=[
+                        "KeQueryCurrentStackInformation.yaml",
+                        "KeQueryCurrentStackInformationEx.yaml",
+                    ],
+                    expected_input=[],
+                ),
+                symbol=SymbolSpec(
+                    name="KeQueryCurrentStackInformation",
+                    category="func",
+                    data_type="uint32",
+                ),
+                binary_dir=Path("/symbols/ntoskrnl/amd64/.10.0.17763.1"),
+                pdb_path=None,
+                debug=False,
+                llm_config=None,
+            )
+
+        self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
+        self.assertEqual(
+            ["KeQueryCurrentStackInformation"],
+            mock_common.await_args.kwargs["func_names"],
+        )
+        self.assertEqual(
+            [
+                (
+                    "KeQueryCurrentStackInformation",
+                    "KeQueryCurrentStackInformation",
+                    "prompt/call_llm_decompile.md",
+                    "references/ntoskrnl/RtlpGetStackLimits.pre-18305.{arch}.yaml",
+                )
+            ],
+            mock_common.await_args.kwargs["llm_decompile_specs"],
+        )
+
+    async def test_stack_information_script_selects_post_18305_target(self) -> None:
+        with patch(
+            "ida_preprocessor_common.preprocess_common_skill",
+            new=AsyncMock(return_value=ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS),
+        ) as mock_common:
+            status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
+                session=AsyncMock(),
+                skill=SkillSpec(
+                    name=STACK_INFORMATION_SKILL_NAME,
+                    expected_output=[
+                        "KeQueryCurrentStackInformation.yaml",
+                        "KeQueryCurrentStackInformationEx.yaml",
+                    ],
+                    expected_input=[],
+                ),
+                symbol=SymbolSpec(
+                    name="KeQueryCurrentStackInformationEx",
+                    category="func",
+                    data_type="uint32",
+                ),
+                binary_dir=Path("/symbols/ntoskrnl/amd64/.10.0.18305.1"),
+                pdb_path=None,
+                debug=False,
+                llm_config=None,
+            )
+
+        self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
+        self.assertEqual(
+            ["KeQueryCurrentStackInformationEx"],
+            mock_common.await_args.kwargs["func_names"],
+        )
+        self.assertEqual(
+            [
+                (
+                    "KeQueryCurrentStackInformationEx",
+                    "KeQueryCurrentStackInformationEx",
+                    "prompt/call_llm_decompile.md",
+                    "references/ntoskrnl/RtlpGetStackLimits.post-18305.{arch}.yaml",
+                )
+            ],
+            mock_common.await_args.kwargs["llm_decompile_specs"],
+        )
+
+    async def test_stack_information_script_marks_other_variant_absent_ok(self) -> None:
+        with patch(
+            "ida_preprocessor_common.preprocess_common_skill",
+            new=AsyncMock(return_value=ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS),
+        ) as mock_common:
+            status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
+                session=AsyncMock(),
+                skill=SkillSpec(
+                    name=STACK_INFORMATION_SKILL_NAME,
+                    expected_output=[
+                        "KeQueryCurrentStackInformation.yaml",
+                        "KeQueryCurrentStackInformationEx.yaml",
+                    ],
+                    expected_input=[],
+                ),
+                symbol=SymbolSpec(
+                    name="KeQueryCurrentStackInformationEx",
+                    category="func",
+                    data_type="uint32",
+                ),
+                binary_dir=Path("/symbols/ntoskrnl/amd64/.10.0.17763.1"),
+                pdb_path=None,
+                debug=False,
+                llm_config=None,
+            )
+
+        self.assertEqual(ida_preprocessor_common.PREPROCESS_STATUS_ABSENT_OK, status)
+        mock_common.assert_not_awaited()
+
+    async def test_kthread_stack_script_uses_pre_18305_reference(self) -> None:
+        with patch(
+            "ida_preprocessor_common.preprocess_common_skill",
+            new=AsyncMock(return_value=ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS),
+        ) as mock_common:
+            status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
+                session=AsyncMock(),
+                skill=SkillSpec(
+                    name=KTHREAD_STACK_LIMITS_SKILL_NAME,
+                    expected_output=[
+                        "KtInitialStack.yaml",
+                        "KtStackBase.yaml",
+                        "KtStackLimit.yaml",
+                    ],
+                    expected_input=[],
+                ),
+                symbol=SymbolSpec(
+                    name="KtInitialStack",
+                    category="struct_offset",
+                    data_type="uint16",
+                ),
+                binary_dir=Path("/symbols/ntoskrnl/amd64/.10.0.17763.1"),
+                pdb_path=None,
+                debug=False,
+                llm_config=None,
+            )
+
+        self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
+        self.assertIn(
+            (
+                "KtInitialStack",
+                "_KTHREAD->InitialStack",
+                "prompt/call_llm_decompile.md",
+                "references/ntoskrnl/KeQueryCurrentStackInformation.{arch}.yaml",
+            ),
+            mock_common.await_args.kwargs["llm_decompile_specs"],
+        )
+
+    async def test_kthread_stack_script_uses_post_18305_reference(self) -> None:
+        with patch(
+            "ida_preprocessor_common.preprocess_common_skill",
+            new=AsyncMock(return_value=ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS),
+        ) as mock_common:
+            status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
+                session=AsyncMock(),
+                skill=SkillSpec(
+                    name=KTHREAD_STACK_LIMITS_SKILL_NAME,
+                    expected_output=[
+                        "KtInitialStack.yaml",
+                        "KtStackBase.yaml",
+                        "KtStackLimit.yaml",
+                    ],
+                    expected_input=[],
+                ),
+                symbol=SymbolSpec(
+                    name="KtInitialStack",
+                    category="struct_offset",
+                    data_type="uint16",
+                ),
+                binary_dir=Path("/symbols/ntoskrnl/amd64/.10.0.18305.1"),
+                pdb_path=None,
+                debug=False,
+                llm_config=None,
+            )
+
+        self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
+        self.assertIn(
+            (
+                "KtInitialStack",
+                "_KTHREAD->InitialStack",
+                "prompt/call_llm_decompile.md",
+                "references/ntoskrnl/KeQueryCurrentStackInformationEx.{arch}.yaml",
+            ),
+            mock_common.await_args.kwargs["llm_decompile_specs"],
+        )
 
     async def test_struct_script_dispatches_through_preprocess_common_skill(self) -> None:
         with patch(
