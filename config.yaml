@@ -194,6 +194,14 @@ modules:
           - find-CmpEnumerateCallback
         arch: amd64
 
+      - name: find-PgInitContextFnptrs
+        expected_output:
+          - PspEnumerateCallback.yaml
+          - CmpEnumerateCallback.yaml
+        prerequisite:
+          - find-PgInitContext
+        arch: amd64
+
     symbols:
       - name: EgeGuid
         category: struct_offset
