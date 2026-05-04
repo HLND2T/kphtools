@@ -151,6 +151,8 @@ modules:
       - name: find-MmControlAreaLock
         expected_output:
           - MmControlAreaLock.yaml
+        expected_input:
+          - MiCheckControlArea.yaml
 
       - name: find-EpCookie-AND-EpSectionObject-AND-MmCreateProcessAddressSpace
         expected_output:
