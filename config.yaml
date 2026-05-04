@@ -11,11 +11,12 @@ modules:
         expected_output:
           - AlpcpInitSystem.yaml
 
-      - name: find-AlpcpDeletePort
+      - name: find-AlpcpDeletePort-AND-ObCreateObjectTypeEx
         expected_input:
           - AlpcpInitSystem.yaml
         expected_output:
           - AlpcpDeletePort.yaml
+          - ObCreateObjectTypeEx.yaml
 
       - name: find-NtSecureConnectPort
         expected_output:
@@ -66,9 +67,21 @@ modules:
         expected_input:
           - ObReferenceProcessHandleTable.yaml
 
+      - name: find-SepQueryTypeString
+        expected_output:
+          - SepQueryTypeString.yaml
+
+      - name: find-ObQueryTypeName
+        expected_output:
+          - ObQueryTypeName.yaml
+        expected_input:
+          - SepQueryTypeString.yaml
+
       - name: find-OtName
         expected_output:
           - OtName.yaml
+        expected_input:
+          - ObQueryTypeName.yaml
 
       - name: find-OtIndex
         expected_output:
@@ -79,6 +92,8 @@ modules:
           - ObAttributesShift.yaml
           - ObDecodeShift.yaml
           - HtHandleContentionEvent.yaml
+        expected_input:
+          - ObpEnumFindHandleProcedure.yaml
 
       - name: find-AlpcHandleTable-AND-AlpcPortContext-AND-AlpcPortObjectLock
         expected_output:

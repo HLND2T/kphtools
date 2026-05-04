@@ -78,7 +78,7 @@ disasm_code: |-
   PAGE:00000001407C5C37                 mov     [rsp+120h+Size], rax; __int64
   PAGE:00000001407C5C3C                 movdqu  [rsp+120h+var_C4], xmm0
   PAGE:00000001407C5C42                 mov     [rsp+120h+var_B4], 1F0001h
-  PAGE:00000001407C5C4A                 call    ObCreateObjectTypeEx
+  PAGE:00000001407C5C4A                 call    ObCreateObjectTypeEx ; ObCreateObjectTypeEx - target function to find
   PAGE:00000001407C5C4F                 mov     ebx, eax
   PAGE:00000001407C5C51                 test    eax, eax
   PAGE:00000001407C5C53                 js      loc_1407C5DC2
@@ -226,7 +226,7 @@ procedure: |-
       BYTE2(v5[0]) = BYTE2(v5[0]) & 0xCB | 0x10;
       *(_OWORD *)((char *)&v5[1] + 4) = AlpcpPortMapping;
       HIDWORD(v5[3]) = 2031617;
-      SystemInformation = ObCreateObjectTypeEx(&DestinationString, (__int64)v5, 0, (__int16 *)0xF9, &AlpcPortObjectType);
+      SystemInformation = ObCreateObjectTypeEx(&DestinationString, (__int64)v5, 0, (__int16 *)0xF9, &AlpcPortObjectType); // ObCreateObjectTypeEx - target function to find
       if ( SystemInformation >= 0 )
       {
         AlpcMessageTable = ExCreateHandleTable(0, 0);

@@ -2,25 +2,26 @@ from __future__ import annotations
 
 import ida_preprocessor_common as preprocessor_common
 
-TARGET_FUNCTION_NAMES = ["AlpcpDeletePort"]
+TARGET_FUNCTION_NAMES = ["SepQueryTypeString"]
 
-LLM_DECOMPILE = [
-    (
-        "AlpcpDeletePort",
-        "AlpcpDeletePort",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/AlpcpInitSystem.{arch}.yaml",
-    ),
+FUNC_XREFS = [
+    {
+        "func_name": "SepQueryTypeString",
+        "xref_strings": [],
+        "xref_unicode_strings": [],
+        "xref_gvs": [],
+        "xref_signatures": ["41 B8 53 65 54 6E", "9A 00 00 C0", "04 00 00 C0"],
+        "xref_funcs": [],
+        "exclude_funcs": [],
+        "exclude_strings": [],
+        "exclude_unicode_strings": [],
+        "exclude_gvs": [],
+        "exclude_signatures": [],
+    },
 ]
 
-FUNC_METADATA = {
-    "AlpcpDeletePort": {
-        "alias": ["AlpcpDeletePort"],
-    }
-}
-
 GENERATE_YAML_DESIRED_FIELDS = {
-    "AlpcpDeletePort": ["func_name", "func_rva"],
+    "SepQueryTypeString": ["func_name", "func_rva"],
 }
 
 
@@ -34,7 +35,6 @@ async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, 
         debug=debug,
         llm_config=llm_config,
         func_names=TARGET_FUNCTION_NAMES,
-        func_metadata=FUNC_METADATA,
-        llm_decompile_specs=LLM_DECOMPILE,
+        func_xrefs=FUNC_XREFS,
         generate_yaml_desired_fields=GENERATE_YAML_DESIRED_FIELDS,
     )
