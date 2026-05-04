@@ -25,6 +25,12 @@ modules:
     expected_output:
     - NtAlpcCreatePortSection.yaml
 
+  - name: find-AlpcpCreateSection
+    expected_input:
+    - NtAlpcCreatePortSection.yaml
+    expected_output:
+    - AlpcpCreateSection.yaml
+
   - name: find-AlpcpCreateClientPort
     expected_input:
     - NtSecureConnectPort.yaml
@@ -227,6 +233,9 @@ modules:
     category: func
     data_type: uint32
   - name: AlpcpDeletePort
+    category: func
+    data_type: uint32
+  - name: AlpcpCreateSection
     category: func
     data_type: uint32
   - name: KtInitialStack

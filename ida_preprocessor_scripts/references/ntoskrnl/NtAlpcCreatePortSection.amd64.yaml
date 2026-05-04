@@ -1,0 +1,195 @@
+func_name: NtAlpcCreatePortSection
+func_va: '0x1405ea400'
+disasm_code: |-
+  PAGE:00000001405EA400                 mov     rax, rsp
+  PAGE:00000001405EA403                 mov     [rax+8], rbx
+  PAGE:00000001405EA407                 mov     [rax+10h], rsi
+  PAGE:00000001405EA40B                 mov     [rax+18h], rdi
+  PAGE:00000001405EA40F                 mov     [rax+20h], r14
+  PAGE:00000001405EA413                 push    r15
+  PAGE:00000001405EA415                 sub     rsp, 40h
+  PAGE:00000001405EA419                 mov     r15, r9
+  PAGE:00000001405EA41C                 mov     rsi, r8
+  PAGE:00000001405EA41F                 mov     r10, rcx
+  PAGE:00000001405EA422                 and     qword ptr [rax-18h], 0
+  PAGE:00000001405EA427                 mov     rax, gs:188h
+  PAGE:00000001405EA430                 dec     word ptr [rax+1E4h]
+  PAGE:00000001405EA437                 mov     rax, gs:188h
+  PAGE:00000001405EA440                 mov     r14b, [rax+232h]
+  PAGE:00000001405EA447                 test    edx, 0FFFBFFFFh
+  PAGE:00000001405EA44D                 jz      short loc_1405EA459
+  PAGE:00000001405EA44F                 mov     ebx, 0C000000Dh
+  PAGE:00000001405EA454                 jmp     loc_1405EA599
+  PAGE:00000001405EA459                 bt      edx, 12h
+  PAGE:00000001405EA45D                 jb      short loc_1405EA464
+  PAGE:00000001405EA45F                 xor     dil, dil
+  PAGE:00000001405EA462                 jmp     short loc_1405EA46C
+  PAGE:00000001405EA464                 test    rsi, rsi
+  PAGE:00000001405EA467                 jnz     short loc_1405EA44F
+  PAGE:00000001405EA469                 mov     dil, 1
+  PAGE:00000001405EA46C                 test    r14b, r14b
+  PAGE:00000001405EA46F                 jz      short loc_1405EA4A9
+  PAGE:00000001405EA471                 mov     rdx, 7FFFFFFF0000h
+  PAGE:00000001405EA47B                 mov     rcx, rdx
+  PAGE:00000001405EA47E                 cmp     [rsp+48h+arg_20], rdx
+  PAGE:00000001405EA483                 cmovb   rcx, [rsp+48h+arg_20]
+  PAGE:00000001405EA489                 mov     rax, [rcx]
+  PAGE:00000001405EA48C                 mov     [rcx], rax
+  PAGE:00000001405EA48F                 cmp     [rsp+48h+arg_28], rdx
+  PAGE:00000001405EA494                 cmovb   rdx, [rsp+48h+arg_28]
+  PAGE:00000001405EA49A                 mov     rax, [rdx]
+  PAGE:00000001405EA49D                 mov     [rdx], rax
+  PAGE:00000001405EA4A0                 jmp     short loc_1405EA4A9
+  PAGE:00000001405EA4A2                 mov     ebx, eax
+  PAGE:00000001405EA4A4                 jmp     loc_1405EA599
+  PAGE:00000001405EA4A9                 mov     rax, gs:188h
+  PAGE:00000001405EA4B2                 ; AccessMode
+  PAGE:00000001405EA4B2                 mov     r9b, [rax+232h]; AccessMode
+  PAGE:00000001405EA4B9                 ; ObjectType
+  PAGE:00000001405EA4B9                 mov     r8, cs:AlpcPortObjectType; ObjectType
+  PAGE:00000001405EA4C0                 and     [rsp+48h+var_10], 0
+  PAGE:00000001405EA4C6                 and     [rsp+48h+var_20], 0
+  PAGE:00000001405EA4CC                 lea     rax, [rsp+48h+var_10]
+  PAGE:00000001405EA4D1                 ; Object
+  PAGE:00000001405EA4D1                 mov     [rsp+48h+Object], rax; Object
+  PAGE:00000001405EA4D6                 ; DesiredAccess
+  PAGE:00000001405EA4D6                 mov     edx, 1; DesiredAccess
+  PAGE:00000001405EA4DB                 ; Handle
+  PAGE:00000001405EA4DB                 mov     rcx, r10; Handle
+  PAGE:00000001405EA4DE                 call    ObReferenceObjectByHandle
+  PAGE:00000001405EA4E3                 mov     ebx, eax
+  PAGE:00000001405EA4E5                 test    eax, eax
+  PAGE:00000001405EA4E7                 js      loc_1405EA599
+  PAGE:00000001405EA4ED                 lea     rax, [rsp+48h+BugCheckParameter2]
+  PAGE:00000001405EA4F2                 ; __int64
+  PAGE:00000001405EA4F2                 mov     [rsp+48h+var_20], rax; __int64
+  PAGE:00000001405EA4F7                 ; __int64
+  PAGE:00000001405EA4F7                 mov     [rsp+48h+Object], r15; __int64
+  PAGE:00000001405EA4FC                 mov     r9, rsi
+  PAGE:00000001405EA4FF                 mov     r8b, 1
+  PAGE:00000001405EA502                 mov     dl, dil
+  PAGE:00000001405EA505                 mov     rsi, [rsp+48h+var_10]
+  PAGE:00000001405EA50A                 ; Object
+  PAGE:00000001405EA50A                 mov     rcx, rsi; Object
+  PAGE:00000001405EA50D                 call    AlpcpCreateSection ; AlpcpCreateSection - target function to find
+  PAGE:00000001405EA512                 mov     ebx, eax
+  PAGE:00000001405EA514                 test    eax, eax
+  PAGE:00000001405EA516                 js      short loc_1405EA591
+  PAGE:00000001405EA518                 test    r14b, r14b
+  PAGE:00000001405EA51B                 jz      short loc_1405EA567
+  PAGE:00000001405EA51D                 mov     rdi, [rsp+48h+BugCheckParameter2]
+  PAGE:00000001405EA522                 mov     rdx, [rdi+18h]
+  PAGE:00000001405EA526                 mov     rcx, [rsp+48h+arg_20]
+  PAGE:00000001405EA52B                 mov     [rcx], rdx
+  PAGE:00000001405EA52E                 mov     rcx, [rdi+8]
+  PAGE:00000001405EA532                 mov     rax, [rsp+48h+arg_28]
+  PAGE:00000001405EA537                 mov     [rax], rcx
+  PAGE:00000001405EA53A                 jmp     short loc_1405EA548
+  PAGE:00000001405EA53C                 mov     ebx, eax
+  PAGE:00000001405EA53E                 mov     rdi, [rsp+48h+BugCheckParameter2]
+  PAGE:00000001405EA543                 mov     rsi, [rsp+48h+var_10]
+  PAGE:00000001405EA548                 test    ebx, ebx
+  PAGE:00000001405EA54A                 jns     short loc_1405EA584
+  PAGE:00000001405EA54C                 mov     rcx, rdi
+  PAGE:00000001405EA54F                 call    AlpcpDeleteBlob
+  PAGE:00000001405EA554                 test    al, al
+  PAGE:00000001405EA556                 jz      short loc_1405EA584
+  PAGE:00000001405EA558                 ; a2
+  PAGE:00000001405EA558                 mov     edx, 1; a2
+  PAGE:00000001405EA55D                 ; _ALPC_COMMUNICATION_INFO *
+  PAGE:00000001405EA55D                 mov     rcx, rdi; _ALPC_COMMUNICATION_INFO *
+  PAGE:00000001405EA560                 call    AlpcpDereferenceBlobEx
+  PAGE:00000001405EA565                 jmp     short loc_1405EA584
+  PAGE:00000001405EA567                 mov     rdi, [rsp+48h+BugCheckParameter2]
+  PAGE:00000001405EA56C                 mov     r8, [rdi+18h]
+  PAGE:00000001405EA570                 mov     rax, [rsp+48h+arg_20]
+  PAGE:00000001405EA575                 mov     [rax], r8
+  PAGE:00000001405EA578                 mov     r8, [rdi+8]
+  PAGE:00000001405EA57C                 mov     rax, [rsp+48h+arg_28]
+  PAGE:00000001405EA581                 mov     [rax], r8
+  PAGE:00000001405EA584                 ; a2
+  PAGE:00000001405EA584                 mov     edx, 1; a2
+  PAGE:00000001405EA589                 ; _ALPC_COMMUNICATION_INFO *
+  PAGE:00000001405EA589                 mov     rcx, rdi; _ALPC_COMMUNICATION_INFO *
+  PAGE:00000001405EA58C                 call    AlpcpDereferenceBlobEx
+  PAGE:00000001405EA591                 ; DmaAdapter
+  PAGE:00000001405EA591                 mov     rcx, rsi; DmaAdapter
+  PAGE:00000001405EA594                 call    ObDereferenceObjectWithTag
+  PAGE:00000001405EA599                 mov     rcx, gs:188h
+  PAGE:00000001405EA5A2                 call    KeLeaveCriticalRegionThread
+  PAGE:00000001405EA5A7                 mov     eax, ebx
+  PAGE:00000001405EA5A9                 mov     rbx, [rsp+48h+arg_0]
+  PAGE:00000001405EA5AE                 mov     rsi, [rsp+48h+arg_8]
+  PAGE:00000001405EA5B3                 mov     rdi, [rsp+48h+arg_10]
+  PAGE:00000001405EA5B8                 mov     r14, [rsp+48h+arg_18]
+  PAGE:00000001405EA5BD                 add     rsp, 40h
+  PAGE:00000001405EA5C1                 pop     r15
+  PAGE:00000001405EA5C3                 retn
+procedure: |-
+  __int64 __fastcall NtAlpcCreatePortSection(HANDLE Handle, int a2, void *a3, __int64 a4, _QWORD *a5, _ALPC_PORT **a6)
+  {
+    struct _KTHREAD *CurrentThread; // rax
+    char PreviousMode; // r14
+    int v11; // ebx
+    unsigned __int8 v12; // di
+    __int64 v13; // rdx
+    __int64 v14; // rcx
+    KPROCESSOR_MODE v15; // r9
+    void *v16; // r9
+    struct _DMA_ADAPTER *v17; // rsi
+    _ALPC_COMMUNICATION_INFO *v18; // rdi
+    ULONG_PTR BugCheckParameter2; // [rsp+30h] [rbp-18h] BYREF
+    PVOID Object; // [rsp+38h] [rbp-10h] BYREF
+
+    BugCheckParameter2 = 0;
+    CurrentThread = KeGetCurrentThread();
+    --CurrentThread->KernelApcDisable;
+    PreviousMode = KeGetCurrentThread()->PreviousMode;
+    if ( (a2 & 0xFFFBFFFF) != 0 )
+      goto LABEL_2;
+    if ( (a2 & 0x40000) != 0 )
+    {
+      if ( a3 )
+      {
+  LABEL_2:
+        v11 = -1073741811;
+        goto LABEL_17;
+      }
+      v12 = 1;
+    }
+    else
+    {
+      v12 = 0;
+    }
+    if ( PreviousMode )
+    {
+      v13 = 0x7FFFFFFF0000LL;
+      v14 = 0x7FFFFFFF0000LL;
+      if ( (unsigned __int64)a5 < 0x7FFFFFFF0000LL )
+        v14 = (__int64)a5;
+      *(_QWORD *)v14 = *(_QWORD *)v14;
+      if ( (unsigned __int64)a6 < 0x7FFFFFFF0000LL )
+        v13 = (__int64)a6;
+      *(_QWORD *)v13 = *(_QWORD *)v13;
+    }
+    v15 = KeGetCurrentThread()->PreviousMode;
+    Object = nullptr;
+    v11 = ObReferenceObjectByHandle(Handle, 1u, AlpcPortObjectType, v15, &Object, nullptr);
+    if ( v11 >= 0 )
+    {
+      v16 = a3;
+      v17 = (struct _DMA_ADAPTER *)Object;
+      v11 = AlpcpCreateSection(Object, v12, 1, v16, a4, &BugCheckParameter2); // AlpcpCreateSection - target function to find
+      if ( v11 >= 0 )
+      {
+        v18 = (_ALPC_COMMUNICATION_INFO *)BugCheckParameter2;
+        *a5 = *(_QWORD *)(BugCheckParameter2 + 24);
+        *a6 = v18->ServerCommunicationPort;
+        AlpcpDereferenceBlobEx(v18, 1);
+      }
+      ObDereferenceObjectWithTag(v17);
+    }
+  LABEL_17:
+    KeLeaveCriticalRegionThread(KeGetCurrentThread());
+    return (unsigned int)v11;
+  }
