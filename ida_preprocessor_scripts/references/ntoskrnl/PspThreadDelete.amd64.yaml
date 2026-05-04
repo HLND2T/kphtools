@@ -1,0 +1,499 @@
+func_name: PspThreadDelete
+func_va: '0x1406823e0'
+disasm_code: |-
+  PAGE:00000001406823E0                 mov     [rsp+arg_8], rbx
+  PAGE:00000001406823E5                 mov     [rsp+arg_10], rbp
+  PAGE:00000001406823EA                 push    rsi
+  PAGE:00000001406823EB                 push    rdi
+  PAGE:00000001406823EC                 push    r12
+  PAGE:00000001406823EE                 push    r14
+  PAGE:00000001406823F0                 push    r15
+  PAGE:00000001406823F2                 sub     rsp, 40h
+  PAGE:00000001406823F6                 mov     rdi, rcx
+  PAGE:00000001406823F9                 call    KeCleanupThreadState
+  PAGE:00000001406823FE                 mov     eax, [rdi+55Ch]
+  PAGE:0000000140682404                 xor     ebp, ebp
+  PAGE:0000000140682406                 test    eax, eax
+  PAGE:0000000140682408                 jnz     loc_1408083E2
+  PAGE:000000014068240E                 mov     eax, [rdi+550h]
+  PAGE:0000000140682414                 test    eax, eax
+  PAGE:0000000140682416                 jnz     loc_1408083FD
+  PAGE:000000014068241C                 mov     eax, [rdi+554h]
+  PAGE:0000000140682422                 test    eax, eax
+  PAGE:0000000140682424                 jnz     loc_140808416
+  PAGE:000000014068242A                 mov     eax, [rdi+558h]
+  PAGE:0000000140682430                 test    eax, eax
+  PAGE:0000000140682432                 jnz     loc_140808432
+  PAGE:0000000140682438                 lea     rax, [rdi+628h]
+  PAGE:000000014068243F                 ; BugCheckParameter3
+  PAGE:000000014068243F                 mov     r9, [rax]; BugCheckParameter3
+  PAGE:0000000140682442                 cmp     r9, rax
+  PAGE:0000000140682445                 jnz     loc_14080844E
+  PAGE:000000014068244B                 lea     rax, [rdi+640h]
+  PAGE:0000000140682452                 ; BugCheckParameter3
+  PAGE:0000000140682452                 mov     r9, [rax]; BugCheckParameter3
+  PAGE:0000000140682455                 cmp     r9, rax
+  PAGE:0000000140682458                 jnz     loc_140808466
+  PAGE:000000014068245E                 cmp     [rdi+28h], rbp
+  PAGE:0000000140682462                 jnz     loc_14080847E
+  PAGE:0000000140682468                 mov     r12, gs:188h
+  PAGE:0000000140682471                 or      rbx, 0FFFFFFFFFFFFFFFFh
+  PAGE:0000000140682475                 cmp     [rdi+480h], rbp
+  PAGE:000000014068247C                 jz      short loc_1406824C1
+  PAGE:000000014068247E                 add     [r12+1E4h], bx
+  PAGE:0000000140682487                 mov     rdx, [rdi+480h]
+  PAGE:000000014068248E                 mov     rcx, cs:PspCidTable
+  PAGE:0000000140682495                 call    ExMapHandleToPointer
+  PAGE:000000014068249A                 test    rax, rax
+  PAGE:000000014068249D                 jz      loc_140808496
+  PAGE:00000001406824A3                 mov     rdx, [rdi+480h]
+  PAGE:00000001406824AA                 mov     r8, rax
+  PAGE:00000001406824AD                 mov     rcx, cs:PspCidTable
+  PAGE:00000001406824B4                 call    ExDestroyHandle
+  PAGE:00000001406824B9                 mov     rcx, r12
+  PAGE:00000001406824BC                 call    KeLeaveCriticalRegionThread
+  PAGE:00000001406824C1                 mov     rcx, rdi
+  PAGE:00000001406824C4                 call    PspDeleteThreadSecurity
+  PAGE:00000001406824C9                 ; P
+  PAGE:00000001406824C9                 mov     rcx, [rdi+610h]; P
+  PAGE:00000001406824D0                 test    rcx, rcx
+  PAGE:00000001406824D3                 jnz     loc_1406827B5
+  PAGE:00000001406824D9                 mov     cl, 1
+  PAGE:00000001406824DB                 call    KiQueryUnbiasedInterruptTime
+  PAGE:00000001406824E0                 cmp     rax, cs:qword_140C4C4D0
+  PAGE:00000001406824E7                 jb      loc_14068264F
+  PAGE:00000001406824ED                 mov     rdx, cs:qword_140C4C4C0
+  PAGE:00000001406824F4                 test    rdx, rdx
+  PAGE:00000001406824F7                 jz      loc_1406825FE
+  PAGE:00000001406824FD                 mov     eax, dword ptr cs:qword_140C4C4D8
+  PAGE:0000000140682503                 mov     esi, 10Ch
+  PAGE:0000000140682508                 test    eax, eax
+  PAGE:000000014068250A                 jz      short loc_140682551
+  PAGE:000000014068250C                 mov     r8, rbp
+  PAGE:000000014068250F                 lea     rdx, ObpObjectTypes
+  PAGE:0000000140682516                 mov     r9d, eax
+  PAGE:0000000140682519                 bt      cs:qword_140C4C4E0, r8
+  PAGE:0000000140682521                 mov     r10, [rdx]
+  PAGE:0000000140682524                 setb    al
+  PAGE:0000000140682527                 movzx   ecx, al
+  PAGE:000000014068252A                 movzx   eax, byte ptr [r10+42h]
+  PAGE:000000014068252F                 shr     eax, 6
+  PAGE:0000000140682532                 and     eax, 1
+  PAGE:0000000140682535                 cmp     eax, ecx
+  PAGE:0000000140682537                 jnz     loc_140682775
+  PAGE:000000014068253D                 inc     r8
+  PAGE:0000000140682540                 add     rdx, 8
+  PAGE:0000000140682544                 sub     r9, 1
+  PAGE:0000000140682548                 jnz     short loc_140682519
+  PAGE:000000014068254A                 mov     rdx, cs:qword_140C4C4C0
+  PAGE:0000000140682551                 mov     r10, cs:qword_140C4C500
+  PAGE:0000000140682558                 mov     r9d, 40h ; '@'
+  PAGE:000000014068255E                 lea     r8, [r10+70h]
+  PAGE:0000000140682562                 lea     rcx, [r10+0B0h]
+  PAGE:0000000140682569                 mov     rax, r8
+  PAGE:000000014068256C                 cmp     r8, rcx
+  PAGE:000000014068256F                 jnb     short loc_14068257C
+  PAGE:0000000140682571                 prefetchnta byte ptr [rax]
+  PAGE:0000000140682574                 add     rax, r9
+  PAGE:0000000140682577                 cmp     rax, rcx
+  PAGE:000000014068257A                 jb      short loc_140682571
+  PAGE:000000014068257C                 mov     r11, cs:qword_140C4C4C8
+  PAGE:0000000140682583                 mov     eax, 8
+  PAGE:0000000140682588                 sub     rdx, [r8]
+  PAGE:000000014068258B                 mov     ecx, r11d
+  PAGE:000000014068258E                 ror     rdx, cl
+  PAGE:0000000140682591                 add     r8, 8
+  PAGE:0000000140682595                 add     r9d, 0FFFFFFF8h
+  PAGE:0000000140682599                 sub     rax, 1
+  PAGE:000000014068259D                 jnz     short loc_140682588
+  PAGE:000000014068259F                 test    r9d, r9d
+  PAGE:00000001406825A2                 jz      short loc_1406825BA
+  PAGE:00000001406825A4                 movzx   eax, byte ptr [r8]
+  PAGE:00000001406825A8                 mov     ecx, r11d
+  PAGE:00000001406825AB                 sub     rdx, rax
+  PAGE:00000001406825AE                 inc     r8
+  PAGE:00000001406825B1                 ror     rdx, cl
+  PAGE:00000001406825B4                 add     r9d, 0FFFFFFFFh
+  PAGE:00000001406825B8                 jnz     short loc_1406825A4
+  PAGE:00000001406825BA                 cmp     cs:qword_140C4C508, rdx
+  PAGE:00000001406825C1                 jz      short loc_1406825FE
+  PAGE:00000001406825C3                 cmp     cs:qword_140C4C490, rbp
+  PAGE:00000001406825CA                 jnz     loc_140682736
+  PAGE:00000001406825D0                 mov     [rsp+68h+var_34], 9000001h
+  PAGE:00000001406825D8                 xorps   xmm0, xmm0
+  PAGE:00000001406825DB                 mov     eax, [rsp+68h+var_34]
+  PAGE:00000001406825DF                 ror     eax, 98h
+  PAGE:00000001406825E2                 mov     cs:qword_140C4C490, rax
+  PAGE:00000001406825E9                 movups  cs:xmmword_140C4C498, xmm0
+  PAGE:00000001406825F0                 mov     cs:qword_140C4C4A8, rsi
+  PAGE:00000001406825F7                 mov     cs:qword_140C4C4B0, r10
+  PAGE:00000001406825FE                 cmp     cs:qword_140C4C490, rbp
+  PAGE:0000000140682605                 jnz     loc_140682736
+  PAGE:000000014068260B                 mov     cl, 1
+  PAGE:000000014068260D                 call    KiQueryUnbiasedInterruptTime
+  PAGE:0000000140682612                 mov     r11, rax
+  PAGE:0000000140682615                 rdtsc
+  PAGE:0000000140682617                 shl     rdx, 20h
+  PAGE:000000014068261B                 mov     rcx, 12A05F2000h
+  PAGE:0000000140682625                 or      rax, rdx
+  PAGE:0000000140682628                 xor     edx, edx
+  PAGE:000000014068262A                 shr     rax, 4
+  PAGE:000000014068262E                 imul    rax, 27FCBBFh
+  PAGE:0000000140682635                 div     rcx
+  PAGE:0000000140682638                 mov     rax, 430E234000h
+  PAGE:0000000140682642                 add     rax, rdx
+  PAGE:0000000140682645                 add     rax, r11
+  PAGE:0000000140682648                 mov     cs:qword_140C4C4D0, rax
+  PAGE:000000014068264F                 mov     r14, [rdi+220h]
+  PAGE:0000000140682656                 test    r14, r14
+  PAGE:0000000140682659                 jz      loc_14068271C
+  PAGE:000000014068265F                 lea     rsi, [rdi+4E8h]
+  PAGE:0000000140682666                 cmp     [rsi], rbp
+  PAGE:0000000140682669                 jz      loc_1406826FF
+  PAGE:000000014068266F                 add     [r12+1E4h], bx
+  PAGE:0000000140682678                 lea     rbp, [r14+438h]
+  PAGE:000000014068267F                 ; BugCheckParameter1
+  PAGE:000000014068267F                 xor     edx, edx; BugCheckParameter1
+  PAGE:0000000140682681                 ; BugCheckParameter2
+  PAGE:0000000140682681                 mov     rcx, rbp; BugCheckParameter2
+  PAGE:0000000140682684                 call    ExAcquirePushLockExclusiveEx
+  PAGE:0000000140682689                 lea     r15, [r14+860h]
+  PAGE:0000000140682690                 ; BugCheckParameter1
+  PAGE:0000000140682690                 xor     edx, edx; BugCheckParameter1
+  PAGE:0000000140682692                 ; BugCheckParameter2
+  PAGE:0000000140682692                 mov     rcx, r15; BugCheckParameter2
+  PAGE:0000000140682695                 call    ExAcquirePushLockExclusiveEx
+  PAGE:000000014068269A                 mov     rcx, rdi
+  PAGE:000000014068269D                 call    KeFoldProcessStatisticsThread ; KeFoldProcessStatisticsThread - target function to find
+  PAGE:00000001406826A2                 mov     rcx, [rsi]
+  PAGE:00000001406826A5                 cmp     [rcx+8], rsi
+  PAGE:00000001406826A9                 jnz     loc_1408084A1
+  PAGE:00000001406826AF                 mov     rax, [rsi+8]
+  PAGE:00000001406826B3                 cmp     [rax], rsi
+  PAGE:00000001406826B6                 jnz     loc_1408084A1
+  PAGE:00000001406826BC                 mov     [rax], rcx
+  PAGE:00000001406826BF                 mov     [rcx+8], rax
+  PAGE:00000001406826C3                 mov     rax, rbx
+  PAGE:00000001406826C6                 lock xadd [r15], rax
+  PAGE:00000001406826CB                 and     al, 6
+  PAGE:00000001406826CD                 cmp     al, 2
+  PAGE:00000001406826CF                 jz      loc_1406827C4
+  PAGE:00000001406826D5                 ; BugCheckParameter2
+  PAGE:00000001406826D5                 mov     rcx, r15; BugCheckParameter2
+  PAGE:00000001406826D8                 call    KeAbPostRelease
+  PAGE:00000001406826DD                 lock xadd [rbp+0], rbx
+  PAGE:00000001406826E3                 and     bl, 6
+  PAGE:00000001406826E6                 cmp     bl, 2
+  PAGE:00000001406826E9                 jz      loc_1406827D1
+  PAGE:00000001406826EF                 ; BugCheckParameter2
+  PAGE:00000001406826EF                 mov     rcx, rbp; BugCheckParameter2
+  PAGE:00000001406826F2                 call    KeAbPostRelease
+  PAGE:00000001406826F7                 mov     rcx, r12
+  PAGE:00000001406826FA                 call    KeLeaveCriticalRegionThread
+  PAGE:00000001406826FF                 test    dword ptr [rdi+510h], 100000h
+  PAGE:0000000140682709                 jnz     loc_1408084A8
+  PAGE:000000014068270F                 ; Tag
+  PAGE:000000014068270F                 mov     edx, 72437350h; Tag
+  PAGE:0000000140682714                 ; Object
+  PAGE:0000000140682714                 mov     rcx, r14; Object
+  PAGE:0000000140682717                 call    ObfDereferenceObjectWithTag
+  PAGE:000000014068271C                 lea     r11, [rsp+68h+var_28]
+  PAGE:0000000140682721                 mov     rbx, [r11+38h]
+  PAGE:0000000140682725                 mov     rbp, [r11+40h]
+  PAGE:0000000140682729                 mov     rsp, r11
+  PAGE:000000014068272C                 pop     r15
+  PAGE:000000014068272E                 pop     r14
+  PAGE:0000000140682730                 pop     r12
+  PAGE:0000000140682732                 pop     rdi
+  PAGE:0000000140682733                 pop     rsi
+  PAGE:0000000140682734                 retn
+  PAGE:0000000140682736                 ; DeferredRoutine
+  PAGE:0000000140682736                 lea     rdx, KiScanQueues; DeferredRoutine
+  PAGE:000000014068273D                 cmp     cs:stru_140C4C450.DeferredRoutine, rdx
+  PAGE:0000000140682744                 lea     rsi, stru_140C4C450
+  PAGE:000000014068274B                 jz      short loc_140682758
+  PAGE:000000014068274D                 ; DeferredContext
+  PAGE:000000014068274D                 mov     r8, rsi; DeferredContext
+  PAGE:0000000140682750                 ; Dpc
+  PAGE:0000000140682750                 mov     rcx, rsi; Dpc
+  PAGE:0000000140682753                 call    KeInitializeDpc
+  PAGE:0000000140682758                 ; SystemArgument2
+  PAGE:0000000140682758                 xor     r8d, r8d; SystemArgument2
+  PAGE:000000014068275B                 mov     cs:qword_140C4C4B8, 1D8440h
+  PAGE:0000000140682766                 ; SystemArgument1
+  PAGE:0000000140682766                 xor     edx, edx; SystemArgument1
+  PAGE:0000000140682768                 ; Dpc
+  PAGE:0000000140682768                 mov     rcx, rsi; Dpc
+  PAGE:000000014068276B                 call    KeInsertQueueDpc
+  PAGE:0000000140682770                 jmp     loc_14068260B
+  PAGE:0000000140682775                 cmp     cs:qword_140C4C490, rbp
+  PAGE:000000014068277C                 jnz     loc_14068253D
+  PAGE:0000000140682782                 mov     [rsp+68h+var_38], 48000008h
+  PAGE:000000014068278A                 xorps   xmm0, xmm0
+  PAGE:000000014068278D                 mov     eax, [rsp+68h+var_38]
+  PAGE:0000000140682791                 rol     eax, 85h
+  PAGE:0000000140682794                 mov     cs:qword_140C4C490, rax
+  PAGE:000000014068279B                 movups  cs:xmmword_140C4C498, xmm0
+  PAGE:00000001406827A2                 mov     cs:qword_140C4C4A8, rsi
+  PAGE:00000001406827A9                 mov     cs:qword_140C4C4B0, r10
+  PAGE:00000001406827B0                 jmp     loc_14068253D
+  PAGE:00000001406827B5                 ; Tag
+  PAGE:00000001406827B5                 mov     edx, 6D4E6854h; Tag
+  PAGE:00000001406827BA                 call    ExFreePoolWithTag
+  PAGE:00000001406827BF                 jmp     loc_1406824D9
+  PAGE:00000001406827C4                 mov     rcx, r15
+  PAGE:00000001406827C7                 call    ExfTryToWakePushLock
+  PAGE:00000001406827CC                 jmp     loc_1406826D5
+  PAGE:00000001406827D1                 mov     rcx, rbp
+  PAGE:00000001406827D4                 call    ExfTryToWakePushLock
+  PAGE:00000001406827D9                 jmp     loc_1406826EF
+  PAGE:00000001408083E2                 ; BugCheckParameter3
+  PAGE:00000001408083E2                 mov     r9, rax; BugCheckParameter3
+  PAGE:00000001408083E5                 ; BugCheckParameter4
+  PAGE:00000001408083E5                 mov     [rsp+68h+BugCheckParameter4], rbp; BugCheckParameter4
+  PAGE:00000001408083EA                 ; BugCheckParameter2
+  PAGE:00000001408083EA                 mov     r8, rdi; BugCheckParameter2
+  PAGE:00000001408083ED                 ; BugCheckParameter1
+  PAGE:00000001408083ED                 mov     edx, 1; BugCheckParameter1
+  PAGE:00000001408083F2                 ; BugCheckCode
+  PAGE:00000001408083F2                 mov     ecx, 94h; BugCheckCode
+  PAGE:00000001408083F7                 call    KeBugCheckEx
+  PAGE:00000001408083FD                 ; BugCheckParameter2
+  PAGE:00000001408083FD                 mov     r8, rax; BugCheckParameter2
+  PAGE:0000000140808400                 ; BugCheckParameter4
+  PAGE:0000000140808400                 mov     [rsp+68h+BugCheckParameter4], rbp; BugCheckParameter4
+  PAGE:0000000140808405                 ; BugCheckParameter3
+  PAGE:0000000140808405                 xor     r9d, r9d; BugCheckParameter3
+  PAGE:0000000140808408                 ; BugCheckParameter1
+  PAGE:0000000140808408                 mov     rdx, rdi; BugCheckParameter1
+  PAGE:000000014080840B                 ; BugCheckCode
+  PAGE:000000014080840B                 mov     ecx, 13Ch; BugCheckCode
+  PAGE:0000000140808410                 call    KeBugCheckEx
+  PAGE:0000000140808416                 ; BugCheckParameter2
+  PAGE:0000000140808416                 mov     r8, rax; BugCheckParameter2
+  PAGE:0000000140808419                 ; BugCheckParameter4
+  PAGE:0000000140808419                 mov     [rsp+68h+BugCheckParameter4], rbp; BugCheckParameter4
+  PAGE:000000014080841E                 ; BugCheckParameter3
+  PAGE:000000014080841E                 mov     r9d, 1; BugCheckParameter3
+  PAGE:0000000140808424                 ; BugCheckParameter1
+  PAGE:0000000140808424                 mov     rdx, rdi; BugCheckParameter1
+  PAGE:0000000140808427                 ; BugCheckCode
+  PAGE:0000000140808427                 mov     ecx, 13Ch; BugCheckCode
+  PAGE:000000014080842C                 call    KeBugCheckEx
+  PAGE:0000000140808432                 ; BugCheckParameter2
+  PAGE:0000000140808432                 mov     r8, rax; BugCheckParameter2
+  PAGE:0000000140808435                 ; BugCheckParameter4
+  PAGE:0000000140808435                 mov     [rsp+68h+BugCheckParameter4], rbp; BugCheckParameter4
+  PAGE:000000014080843A                 ; BugCheckParameter3
+  PAGE:000000014080843A                 mov     r9d, 2; BugCheckParameter3
+  PAGE:0000000140808440                 ; BugCheckParameter1
+  PAGE:0000000140808440                 mov     rdx, rdi; BugCheckParameter1
+  PAGE:0000000140808443                 ; BugCheckCode
+  PAGE:0000000140808443                 mov     ecx, 13Ch; BugCheckCode
+  PAGE:0000000140808448                 call    KeBugCheckEx
+  PAGE:000000014080844E                 ; BugCheckParameter2
+  PAGE:000000014080844E                 mov     r8, rdi; BugCheckParameter2
+  PAGE:0000000140808451                 ; BugCheckParameter4
+  PAGE:0000000140808451                 mov     [rsp+68h+BugCheckParameter4], rbp; BugCheckParameter4
+  PAGE:0000000140808456                 ; BugCheckParameter1
+  PAGE:0000000140808456                 mov     edx, 14h; BugCheckParameter1
+  PAGE:000000014080845B                 ; BugCheckCode
+  PAGE:000000014080845B                 mov     ecx, 1C6h; BugCheckCode
+  PAGE:0000000140808460                 call    KeBugCheckEx
+  PAGE:0000000140808466                 ; BugCheckParameter2
+  PAGE:0000000140808466                 mov     r8, rdi; BugCheckParameter2
+  PAGE:0000000140808469                 ; BugCheckParameter4
+  PAGE:0000000140808469                 mov     [rsp+68h+BugCheckParameter4], rbp; BugCheckParameter4
+  PAGE:000000014080846E                 ; BugCheckParameter1
+  PAGE:000000014080846E                 mov     edx, 15h; BugCheckParameter1
+  PAGE:0000000140808473                 ; BugCheckCode
+  PAGE:0000000140808473                 mov     ecx, 1C6h; BugCheckCode
+  PAGE:0000000140808478                 call    KeBugCheckEx
+  PAGE:000000014080847E                 xor     r8d, r8d
+  PAGE:0000000140808481                 lea     rdx, PspDeleteKernelStack
+  PAGE:0000000140808488                 mov     rcx, rdi
+  PAGE:000000014080848B                 call    KeEnumerateKernelStackSegments
+  PAGE:0000000140808490                 nop
+  PAGE:0000000140808491                 jmp     loc_140682468
+  PAGE:0000000140808496                 ; BugCheckCode
+  PAGE:0000000140808496                 mov     ecx, 17h; BugCheckCode
+  PAGE:000000014080849B                 call    KeBugCheck
+  PAGE:00000001408084A1                 mov     ecx, 3
+  PAGE:00000001408084A6                 ; Win8: RtlFailFast(ecx)
+  PAGE:00000001408084A6                 int     29h; Win8: RtlFailFast(ecx)
+  PAGE:00000001408084A8                 mov     rax, qword ptr cs:xmmword_140C1DE50
+  PAGE:00000001408084AF                 mov     rcx, rdi
+  PAGE:00000001408084B2                 call    _guard_dispatch_icall
+  PAGE:00000001408084B7                 nop
+  PAGE:00000001408084B8                 jmp     loc_14068270F
+procedure: |-
+  unsigned __int64 __fastcall PspThreadDelete(_ETHREAD *Thread)
+  {
+    struct _LIST_ENTRY *Flink; // r9
+    struct _LIST_ENTRY *v3; // r9
+    struct _KTHREAD *CurrentThread; // r12
+    __int64 *v5; // rax
+    _UNICODE_STRING *ThreadName; // rcx
+    unsigned __int64 result; // rax
+    __int64 v8; // rcx
+    __int64 v9; // rdx
+    unsigned __int64 v10; // r8
+    __int64 *v11; // rdx
+    __int64 v12; // r9
+    __int64 v13; // r10
+    int v14; // r9d
+    _QWORD *v15; // r8
+    const char *v16; // rax
+    __int64 v17; // rax
+    __int64 v18; // rax
+    _EPROCESS *Process; // r14
+    _LIST_ENTRY *p_ThreadListEntry; // rsi
+    struct _LIST_ENTRY *v21; // rcx
+    struct _LIST_ENTRY *Blink; // rax
+
+    KeCleanupThreadState();
+    if ( Thread->KernelStackReference )
+      KeBugCheckEx(0x94u, 1u, (ULONG_PTR)Thread, Thread->KernelStackReference, 0);
+    if ( Thread->IoBoostCount )
+      KeBugCheckEx(0x13Cu, (ULONG_PTR)Thread, Thread->IoBoostCount, 0, 0);
+    if ( Thread->IoQoSBoostCount )
+      KeBugCheckEx(0x13Cu, (ULONG_PTR)Thread, Thread->IoQoSBoostCount, 1u, 0);
+    if ( Thread->IoQoSThrottleCount )
+      KeBugCheckEx(0x13Cu, (ULONG_PTR)Thread, Thread->IoQoSThrottleCount, 2u, 0);
+    Flink = Thread->OwnerEntryListHead.Flink;
+    if ( Flink != &Thread->OwnerEntryListHead )
+      KeBugCheckEx(0x1C6u, 0x14u, (ULONG_PTR)Thread, (ULONG_PTR)Flink, 0);
+    v3 = Thread->DisownedOwnerEntryListHead.Flink;
+    if ( v3 != &Thread->DisownedOwnerEntryListHead )
+      KeBugCheckEx(0x1C6u, 0x15u, (ULONG_PTR)Thread, (ULONG_PTR)v3, 0);
+    if ( Thread->Tcb.InitialStack )
+      KeEnumerateKernelStackSegments(Thread, PspDeleteKernelStack, 0);
+    CurrentThread = KeGetCurrentThread();
+    if ( Thread->Cid.UniqueThread )
+    {
+      --CurrentThread->KernelApcDisable;
+      v5 = ExMapHandleToPointer(PspCidTable, (__int64)Thread->Cid.UniqueThread);
+      if ( !v5 )
+        KeBugCheck(0x17u);
+      ExDestroyHandle(PspCidTable, (__int64)Thread->Cid.UniqueThread, (__int64)v5);
+      KeLeaveCriticalRegionThread(CurrentThread);
+    }
+    PspDeleteThreadSecurity(Thread);
+    ThreadName = Thread->ThreadName;
+    if ( ThreadName )
+      ExFreePoolWithTag(ThreadName, 'mNhT');
+    LOBYTE(ThreadName) = 1;
+    result = KiQueryUnbiasedInterruptTime(ThreadName);
+    if ( result >= qword_140C4C4D0 )
+    {
+      v9 = qword_140C4C4C0;
+      if ( qword_140C4C4C0 )
+      {
+        if ( (_DWORD)qword_140C4C4D8 )
+        {
+          v10 = 0;
+          v11 = ObpObjectTypes;
+          v12 = (unsigned int)qword_140C4C4D8;
+          do
+          {
+            v13 = *v11;
+            if ( ((*(unsigned __int8 *)(*v11 + 66) >> 6) & 1) != _bittest64(&qword_140C4C4E0, v10) && !qword_140C4C490 )
+            {
+              qword_140C4C490 = (unsigned int)__ROL4__(1207959560, 133);
+              xmmword_140C4C498 = 0;
+              qword_140C4C4A8 = 268;
+              qword_140C4C4B0 = v13;
+            }
+            ++v10;
+            ++v11;
+            --v12;
+          }
+          while ( v12 );
+          v9 = qword_140C4C4C0;
+        }
+        v14 = 64;
+        v15 = (_QWORD *)(qword_140C4C500 + 112);
+        v16 = (const char *)(qword_140C4C500 + 112);
+        if ( qword_140C4C500 + 112 < (unsigned __int64)(qword_140C4C500 + 176) )
+        {
+          do
+          {
+            _mm_prefetch(v16, 0);
+            v16 += 64;
+          }
+          while ( (unsigned __int64)v16 < qword_140C4C500 + 176 );
+        }
+        v17 = 8;
+        do
+        {
+          v8 = (unsigned int)qword_140C4C4C8;
+          v9 = __ROR8__(v9 - *v15++, qword_140C4C4C8);
+          v14 -= 8;
+          --v17;
+        }
+        while ( v17 );
+        for ( ; v14; --v14 )
+        {
+          v18 = *(unsigned __int8 *)v15;
+          v8 = (unsigned int)qword_140C4C4C8;
+          v15 = (_QWORD *)((char *)v15 + 1);
+          v9 = __ROR8__(v9 - v18, qword_140C4C4C8);
+        }
+        if ( qword_140C4C508 != v9 )
+        {
+          if ( qword_140C4C490 )
+            goto LABEL_45;
+          qword_140C4C490 = (unsigned int)__ROR4__(150994945, 152);
+          xmmword_140C4C498 = 0;
+          qword_140C4C4A8 = 268;
+          qword_140C4C4B0 = qword_140C4C500;
+        }
+      }
+      if ( !qword_140C4C490 )
+      {
+  LABEL_31:
+        LOBYTE(v8) = 1;
+        result = KiQueryUnbiasedInterruptTime(v8) + 41929663 * (__rdtsc() >> 4) % 0x12A05F2000LL + 288000000000LL;
+        qword_140C4C4D0 = result;
+        goto LABEL_32;
+      }
+  LABEL_45:
+      if ( stru_140C4C450.DeferredRoutine != KiScanQueues )
+        KeInitializeDpc(&stru_140C4C450, KiScanQueues, &stru_140C4C450);
+      qword_140C4C4B8 = 0x1D8440;
+      KeInsertQueueDpc(&stru_140C4C450, nullptr, nullptr);
+      goto LABEL_31;
+    }
+  LABEL_32:
+    Process = (_EPROCESS *)Thread->Tcb.Process;
+    if ( Process )
+    {
+      p_ThreadListEntry = &Thread->ThreadListEntry;
+      if ( Thread->ThreadListEntry.Flink )
+      {
+        --CurrentThread->KernelApcDisable;
+        ExAcquirePushLockExclusiveEx((ULONG_PTR)&Process->ProcessLock, 0);
+        ExAcquirePushLockExclusiveEx((ULONG_PTR)&Process->ThreadListLock, 0);
+        KeFoldProcessStatisticsThread(Thread); // KeFoldProcessStatisticsThread - target function to find
+        v21 = p_ThreadListEntry->Flink;
+        if ( p_ThreadListEntry->Flink->Blink != p_ThreadListEntry
+          || (Blink = Thread->ThreadListEntry.Blink, Blink->Flink != p_ThreadListEntry) )
+        {
+          __fastfail(3u);
+        }
+        Blink->Flink = v21;
+        v21->Blink = Blink;
+        if ( (_InterlockedExchangeAdd64((volatile signed __int64 *)&Process->ThreadListLock, 0xFFFFFFFFFFFFFFFFuLL) & 6) == 2 )
+          ExfTryToWakePushLock(&Process->ThreadListLock);
+        KeAbPostRelease((ULONG_PTR)&Process->ThreadListLock);
+        if ( (_InterlockedExchangeAdd64((volatile signed __int64 *)&Process->ProcessLock, 0xFFFFFFFFFFFFFFFFuLL) & 6) == 2 )
+          ExfTryToWakePushLock(&Process->ProcessLock);
+        KeAbPostRelease((ULONG_PTR)&Process->ProcessLock);
+        KeLeaveCriticalRegionThread(CurrentThread);
+      }
+      if ( (Thread->CrossThreadFlags & 0x100000) != 0 )
+        ((void (__fastcall *)(_ETHREAD *))xmmword_140C1DE50)(Thread);
+      return ObfDereferenceObjectWithTag(Process, 'rCsP');
+    }
+    return result;
+  }

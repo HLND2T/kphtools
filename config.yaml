@@ -282,6 +282,12 @@ modules:
         expected_output:
           - PspThreadDelete.yaml
 
+      - name: find-KeFoldProcessStatisticsThread
+        expected_input:
+          - PspThreadDelete.yaml
+        expected_output:
+          - KeFoldProcessStatisticsThread.yaml
+
     symbols:
       - name: EgeGuid
         category: struct_offset
