@@ -1,0 +1,28 @@
+func_name: IoGetStackLimits
+func_va: '0x14023dbd0'
+disasm_code: |-
+  .text:000000014023DBD0                 mov     [rsp+arg_0], rbx
+  .text:000000014023DBD5                 push    rdi
+  .text:000000014023DBD6                 sub     rsp, 20h
+  .text:000000014023DBDA                 mov     rdi, rdx
+  .text:000000014023DBDD                 mov     rbx, rcx
+  .text:000000014023DBE0                 call    RtlpGetStackLimits ; RtlpGetStackLimits - target function to find
+  .text:000000014023DBE5                 test    al, al
+  .text:000000014023DBE7                 jz      loc_14042FA0E
+  .text:000000014023DBED                 mov     rbx, [rsp+28h+arg_0]
+  .text:000000014023DBF2                 add     rsp, 20h
+  .text:000000014023DBF6                 pop     rdi
+  .text:000000014023DBF7                 retn
+  .text:000000014042FA0E                 xor     eax, eax
+  .text:000000014042FA10                 mov     [rbx], rax
+  .text:000000014042FA13                 mov     [rdi], rax
+  .text:000000014042FA16                 jmp     loc_14023DBED
+procedure: |-
+  void __stdcall IoGetStackLimits(PULONG_PTR LowLimit, PULONG_PTR HighLimit)
+  {
+    if ( !(unsigned __int8)RtlpGetStackLimits((__int64)LowLimit, (__int64)HighLimit) ) // RtlpGetStackLimits - target function to find
+    {
+      *LowLimit = 0;
+      *HighLimit = 0;
+    }
+  }

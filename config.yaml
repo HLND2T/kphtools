@@ -213,6 +213,12 @@ modules:
         expected_output:
           - IoGetStackLimits.yaml
 
+      - name: find-RtlpGetStackLimits
+        expected_output:
+          - RtlpGetStackLimits.yaml
+        prerequisite:
+          - find-IoGetStackLimits
+
       - name: find-PgInitContext
         expected_output:
           - PgInitContext.yaml
