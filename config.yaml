@@ -31,6 +31,12 @@ modules:
     expected_output:
     - AlpcpCreateSection.yaml
 
+  - name: find-AlpcAddHandleTableEntry
+    expected_input:
+    - AlpcpCreateSection.yaml
+    expected_output:
+    - AlpcAddHandleTableEntry.yaml
+
   - name: find-AlpcpCreateClientPort
     expected_input:
     - NtSecureConnectPort.yaml
@@ -69,6 +75,8 @@ modules:
     - AlpcpCreateClientPort.yaml
 
   - name: find-AlpcHandleTableLock
+    expected_input:
+    - AlpcAddHandleTableEntry.yaml
     expected_output:
     - AlpcHandleTableLock.yaml
 

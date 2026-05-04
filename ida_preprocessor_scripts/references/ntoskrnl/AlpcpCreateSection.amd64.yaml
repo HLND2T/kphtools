@@ -1,0 +1,276 @@
+func_name: AlpcpCreateSection
+func_va: '0x1405ea5cc'
+disasm_code: |-
+  PAGE:00000001405EA5CC                 mov     [rsp+arg_0], rbx
+  PAGE:00000001405EA5D1                 mov     [rsp+arg_8], rbp
+  PAGE:00000001405EA5D6                 mov     [rsp+arg_10], rsi
+  PAGE:00000001405EA5DB                 push    rdi
+  PAGE:00000001405EA5DC                 push    r12
+  PAGE:00000001405EA5DE                 push    r15
+  PAGE:00000001405EA5E0                 sub     rsp, 60h
+  PAGE:00000001405EA5E4                 xor     r12d, r12d
+  PAGE:00000001405EA5E7                 movzx   ebp, dl
+  PAGE:00000001405EA5EA                 mov     rdi, r9
+  PAGE:00000001405EA5ED                 mov     r15b, r8b
+  PAGE:00000001405EA5F0                 mov     rsi, rcx
+  PAGE:00000001405EA5F3                 cmp     [rsp+78h+arg_20], r12
+  PAGE:00000001405EA5FB                 jz      loc_1405EA846
+  PAGE:00000001405EA601                 test    r9, r9
+  PAGE:00000001405EA604                 jz      short loc_1405EA60E
+  PAGE:00000001405EA606                 test    dl, dl
+  PAGE:00000001405EA608                 jnz     loc_1405EA846
+  PAGE:00000001405EA60E                 test    dword ptr [rcx+100h], 1000000h
+  PAGE:00000001405EA618                 jz      short loc_1405EA624
+  PAGE:00000001405EA61A                 mov     eax, 0C0000706h
+  PAGE:00000001405EA61F                 jmp     loc_1405EA84B
+  PAGE:00000001405EA624                 mov     edx, 48h ; 'H'
+  PAGE:00000001405EA629                 lea     rcx, AlpcSectionType
+  PAGE:00000001405EA630                 lea     r8d, [rdx-47h]
+  PAGE:00000001405EA634                 call    AlpcpAllocateBlob
+  PAGE:00000001405EA639                 mov     rbx, rax
+  PAGE:00000001405EA63C                 test    rax, rax
+  PAGE:00000001405EA63F                 jnz     short loc_1405EA64B
+  PAGE:00000001405EA641                 mov     eax, 0C000009Ah
+  PAGE:00000001405EA646                 jmp     loc_1405EA84B
+  PAGE:00000001405EA64B                 ; Val
+  PAGE:00000001405EA64B                 xor     edx, edx; Val
+  PAGE:00000001405EA64D                 ; void *
+  PAGE:00000001405EA64D                 mov     rcx, rbx; void *
+  PAGE:00000001405EA650                 ; Size
+  PAGE:00000001405EA650                 lea     r8d, [rdx+48h]; Size
+  PAGE:00000001405EA654                 call    memset
+  PAGE:00000001405EA659                 mov     rax, gs:188h
+  PAGE:00000001405EA662                 mov     rcx, [rax+0B8h]
+  PAGE:00000001405EA669                 mov     [rbx+20h], rcx
+  PAGE:00000001405EA66D                 mov     ecx, cs:AlpcpRegionGranularity
+  PAGE:00000001405EA673                 lea     edx, [rcx-1]
+  PAGE:00000001405EA676                 add     rdx, [rsp+78h+arg_20]
+  PAGE:00000001405EA67E                 lea     rax, [rcx-1]
+  PAGE:00000001405EA682                 not     rax
+  PAGE:00000001405EA685                 and     rdx, rax
+  PAGE:00000001405EA688                 lea     rax, [rbx+38h]
+  PAGE:00000001405EA68C                 mov     [rbx+8], rdx
+  PAGE:00000001405EA690                 mov     [rax+8], rax
+  PAGE:00000001405EA694                 mov     [rax], rax
+  PAGE:00000001405EA697                 test    rdi, rdi
+  PAGE:00000001405EA69A                 jz      short loc_1405EA6E0
+  PAGE:00000001405EA69C                 mov     rax, gs:188h
+  PAGE:00000001405EA6A5                 ; DesiredAccess
+  PAGE:00000001405EA6A5                 mov     edx, 6; DesiredAccess
+  PAGE:00000001405EA6AA                 ; ObjectType
+  PAGE:00000001405EA6AA                 mov     r8, cs:MmSectionObjectType; ObjectType
+  PAGE:00000001405EA6B1                 ; Handle
+  PAGE:00000001405EA6B1                 mov     rcx, rdi; Handle
+  PAGE:00000001405EA6B4                 ; HandleInformation
+  PAGE:00000001405EA6B4                 mov     [rsp+78h+HandleInformation], r12; HandleInformation
+  PAGE:00000001405EA6B9                 mov     [rsp+78h+var_38], r12
+  PAGE:00000001405EA6BE                 ; AccessMode
+  PAGE:00000001405EA6BE                 mov     r9b, [rax+232h]; AccessMode
+  PAGE:00000001405EA6C5                 lea     rax, [rsp+78h+var_38]
+  PAGE:00000001405EA6CA                 ; Object
+  PAGE:00000001405EA6CA                 mov     [rsp+78h+Object], rax; Object
+  PAGE:00000001405EA6CF                 call    ObReferenceObjectByHandle
+  PAGE:00000001405EA6D4                 mov     edi, eax
+  PAGE:00000001405EA6D6                 mov     rax, [rsp+78h+var_38]
+  PAGE:00000001405EA6DB                 mov     [rbx], rax
+  PAGE:00000001405EA6DE                 jmp     short loc_1405EA72D
+  PAGE:00000001405EA6E0                 mov     rax, [rbx+8]
+  PAGE:00000001405EA6E4                 lea     r9, [rsp+78h+var_30]
+  PAGE:00000001405EA6E9                 mov     [rsp+78h+var_30], rax
+  PAGE:00000001405EA6EE                 xor     r8d, r8d
+  PAGE:00000001405EA6F1                 mov     [rsp+78h+var_40], r12
+  PAGE:00000001405EA6F6                 mov     eax, ebp
+  PAGE:00000001405EA6F8                 add     eax, eax
+  PAGE:00000001405EA6FA                 mov     [rsp+78h+var_48], r12
+  PAGE:00000001405EA6FF                 xor     eax, [rbx+30h]
+  PAGE:00000001405EA702                 mov     edx, 0F001Fh
+  PAGE:00000001405EA707                 and     eax, 2
+  PAGE:00000001405EA70A                 mov     dword ptr [rsp+78h+HandleInformation], 8000000h
+  PAGE:00000001405EA712                 xor     eax, [rbx+30h]
+  PAGE:00000001405EA715                 mov     rcx, rbx
+  PAGE:00000001405EA718                 or      eax, 1
+  PAGE:00000001405EA71B                 mov     dword ptr [rsp+78h+Object], 4
+  PAGE:00000001405EA723                 mov     [rbx+30h], eax
+  PAGE:00000001405EA726                 call    MmCreateSection
+  PAGE:00000001405EA72B                 mov     edi, eax
+  PAGE:00000001405EA72D                 test    edi, edi
+  PAGE:00000001405EA72F                 js      short loc_1405EA76D
+  PAGE:00000001405EA731                 lea     rdi, [rsi+160h]
+  PAGE:00000001405EA738                 ; BugCheckParameter1
+  PAGE:00000001405EA738                 xor     edx, edx; BugCheckParameter1
+  PAGE:00000001405EA73A                 ; BugCheckParameter2
+  PAGE:00000001405EA73A                 mov     rcx, rdi; BugCheckParameter2
+  PAGE:00000001405EA73D                 call    ExAcquirePushLockSharedEx
+  PAGE:00000001405EA742                 mov     eax, [rsi+1A0h]
+  PAGE:00000001405EA748                 test    al, 20h
+  PAGE:00000001405EA74A                 jz      short loc_1405EA781
+  PAGE:00000001405EA74C                 mov     eax, 11h
+  PAGE:00000001405EA751                 lock cmpxchg [rdi], r12
+  PAGE:00000001405EA756                 jz      short loc_1405EA760
+  PAGE:00000001405EA758                 mov     rcx, rdi
+  PAGE:00000001405EA75B                 call    ExfReleasePushLockShared
+  PAGE:00000001405EA760                 ; BugCheckParameter2
+  PAGE:00000001405EA760                 mov     rcx, rdi; BugCheckParameter2
+  PAGE:00000001405EA763                 call    KeAbPostRelease
+  PAGE:00000001405EA768                 mov     edi, 0C0000037h
+  PAGE:00000001405EA76D                 ; a2
+  PAGE:00000001405EA76D                 mov     edx, 1; a2
+  PAGE:00000001405EA772                 ; _ALPC_COMMUNICATION_INFO *
+  PAGE:00000001405EA772                 mov     rcx, rbx; _ALPC_COMMUNICATION_INFO *
+  PAGE:00000001405EA775                 call    AlpcpDereferenceBlobEx
+  PAGE:00000001405EA77A                 mov     eax, edi
+  PAGE:00000001405EA77C                 jmp     loc_1405EA84B
+  PAGE:00000001405EA781                 ; BugCheckParameter2
+  PAGE:00000001405EA781                 lea     rcx, [rbx-10h]; BugCheckParameter2
+  PAGE:00000001405EA785                 ; BugCheckParameter1
+  PAGE:00000001405EA785                 xor     edx, edx; BugCheckParameter1
+  PAGE:00000001405EA787                 call    ExAcquirePushLockExclusiveEx
+  PAGE:00000001405EA78C                 or      byte ptr [rbx-20h], 4
+  PAGE:00000001405EA790                 ; BugCheckParameter2
+  PAGE:00000001405EA790                 mov     rcx, rbx; BugCheckParameter2
+  PAGE:00000001405EA793                 call    AlpcpReferenceBlob
+  PAGE:00000001405EA798                 test    r15b, r15b
+  PAGE:00000001405EA79B                 jz      short loc_1405EA7FC
+  PAGE:00000001405EA79D                 mov     rcx, [rsi+10h]
+  PAGE:00000001405EA7A1                 lea     rdx, [rsp+78h+var_28]
+  PAGE:00000001405EA7A6                 add     rcx, 28h ; '('
+  PAGE:00000001405EA7AA                 mov     [rsp+78h+var_28], rbx
+  PAGE:00000001405EA7AF                 mov     [rbx+10h], rcx
+  PAGE:00000001405EA7B3                 call    AlpcAddHandleTableEntry ; AlpcAddHandleTableEntry - target function to find
+  PAGE:00000001405EA7B8                 mov     [rbx+18h], rax
+  PAGE:00000001405EA7BC                 cmp     rax, 0FFFFFFFFFFFFFFFFh
+  PAGE:00000001405EA7C0                 jnz     short loc_1405EA7FC
+  PAGE:00000001405EA7C2                 mov     eax, 11h
+  PAGE:00000001405EA7C7                 lock cmpxchg [rdi], r12
+  PAGE:00000001405EA7CC                 jz      short loc_1405EA7D6
+  PAGE:00000001405EA7CE                 mov     rcx, rdi
+  PAGE:00000001405EA7D1                 call    ExfReleasePushLockShared
+  PAGE:00000001405EA7D6                 ; BugCheckParameter2
+  PAGE:00000001405EA7D6                 mov     rcx, rdi; BugCheckParameter2
+  PAGE:00000001405EA7D9                 call    KeAbPostRelease
+  PAGE:00000001405EA7DE                 mov     rcx, rbx
+  PAGE:00000001405EA7E1                 mov     [rbx+10h], r12
+  PAGE:00000001405EA7E5                 call    AlpcpEndInitialization
+  PAGE:00000001405EA7EA                 ; a2
+  PAGE:00000001405EA7EA                 mov     edx, 2; a2
+  PAGE:00000001405EA7EF                 ; _ALPC_COMMUNICATION_INFO *
+  PAGE:00000001405EA7EF                 mov     rcx, rbx; _ALPC_COMMUNICATION_INFO *
+  PAGE:00000001405EA7F2                 call    AlpcpDereferenceBlobEx
+  PAGE:00000001405EA7F7                 jmp     loc_1405EA641
+  PAGE:00000001405EA7FC                 ; Object
+  PAGE:00000001405EA7FC                 mov     rcx, rsi; Object
+  PAGE:00000001405EA7FF                 call    ObfReferenceObject
+  PAGE:00000001405EA804                 mov     rdx, rbx
+  PAGE:00000001405EA807                 mov     [rbx+28h], rsi
+  PAGE:00000001405EA80B                 mov     rcx, rsi
+  PAGE:00000001405EA80E                 call    AlpcpInsertResourcePort
+  PAGE:00000001405EA813                 mov     eax, 11h
+  PAGE:00000001405EA818                 lock cmpxchg [rdi], r12
+  PAGE:00000001405EA81D                 jz      short loc_1405EA827
+  PAGE:00000001405EA81F                 mov     rcx, rdi
+  PAGE:00000001405EA822                 call    ExfReleasePushLockShared
+  PAGE:00000001405EA827                 ; BugCheckParameter2
+  PAGE:00000001405EA827                 mov     rcx, rdi; BugCheckParameter2
+  PAGE:00000001405EA82A                 call    KeAbPostRelease
+  PAGE:00000001405EA82F                 mov     rcx, rbx
+  PAGE:00000001405EA832                 call    AlpcpEndInitialization
+  PAGE:00000001405EA837                 mov     rax, [rsp+78h+arg_28]
+  PAGE:00000001405EA83F                 mov     [rax], rbx
+  PAGE:00000001405EA842                 xor     eax, eax
+  PAGE:00000001405EA844                 jmp     short loc_1405EA84B
+  PAGE:00000001405EA846                 mov     eax, 0C000000Dh
+  PAGE:00000001405EA84B                 lea     r11, [rsp+78h+var_18]
+  PAGE:00000001405EA850                 mov     rbx, [r11+20h]
+  PAGE:00000001405EA854                 mov     rbp, [r11+28h]
+  PAGE:00000001405EA858                 mov     rsi, [r11+30h]
+  PAGE:00000001405EA85C                 mov     rsp, r11
+  PAGE:00000001405EA85F                 pop     r15
+  PAGE:00000001405EA861                 pop     r12
+  PAGE:00000001405EA863                 pop     rdi
+  PAGE:00000001405EA864                 retn
+procedure: |-
+  __int64 __fastcall AlpcpCreateSection(_DWORD *Object, unsigned __int8 a2, char a3, void *a4, __int64 a5, ULONG_PTR *a6)
+  {
+    int v6; // ebp
+    void *Blob; // rax
+    ULONG_PTR v12; // rbx
+    NTSTATUS v13; // edi
+    volatile signed __int64 *v14; // rdi
+    _ALPC_HANDLE_TABLE *v15; // rcx
+    __int64 v16; // rax
+    PVOID v17; // [rsp+40h] [rbp-38h] BYREF
+    __int64 v18; // [rsp+48h] [rbp-30h] BYREF
+    ULONG_PTR v19; // [rsp+50h] [rbp-28h] BYREF
+
+    v6 = a2;
+    if ( !a5 || a4 && a2 )
+      return 3221225485LL;
+    if ( (Object[64] & 0x1000000) != 0 )
+      return 3221227270LL;
+    Blob = (void *)AlpcpAllocateBlob(AlpcSectionType, 72, 1);
+    v12 = (ULONG_PTR)Blob;
+    if ( !Blob )
+      return 3221225626LL;
+    memset(Blob, 0, 0x48u);
+    *(_QWORD *)(v12 + 32) = KeGetCurrentThread()->ApcState.Process;
+    *(_QWORD *)(v12 + 8) = ~((unsigned int)AlpcpRegionGranularity - 1LL)
+                         & (a5 + (unsigned int)(AlpcpRegionGranularity - 1));
+    *(_QWORD *)(v12 + 64) = v12 + 56;
+    *(_QWORD *)(v12 + 56) = v12 + 56;
+    if ( a4 )
+    {
+      v17 = nullptr;
+      v13 = ObReferenceObjectByHandle(a4, 6u, MmSectionObjectType, KeGetCurrentThread()->PreviousMode, &v17, nullptr);
+      *(_QWORD *)v12 = v17;
+    }
+    else
+    {
+      v18 = *(_QWORD *)(v12 + 8);
+      *(_DWORD *)(v12 + 48) = *(_DWORD *)(v12 + 48) ^ (*(_DWORD *)(v12 + 48) ^ (2 * v6)) & 2 | 1;
+      v13 = MmCreateSection(v12, 983071, 0, &v18, 4, 0x8000000, 0, 0);
+    }
+    if ( v13 < 0 )
+      goto LABEL_16;
+    v14 = (volatile signed __int64 *)(Object + 88);
+    ExAcquirePushLockSharedEx((ULONG_PTR)(Object + 88), 0);
+    if ( (Object[104] & 0x20) != 0 )
+    {
+      if ( _InterlockedCompareExchange64(v14, 0, 17) != 17 )
+        ExfReleasePushLockShared(Object + 88);
+      KeAbPostRelease((ULONG_PTR)(Object + 88));
+      v13 = -1073741769;
+  LABEL_16:
+      AlpcpDereferenceBlobEx((_ALPC_COMMUNICATION_INFO *)v12, 1);
+      return (unsigned int)v13;
+    }
+    ExAcquirePushLockExclusiveEx(v12 - 16, 0);
+    *(_BYTE *)(v12 - 32) |= 4u;
+    AlpcpReferenceBlob(v12);
+    if ( a3 )
+    {
+      v15 = (_ALPC_HANDLE_TABLE *)(*((_QWORD *)Object + 2) + 40LL);
+      v19 = v12;
+      *(_QWORD *)(v12 + 16) = v15;
+      v16 = AlpcAddHandleTableEntry(v15, (void **)&v19); // AlpcAddHandleTableEntry - target function to find
+      *(_QWORD *)(v12 + 24) = v16;
+      if ( v16 == -1 )
+      {
+        if ( _InterlockedCompareExchange64(v14, 0, 17) != 17 )
+          ExfReleasePushLockShared(Object + 88);
+        KeAbPostRelease((ULONG_PTR)(Object + 88));
+        *(_QWORD *)(v12 + 16) = 0;
+        AlpcpEndInitialization(v12);
+        AlpcpDereferenceBlobEx((_ALPC_COMMUNICATION_INFO *)v12, 2);
+        return 3221225626LL;
+      }
+    }
+    ObfReferenceObject(Object);
+    *(_QWORD *)(v12 + 40) = Object;
+    AlpcpInsertResourcePort(Object, v12);
+    if ( _InterlockedCompareExchange64(v14, 0, 17) != 17 )
+      ExfReleasePushLockShared(Object + 88);
+    KeAbPostRelease((ULONG_PTR)(Object + 88));
+    AlpcpEndInitialization(v12);
+    *a6 = v12;
+    return 0;
+  }
