@@ -57,6 +57,8 @@ modules:
         expected_output:
           - EgeGuid.yaml
           - EreGuidEntry.yaml
+        expected_input:
+          - EtwGetProviderIdFromHandle.yaml
 
       - name: find-EpObjectTable
         expected_output:
@@ -152,6 +154,8 @@ modules:
       - name: find-EpBreakOnTermination
         expected_output:
           - EpBreakOnTermination.yaml
+        expected_input:
+          - PspTerminateAllThreads.yaml
 
       - name: find-KpDirectoryTableBase
         expected_output:
@@ -180,6 +184,10 @@ modules:
       - name: find-PspEnumerateCallback
         expected_output:
           - PspEnumerateCallback.yaml
+
+      - name: find-PspTerminateAllThreads
+        expected_output:
+          - PspTerminateAllThreads.yaml
 
       - name: find-CmpEnumerateCallback
         optional_output:
