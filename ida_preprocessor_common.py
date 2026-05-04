@@ -255,7 +255,13 @@ async def preprocess_common_skill(
         if not isinstance(metadata, dict):
             return PREPROCESS_STATUS_FAILED
         func_xref = func_xrefs_map.get(target_symbol_name)
-        if has_pdb or func_xref is not None:
+        aliases = metadata.get("alias")
+        has_export_alias = (
+            not has_pdb
+            and isinstance(aliases, (list, tuple))
+            and bool(aliases)
+        )
+        if has_pdb or func_xref is not None or has_export_alias:
             payload = await preprocess_func_symbol(
                 session=session,
                 symbol_name=target_symbol_name,

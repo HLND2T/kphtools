@@ -6,7 +6,11 @@ from typing import Any
 
 import yaml
 
+from pe_resolver import resolve_export_symbol as resolve_pe_export_symbol
 from pdb_resolver import resolve_public_symbol
+
+
+_PE_BINARY_SUFFIXES = frozenset({".exe", ".sys", ".dll"})
 
 
 def _parse_tool_json_result(tool_result: Any) -> Any | None:
@@ -46,6 +50,45 @@ def _intersect_addr_sets(candidate_sets: list[set[int]]) -> set[int]:
 
 def _format_addr_set(addrs: set[int]) -> list[str]:
     return [hex(addr) for addr in sorted(addrs)]
+
+
+def _iter_pe_binary_candidates(binary_dir) -> list[Path]:
+    if binary_dir is None:
+        return []
+
+    root = Path(binary_dir)
+    if root.is_file():
+        return [root]
+
+    try:
+        return [
+            path
+            for path in sorted(root.iterdir())
+            if path.is_file() and path.suffix.lower() in _PE_BINARY_SUFFIXES
+        ]
+    except OSError:
+        return []
+
+
+def _resolve_func_export_from_binary_dir(
+    *,
+    binary_dir,
+    aliases: list[str],
+    debug: bool = False,
+) -> dict[str, int | str] | None:
+    for binary_path in _iter_pe_binary_candidates(binary_dir):
+        for lookup_name in aliases:
+            try:
+                return resolve_pe_export_symbol(binary_path, lookup_name)
+            except KeyError:
+                continue
+
+    if debug:
+        print(
+            "    Preprocess: PE export lookup failed for aliases "
+            f"{aliases!r} in {binary_dir}"
+        )
+    return None
 
 
 async def _collect_func_starts_for_code_addrs(
@@ -662,6 +705,15 @@ async def preprocess_func_symbol(
             return {"func_name": symbol_name, "func_rva": payload["rva"]}
         except KeyError:
             pass
+
+    if pdb_path is None and aliases:
+        payload = _resolve_func_export_from_binary_dir(
+            binary_dir=binary_dir,
+            aliases=list(aliases),
+            debug=debug,
+        )
+        if payload is not None:
+            return {"func_name": symbol_name, "func_rva": payload["rva"]}
 
     if func_xref is not None:
         return await preprocess_func_xrefs_symbol(

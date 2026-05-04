@@ -229,7 +229,7 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
                 payload,
             )
 
-    async def test_preprocess_common_skill_skips_pdb_preprocess_when_pdb_missing(
+    async def test_preprocess_common_skill_uses_export_preprocess_when_pdb_missing(
         self,
     ) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -237,24 +237,24 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
                 patch.object(
                     ida_preprocessor_common,
                     "preprocess_func_symbol",
-                    new=AsyncMock(return_value=None),
-                ) as mock_pdb_preprocess,
+                    new=AsyncMock(
+                        return_value={
+                            "func_name": "IoGetStackLimits",
+                            "func_rva": 0x2494F0,
+                        }
+                    ),
+                ) as mock_func_preprocess,
                 patch.object(
                     ida_preprocessor_common,
                     "resolve_symbol_via_llm_decompile",
-                    new=AsyncMock(
-                        return_value={
-                            "func_name": "ExReferenceCallBackBlock",
-                            "func_rva": 0x12340,
-                        }
-                    ),
+                    new=AsyncMock(return_value=None),
                 ) as mock_llm,
             ):
                 status = await ida_preprocessor_common.preprocess_common_skill(
                     session=AsyncMock(),
-                    skill=SimpleNamespace(name="find-ExReferenceCallBackBlock"),
+                    skill=SimpleNamespace(name="find-IoGetStackLimits"),
                     symbol=SimpleNamespace(
-                        name="ExReferenceCallBackBlock",
+                        name="IoGetStackLimits",
                         category="func",
                         data_type="uint32",
                     ),
@@ -262,34 +262,24 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
                     pdb_path=None,
                     debug=False,
                     llm_config={"model": "test-model", "api_key": "test-key"},
-                    func_names=["ExReferenceCallBackBlock"],
+                    func_names=["IoGetStackLimits"],
                     func_metadata={
-                        "ExReferenceCallBackBlock": {
-                            "alias": ["ExReferenceCallBackBlock"]
-                        }
+                        "IoGetStackLimits": {"alias": ["IoGetStackLimits"]}
                     },
-                    llm_decompile_specs=[
-                        (
-                            "ExReferenceCallBackBlock",
-                            "ExReferenceCallBackBlock",
-                            "prompt/call_llm_decompile.md",
-                            "references/ntoskrnl/Ref.{arch}.yaml",
-                        )
-                    ],
                     generate_yaml_desired_fields={
-                        "ExReferenceCallBackBlock": ["func_name", "func_rva"]
+                        "IoGetStackLimits": ["func_name", "func_rva"]
                     },
                 )
 
             self.assertEqual(ida_preprocessor_common.PREPROCESS_STATUS_SUCCESS, status)
-            mock_pdb_preprocess.assert_not_awaited()
-            mock_llm.assert_awaited_once()
-            payload = load_artifact(Path(temp_dir) / "ExReferenceCallBackBlock.yaml")
+            mock_func_preprocess.assert_awaited_once()
+            mock_llm.assert_not_awaited()
+            payload = load_artifact(Path(temp_dir) / "IoGetStackLimits.yaml")
             self.assertEqual(
                 {
                     "category": "func",
-                    "func_name": "ExReferenceCallBackBlock",
-                    "func_rva": 0x12340,
+                    "func_name": "IoGetStackLimits",
+                    "func_rva": 0x2494F0,
                 },
                 payload,
             )

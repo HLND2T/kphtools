@@ -165,6 +165,8 @@ modules:
       - name: find-KpDirectoryTableBase
         expected_output:
           - KpDirectoryTableBase.yaml
+        expected_input:
+          - MmCreateProcessAddressSpace.yaml
 
       - name: find-PspCreateProcessNotifyRoutine
         expected_output:
@@ -206,6 +208,10 @@ modules:
       - name: find-ObFindHandleForObject
         expected_output:
           - ObFindHandleForObject.yaml
+
+      - name: find-IoGetStackLimits
+        expected_output:
+          - IoGetStackLimits.yaml
 
       - name: find-PgInitContext
         expected_output:
