@@ -5,11 +5,14 @@
     uv run python dump_symbols.py
     uv run python dump_symbols.py -symboldir symbols -arch amd64
     uv run python dump_symbols.py -symboldir symbols -arch amd64,arm64 -force
+    uv run python dump_symbols.py -symboldir symbols -arch amd64 -version 10.0.26100.8246
 
 可用参数:
     -symboldir   符号根目录，默认 `symbols`。
     -configyaml  模块与符号配置文件，默认 `config.yaml`。
     -arch        要扫描的架构列表，逗号分隔；当前支持 `amd64`、`arm64`。
+    -version     只扫描指定版本目录，例如 `10.0.26100.8246`。
+    -skill       只执行指定名称的 skill，其他 skill 会被跳过。
     -agent       回退到外部 Agent CLI 时使用的可执行文件名，默认 `codex`。
     -force       即使预期 YAML 已存在，也强制重新生成。
     -debug       输出调试日志，并保留更多 MCP/子进程诊断信息。
@@ -241,7 +244,7 @@ async def _process_one_skill(
     if not force and _should_skip_for_existing_outputs(required_outputs, optional_outputs):
         _debug_log(debug, f"skipping {skill_name}; expected outputs already exist")
         return True
-    if _should_skip_for_existing_artifacts(binary_dir, skill):
+    if not force and _should_skip_for_existing_artifacts(binary_dir, skill):
         _debug_log(debug, f"skipping {skill_name}; skip_if_exists artifacts exist")
         return True
     if activity is not None:
@@ -437,6 +440,16 @@ def parse_args(argv=None):
         default=DEFAULT_ARCH,
         help="Comma-separated architectures to scan",
     )
+    parser.add_argument(
+        "-version",
+        default=None,
+        help="Exact binary version directory suffix to scan",
+    )
+    parser.add_argument(
+        "-skill",
+        default=None,
+        help="Exact skill name to run; all other skills are skipped",
+    )
     parser.add_argument("-agent", default="codex")
     parser.add_argument("-force", action="store_true")
     parser.add_argument("-debug", action="store_true")
@@ -478,6 +491,14 @@ def parse_args(argv=None):
         args.arches = _parse_arches(args.arch)
     except argparse.ArgumentTypeError as exc:
         parser.error(str(exc))
+    if args.version is not None:
+        args.version = args.version.strip()
+        if not args.version:
+            parser.error("-version cannot be empty")
+    if args.skill is not None:
+        args.skill = args.skill.strip()
+        if not args.skill:
+            parser.error("-skill cannot be empty")
     return args
 
 
@@ -591,6 +612,31 @@ def run_skill(
     return all(Path(path).exists() for path in expected_yaml_paths)
 
 
+def _select_skills_by_name(skills, selected_skill_name):
+    if selected_skill_name is None:
+        return skills
+
+    normalized_name = str(selected_skill_name).strip()
+    selected_skills = [
+        skill_item
+        for skill_item in skills
+        if _field(skill_item, "name") == normalized_name
+    ]
+    if selected_skills:
+        return selected_skills
+
+    available_skills = ", ".join(
+        str(_field(skill_item, "name"))
+        for skill_item in skills
+        if _field(skill_item, "name")
+    )
+    _progress(
+        f"Skill '{normalized_name}' not found; available skills: "
+        f"{available_skills or '(none)'}"
+    )
+    return None
+
+
 async def process_binary_dir(
     binary_dir,
     pdb_path,
@@ -600,30 +646,31 @@ async def process_binary_dir(
     debug,
     force,
     llm_config,
-    session=None,
-    activity=None,
-    arch=None,
+    session=None, activity=None, arch=None, skill=None,
 ):
     if activity is not None and "did_work" not in activity:
         activity["did_work"] = False
 
     current_arch = str(arch).strip().lower() if arch else _infer_arch_from_binary_dir(binary_dir)
     resolved_pdb_path = Path(pdb_path) if pdb_path is not None else None
-    skill_map = {_field(skill, "name"): skill for skill in skills}
+    skill_map = {_field(skill_item, "name"): skill_item for skill_item in skills}
     symbol_map = {_field(symbol, "name"): symbol for symbol in symbols}
+    selected_skills = _select_skills_by_name(skills, skill)
+    if selected_skills is None:
+        return False
 
-    for skill_name in topological_sort_skills(skills):
-        skill = skill_map[skill_name]
-        if not _skill_matches_arch(skill, current_arch):
+    for skill_name in topological_sort_skills(selected_skills):
+        current_skill = skill_map[skill_name]
+        if not _skill_matches_arch(current_skill, current_arch):
             _debug_log(
                 debug,
-                f"skipping {skill_name}; skill arch {_skill_arch(skill)} "
+                f"skipping {skill_name}; skill arch {_skill_arch(current_skill)} "
                 f"does not match {current_arch}",
             )
             continue
         ok = await _process_one_skill(
             skill_name=skill_name,
-            skill=skill,
+            skill=current_skill,
             symbol_map=symbol_map,
             binary_dir=binary_dir,
             pdb_path=resolved_pdb_path,
@@ -919,11 +966,16 @@ class LazyIdalibSession:
             raise
 
 
-def _iter_binary_dirs(symboldir: Path, arch: str, config):
+def _iter_binary_dirs(symboldir: Path, arch: str, config, version: str | None = None):
     arch_dir = Path(symboldir) / arch
+    version_filter = version.strip() if version else None
     for module in config.modules:
         for module_path in module.path:
-            for version_dir in sorted(arch_dir.glob(f"{module_path}.*")):
+            if version_filter:
+                version_dirs = [arch_dir / f"{module_path}.{version_filter}"]
+            else:
+                version_dirs = sorted(arch_dir.glob(f"{module_path}.*"))
+            for version_dir in version_dirs:
                 if not version_dir.is_dir():
                     continue
                 for sha_dir in sorted(version_dir.iterdir()):
@@ -984,6 +1036,7 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
             session=session,
             activity=activity,
             arch=getattr(args, "current_arch", None),
+            skill=getattr(args, "skill", None),
         )
         return ok, bool(activity["did_work"])
     finally:
@@ -1002,7 +1055,12 @@ def main(argv=None):
         arch_dir = Path(args.symboldir) / arch
         _progress(f"Scanning {arch_dir}")
 
-        candidates = list(_iter_binary_dirs(Path(args.symboldir), arch, config))
+        if getattr(args, "version", None):
+            candidates = list(
+                _iter_binary_dirs(Path(args.symboldir), arch, config, args.version)
+            )
+        else:
+            candidates = list(_iter_binary_dirs(Path(args.symboldir), arch, config))
         total_candidates += len(candidates)
         _progress(f"Found {len(candidates)} candidate binary directories")
         for module, binary_dir, pdb_path in candidates:
