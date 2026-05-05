@@ -257,7 +257,7 @@ uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -confi
  - All steps are running via Windows Command Prompt
 
 ```shell
-@echo Get latest kphdyn.xml
+@echo Download latest kphdyn.xml from upstream
 
 powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml' -OutFile kphdyn.official.xml"
 
@@ -271,7 +271,7 @@ uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKS
 ```
 
 ```shell
-@echo Download ntoskrnl via kphdyn.xml, this may takes hours for the first run
+@echo Download ntoskrnl exe and pdb, this may takes hours for the first run
 
 uv sync
 
@@ -287,7 +287,7 @@ uv run python dump_symbols.py -symboldir="%WORKSPACE%\symbols" -configyaml="%WOR
 ```
 
 ```shell
-@echo Export kphdyn.xml from YAML artifacts
+@echo Update kphdyn.xml with offsets from YAML artifacts
 
-uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -configyaml="%WORKSPACE%\config.yaml" -syncfile
+uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -configyaml="%WORKSPACE%\config.yaml"
 ```

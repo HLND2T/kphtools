@@ -1,0 +1,95 @@
+name: Build On Self Runner
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.repository == 'HLND2T/kphtools' || github.repository == 'hzqst/CS2_VibeSignatures'
+    environment: win64
+    runs-on: [self-hosted, windows, x64]
+    env:
+      PERSISTED_WORKSPACE: ${{ secrets.PERSISTED_WORKSPACE }}
+      KPHTOOLS_LLM_APIKEY: ${{ secrets.KPHTOOLS_LLM_APIKEY }}
+      KPHTOOLS_LLM_BASEURL: ${{ secrets.KPHTOOLS_LLM_BASEURL }}
+      KPHTOOLS_LLM_MODEL: ${{ secrets.KPHTOOLS_LLM_MODEL }}
+      KPHTOOLS_LLM_EFFORT: ${{ secrets.KPHTOOLS_LLM_EFFORT }}
+      KPHTOOLS_LLM_FAKE_AS: ${{ secrets.KPHTOOLS_LLM_FAKE_AS }}
+      KPHTOOLS_LLM_TEMPERATURE: ${{ secrets.KPHTOOLS_LLM_TEMPERATURE }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Prepare variables and validate environment configuration
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:PERSISTED_WORKSPACE)) {
+            throw "PERSISTED_WORKSPACE secret is not configured for the win64 environment."
+          }
+
+          "WORKSPACE=${{ github.workspace }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Create persisted symbols link
+        shell: cmd
+        run: |
+          @echo off
+          if "%PERSISTED_WORKSPACE%"=="" (
+            echo PERSISTED_WORKSPACE is not configured.
+            exit /b 1
+          )
+
+          if not exist "%PERSISTED_WORKSPACE%\symbols" mkdir "%PERSISTED_WORKSPACE%\symbols"
+
+          if exist "%WORKSPACE%\symbols" (
+            pwsh -NoProfile -Command "$item = Get-Item -LiteralPath '%WORKSPACE%\symbols' -Force; if (-not ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { Write-Error 'symbols exists but is not a directory junction or symlink.'; exit 1 }; $target = [string]$item.Target; if ($target -ne '%PERSISTED_WORKSPACE%\symbols') { Write-Error ('symbols link target mismatch: ' + $target); exit 1 }"
+            if errorlevel 1 exit /b 1
+          ) else (
+            mklink /d "%WORKSPACE%\symbols" "%PERSISTED_WORKSPACE%\symbols"
+          )
+
+      - name: Download latest kphdyn.xml from upstream
+        shell: cmd
+        run: |
+          @echo off
+          powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml' -OutFile kphdyn.official.xml"
+          copy kphdyn.official.xml kphdyn.xml /y
+
+      - name: Sync unmanaged ntoskrnl to kphdyn.xml
+        shell: cmd
+        run: |
+          @echo off
+          uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -syncfile
+
+      - name: Download ntoskrnl exe and pdb
+        shell: cmd
+        run: |
+          @echo off
+          uv sync
+          uv run python download_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -fast
+
+      - name: Analyze symbols and dump YAML artifacts
+        shell: cmd
+        run: |
+          @echo off
+          uv run python dump_symbols.py -symboldir="%WORKSPACE%\symbols" -configyaml="%WORKSPACE%\config.yaml"
+
+      - name: Update kphdyn.xml with offsets from YAML artifacts
+        shell: cmd
+        run: |
+          @echo off
+          uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -configyaml="%WORKSPACE%\config.yaml"
+
+      - name: Create release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          name: kphdyn-${{ github.ref_name }}
+          files: kphdyn.xml
