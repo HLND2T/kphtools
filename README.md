@@ -47,22 +47,26 @@ based on entries from `kphdyn.xml`
 ### Usage, [] for optional
 
 ```bash
-uv run python download_symbols.py -xml="path/to/kphdyn.xml" -symboldir="C:/Symbols" [-arch=amd64] [-version=10.0.10240.16393] [-symbol_server="https://msdl.microsoft.com/download/symbols"]
+uv run download_symbols.py [-xml="path/to/kphdyn.xml"] [-symboldir="path/to/symbols"] [-arch=amd64] [-version=10.0.10240.16393] [-symbol_server="https://msdl.microsoft.com/download/symbols"] [-fast]
 ```
 
 ### Possible environment variables
 
 ```bash
 export KPHTOOLS_XML="path/to/kphdyn.xml"
-export KPHTOOLS_SYMBOLDIR="C:/Symbols"
+export KPHTOOLS_SYMBOLDIR="path/to/symbols"
 ```
 
 ```bash
 set KPHTOOLS_XML=path/to/kphdyn.xml
-set KPHTOOLS_SYMBOLDIR=C:/Symbols
+set KPHTOOLS_SYMBOLDIR=path/to/symbols
 ```
 
-### Expected downloads
+### Example
+
+```bash
+uv run download_symbols.py -fast -symboldir="C:\\Symbols"
+```
 
 ```
 C:\Symbols\amd64\ntoskrnl.exe.10.0.10240.16393\{sha256}\ntoskrnl.exe
@@ -77,19 +81,17 @@ Where `{sha256}` is the lowercase SHA256 hash of the PE file (e.g., `68d5867b5e6
 `dump_symbols.py` is the primary analysis entry point.
 
 ```bash
-uv run python dump_symbols.py [-debug] [-version=10.0.26100.8246]
+uv run dump_symbols.py [-symboldir="path/to/symbols"] [-configyaml="config.yaml"] [-version=10.0.26100.8246] [-arch=amd64] [-debug]
 ```
 
-By default it uses `./symbols`, `config.yaml`, and scans both `amd64,arm64`. Use `-symboldir`, `-configyaml`, `-arch=amd64`, or `-version=10.0.26100.8246` to override.
-
-The script scans `symboldir/<arch>/<file>.<version>/<sha256>/`, resolves symbols into `{symbol}.yaml`, and writes them next to the corresponding PE/PDB files.
+The script scans `<symboldir>/<arch>/<file>.<version>/<sha256>/`, resolves symbols into `{symbol}.yaml`, and writes them next to the corresponding PE/PDB files.
 
 LLM fallback options are shared by preprocessor scripts that declare `LLM_DECOMPILE`:
 
 ```bash
-uv run python dump_symbols.py \
+uv run dump_symbols.py \
   -llm_model=gpt-5.4 \
-  -llm_apikey=your-key \
+  -llm_apikey=sk-xxxxxxxxxxxxxxxx \
   -llm_baseurl=https://api.example.com/v1 \
   -llm_temperature=0.2 \
   -llm_effort=medium \
@@ -100,14 +102,14 @@ The same values can be provided by `.env` or environment variables:
 
 ```bash
 KPHTOOLS_LLM_MODEL=gpt-5.4
-KPHTOOLS_LLM_APIKEY=your-key
+KPHTOOLS_LLM_APIKEY=sk-xxxxxxxxxxxxxxxx
 KPHTOOLS_LLM_BASEURL=https://api.example.com/v1
 KPHTOOLS_LLM_TEMPERATURE=0.2
 KPHTOOLS_LLM_EFFORT=high
 KPHTOOLS_LLM_FAKE_AS=codex
 ```
 
-When `-llm_fake_as=codex` is set, the LLM helper uses a direct `/responses` SSE transport; `-llm_baseurl` should point at the OpenAI-compatible `/v1` base URL.
+When `-llm_fake_as=codex` is set, the LLM helper uses a direct `/responses` SSE transport instead of `/competitions`; `-llm_baseurl` should point at the OpenAI-compatible `/v1` base URL.
 
 ## Generate reference YAML for LLM_DECOMPILE
 
@@ -118,13 +120,13 @@ When `-llm_fake_as=codex` is set, the LLM helper uses a direct `/responses` SSE 
 Attach to an existing MCP session:
 
 ```bash
-uv run python generate_reference_yaml.py -func_name="ExReferenceCallBackBlock"
+uv run generate_reference_yaml.py -func_name="ExReferenceCallBackBlock"
 ```
 
 Auto-start `idalib-mcp` for a specific binary:
 
 ```bash
-uv run python generate_reference_yaml.py \
+uv run generate_reference_yaml.py \
   -func_name="ExReferenceCallBackBlock" \
   -auto_start_mcp \
   -binary="symbols/amd64/ntoskrnl.exe.10.0.26100.1/{sha256}/ntoskrnl.exe"
@@ -157,7 +159,7 @@ The tuple fields are `(artifact_symbol_name, llm_query_name, prompt_path, refere
 `update_symbols.py` is now a YAML-to-XML exporter.
 
 ```bash
-uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -configyaml="config.yaml" -syncfile
+uv run update_symbols.py [-xml="kphdyn.xml"] [-symboldir="path/to/symbols"] [-configyaml="config.yaml"] -syncfile
 ```
 
 If a symbol YAML is missing or unresolved, `update_symbols.py` exports:
@@ -179,6 +181,8 @@ The server will:
 - Extract OriginalFilename and FileVersion from FileResource
 - Determine architecture (x86/amd64/arm64) from PE header
 - Store files to: `{symboldir}/{arch}/{FileName}.{FileVersion}/{FileSHA256}/{FileName}`
+- Write the HTTP POST upload code yourself (or ask LLM agent).
+- Check nginx / CDN for https support
 
 Example:
 - If `-symboldir="C:/Symbols"`, `arch=amd64`, `FileName=ntoskrnl.exe`, `FileVersion=10.0.22621.741`
@@ -187,7 +191,7 @@ Example:
 ### Usage, [] for optional
 
 ```bash
-uv run python upload_server.py -symboldir="C:/Symbols" [-port=8000]
+uv run upload_server.py [-symboldir="path/to/symbols"] [-port=8000]
 ```
 
 ### Possible environment variables
@@ -240,15 +244,6 @@ curl "http://localhost:8000/"
 {"status": "healthy"}
 ```
 
-## Migrated symbol analysis workflow
-
-Use the migrated workflow:
-
-```bash
-uv run python dump_symbols.py
-uv run python update_symbols.py -xml="kphdyn.xml" -symboldir="C:/Symbols" -configyaml="config.yaml" -syncfile
-```
-
 ## Reference workflow in Jenkins (Windows)
 
  - First run may takes hours downloading PE and PDB files.
@@ -267,7 +262,7 @@ copy kphdyn.official.xml kphdyn.xml /y
 ```shell
 @echo Sync unmanaged ntoskrnl to kphdyn.xml
 
-uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -syncfile
+uv run update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -syncfile
 ```
 
 ```shell
@@ -275,19 +270,17 @@ uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKS
 
 uv sync
 
-uv run python download_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -fast
-
-exit 0
+uv run download_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -fast
 ```
 
 ```shell
 @echo Analyze symbols and dump YAML artifacts
 
-uv run python dump_symbols.py -symboldir="%WORKSPACE%\symbols" -configyaml="%WORKSPACE%\config.yaml"
+uv run dump_symbols.py -symboldir="%WORKSPACE%\symbols" -configyaml="%WORKSPACE%\config.yaml"
 ```
 
 ```shell
 @echo Update kphdyn.xml with offsets from YAML artifacts
 
-uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -configyaml="%WORKSPACE%\config.yaml"
+uv run update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -configyaml="%WORKSPACE%\config.yaml"
 ```
