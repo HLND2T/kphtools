@@ -1,0 +1,82 @@
+func_name: SepQueryTypeString
+func_va: '0x1409208e4'
+disasm_code: |-
+  PAGE:00000001409208E4                 mov     rax, rsp
+  PAGE:00000001409208E7                 mov     [rax+8], rbx
+  PAGE:00000001409208EB                 push    rdi
+  PAGE:00000001409208EC                 sub     rsp, 30h
+  PAGE:00000001409208F0                 and     qword ptr [rdx], 0
+  PAGE:00000001409208F4                 lea     r9, [rax+10h]
+  PAGE:00000001409208F8                 and     dword ptr [rax+10h], 0
+  PAGE:00000001409208FC                 mov     rbx, rdx
+  PAGE:00000001409208FF                 xorps   xmm0, xmm0
+  PAGE:0000000140920902                 lea     rdx, [rax-18h]
+  PAGE:0000000140920906                 xor     r8d, r8d
+  PAGE:0000000140920909                 mov     rdi, rcx
+  PAGE:000000014092090C                 movups  xmmword ptr [rax-18h], xmm0
+  PAGE:0000000140920910                 call    ObQueryTypeName ; ObQueryTypeName - target function to find
+  PAGE:0000000140920915                 cmp     eax, 0C0000004h
+  PAGE:000000014092091A                 jnz     short loc_140920968
+  PAGE:000000014092091C                 ; NumberOfBytes
+  PAGE:000000014092091C                 mov     edx, dword ptr [rsp+38h+NumberOfBytes]; NumberOfBytes
+  PAGE:0000000140920920                 ; PoolType
+  PAGE:0000000140920920                 mov     ecx, 1; PoolType
+  PAGE:0000000140920925                 ; Tag
+  PAGE:0000000140920925                 mov     r8d, 6E546553h; Tag
+  PAGE:000000014092092B                 call    ExAllocatePoolWithTag
+  PAGE:0000000140920930                 mov     [rbx], rax
+  PAGE:0000000140920933                 test    rax, rax
+  PAGE:0000000140920936                 jz      short loc_140920963
+  PAGE:0000000140920938                 mov     r8d, dword ptr [rsp+38h+NumberOfBytes]
+  PAGE:000000014092093D                 lea     r9, [rsp+38h+NumberOfBytes]
+  PAGE:0000000140920942                 mov     rdx, rax
+  PAGE:0000000140920945                 mov     rcx, rdi
+  PAGE:0000000140920948                 call    ObQueryTypeName ; ObQueryTypeName - target function to find
+  PAGE:000000014092094D                 test    eax, eax
+  PAGE:000000014092094F                 jns     short loc_140920968
+  PAGE:0000000140920951                 ; P
+  PAGE:0000000140920951                 mov     rcx, [rbx]; P
+  PAGE:0000000140920954                 ; Tag
+  PAGE:0000000140920954                 xor     edx, edx; Tag
+  PAGE:0000000140920956                 call    ExFreePoolWithTag
+  PAGE:000000014092095B                 and     qword ptr [rbx], 0
+  PAGE:000000014092095F                 xor     eax, eax
+  PAGE:0000000140920961                 jmp     short loc_140920968
+  PAGE:0000000140920963                 mov     eax, 0C000009Ah
+  PAGE:0000000140920968                 mov     rbx, [rsp+38h+arg_0]
+  PAGE:000000014092096D                 add     rsp, 30h
+  PAGE:0000000140920971                 pop     rdi
+  PAGE:0000000140920972                 retn
+procedure: |-
+  __int64 __fastcall SepQueryTypeString(__int64 a1, PVOID *a2)
+  {
+    __int64 result; // rax
+    PVOID PoolWithTag; // rax
+    __int128 v6; // [rsp+20h] [rbp-18h] BYREF
+    SIZE_T NumberOfBytes; // [rsp+48h] [rbp+10h] BYREF
+
+    *a2 = nullptr;
+    LODWORD(NumberOfBytes) = 0;
+    v6 = 0;
+    result = ObQueryTypeName(a1, (__int64)&v6, 0, &NumberOfBytes); // ObQueryTypeName - target function to find
+    if ( (_DWORD)result == 0xC0000004 )
+    {
+      PoolWithTag = ExAllocatePoolWithTag(PagedPool, (unsigned int)NumberOfBytes, 'nTeS');
+      *a2 = PoolWithTag;
+      if ( PoolWithTag )
+      {
+        result = ObQueryTypeName(a1, (__int64)PoolWithTag, NumberOfBytes, &NumberOfBytes); // ObQueryTypeName - target function to find
+        if ( (int)result < 0 )
+        {
+          ExFreePoolWithTag(*a2, 0);
+          *a2 = nullptr;
+          return 0;
+        }
+      }
+      else
+      {
+        return 0xC000009ALL;
+      }
+    }
+    return result;
+  }

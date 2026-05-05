@@ -1,0 +1,213 @@
+func_name: MiSectionInitialization
+func_va: '0x140a581d0'
+disasm_code: |-
+  INIT:0000000140A581D0                 mov     [rsp-8+arg_10], rbx
+  INIT:0000000140A581D5                 mov     [rsp-8+arg_18], rsi
+  INIT:0000000140A581DA                 push    rbp
+  INIT:0000000140A581DB                 lea     rbp, [rsp-20h]
+  INIT:0000000140A581E0                 sub     rsp, 120h
+  INIT:0000000140A581E7                 and     [rsp+120h+var_AC], 0
+  INIT:0000000140A581EC                 lea     rax, aSection ; "Section"
+  INIT:0000000140A581F3                 and     [rbp+20h+var_94], 0
+  INIT:0000000140A581F7                 ; void *
+  INIT:0000000140A581F7                 lea     rcx, [rbp+20h+var_80]; void *
+  INIT:0000000140A581FB                 and     [rbp+20h+Object], 0
+  INIT:0000000140A58200                 mov     ebx, 78h ; 'x'
+  INIT:0000000140A58205                 and     [rbp+20h+arg_8], 0
+  INIT:0000000140A5820A                 ; Size
+  INIT:0000000140A5820A                 mov     r8d, ebx; Size
+  INIT:0000000140A5820D                 or      cs:dword_140C4EBD0, 0FFFFFFFFh
+  INIT:0000000140A58214                 ; Val
+  INIT:0000000140A58214                 xor     edx, edx; Val
+  INIT:0000000140A58216                 and     cs:qword_140C4C808, 0
+  INIT:0000000140A5821E                 mov     [rsp+120h+var_C8], rax
+  INIT:0000000140A58223                 lea     rax, aDevicePhysical ; "\\Device\\PhysicalMemory"
+  INIT:0000000140A5822A                 mov     [rsp+120h+var_B8], rax
+  INIT:0000000140A5822F                 mov     [rsp+120h+var_D0], 10000Eh
+  INIT:0000000140A58238                 mov     [rsp+120h+var_C0], 2E002Ch
+  INIT:0000000140A58241                 call    memset
+  INIT:0000000140A58246                 movups  xmm0, cs:MiSectionMapping ; MiSectionMapping function pointer
+  INIT:0000000140A5824D                 or      [rbp+20h+var_7E], 4
+  INIT:0000000140A58251                 lea     rax, MiSectionOpen ; MiSectionOpen function pointer (open routine)
+  INIT:0000000140A58258                 mov     [rbp+20h+var_48], rax ; stores MiSectionOpen into object type open routine slot
+  INIT:0000000140A5825C                 lea     r9, MmSectionObjectType
+  INIT:0000000140A58263                 lea     rax, MiSectionClose ; MiSectionClose function pointer (close routine)
+  INIT:0000000140A5826A                 mov     [rbp+20h+var_80], bx
+  INIT:0000000140A5826E                 mov     [rbp+20h+var_40], rax ; stores MiSectionClose into object type close routine slot
+  INIT:0000000140A58272                 lea     rdx, [rbp+20h+var_80]
+  INIT:0000000140A58276                 lea     rax, MiSectionDelete ; MiSectionDelete function pointer (delete routine)
+  INIT:0000000140A5827D                 mov     [rbp+20h+var_5C], 1
+  INIT:0000000140A58284                 mov     ebx, 100h
+  INIT:0000000140A58289                 mov     [rbp+20h+var_38], rax ; stores MiSectionDelete into object type delete routine slot
+  INIT:0000000140A5828D                 xor     r8d, r8d
+  INIT:0000000140A58290                 mov     [rbp+20h+var_78], ebx
+  INIT:0000000140A58293                 lea     rcx, [rsp+120h+var_D0]
+  INIT:0000000140A58298                 mov     [rbp+20h+var_58], 40h ; '@'
+  INIT:0000000140A5829F                 mov     [rbp+20h+var_64], 0F001Fh
+  INIT:0000000140A582A6                 movdqu  [rbp+20h+var_74], xmm0
+  INIT:0000000140A582AB                 mov     [rbp+20h+var_7C], 80h
+  INIT:0000000140A582B2                 call    ObCreateObjectType
+  INIT:0000000140A582B7                 test    eax, eax
+  INIT:0000000140A582B9                 js      loc_140A583F8
+  INIT:0000000140A582BF                 mov     edx, 48h ; 'H'
+  INIT:0000000140A582C4                 mov     r8d, 67536D4Dh ; pool tag 'gSmM' = 0x67536D4D (MmSg)
+  INIT:0000000140A582CA                 mov     ecx, ebx
+  INIT:0000000140A582CC                 call    MiAllocatePool
+  INIT:0000000140A582D1                 mov     rbx, rax
+  INIT:0000000140A582D4                 test    rax, rax
+  INIT:0000000140A582D7                 jz      loc_140A583F8
+  INIT:0000000140A582DD                 ; Val
+  INIT:0000000140A582DD                 xor     edx, edx; Val
+  INIT:0000000140A582DF                 ; void *
+  INIT:0000000140A582DF                 lea     rcx, qword_140C4C830; void *
+  INIT:0000000140A582E6                 ; Size
+  INIT:0000000140A582E6                 mov     r8d, 110h; Size
+  INIT:0000000140A582EC                 call    memset
+  INIT:0000000140A582F1                 and     qword ptr [rbx+28h], 0
+  INIT:0000000140A582F6                 lea     rax, [rsp+120h+var_C0]
+  INIT:0000000140A582FB                 bts     cs:dword_140C4C8F8, 0Ah
+  INIT:0000000140A58303                 lea     rsi, qword_140C4C8C0
+  INIT:0000000140A5830A                 and     [rsp+120h+var_A8], 0
+  INIT:0000000140A58310                 lea     r8, [rsp+120h+var_B0]
+  INIT:0000000140A58315                 mov     [rbp+20h+var_A0], rax
+  INIT:0000000140A58319                 xorps   xmm0, xmm0
+  INIT:0000000140A5831C                 lea     rax, [rbp+20h+Object]
+  INIT:0000000140A58320                 mov     cs:qword_140C4C830, rsi
+  INIT:0000000140A58327                 mov     [rsp+120h+var_E0], rax
+  INIT:0000000140A5832C                 xor     r9d, r9d
+  INIT:0000000140A5832F                 and     [rsp+120h+var_E8], 0
+  INIT:0000000140A58334                 xor     ecx, ecx
+  INIT:0000000140A58336                 mov     cs:qword_140C4C8C0, rbx
+  INIT:0000000140A5833D                 mov     cs:qword_140C4C8D8, 1
+  INIT:0000000140A58348                 mov     [rsp+120h+var_F0], 40h ; '@'
+  INIT:0000000140A58350                 mov     [rbx], rsi
+  INIT:0000000140A58353                 mov     rdx, cs:MmSectionObjectType
+  INIT:0000000140A5835A                 mov     dword ptr [rsp+120h+Handle], 40h ; '@'
+  INIT:0000000140A58362                 and     [rsp+120h+var_100], 0
+  INIT:0000000140A58368                 mov     [rsp+120h+var_B0], 30h ; '0'
+  INIT:0000000140A58370                 mov     [rbp+20h+var_98], 10010h
+  INIT:0000000140A58377                 movdqu  [rbp+20h+var_90], xmm0
+  INIT:0000000140A5837C                 call    ObCreateObject
+  INIT:0000000140A58381                 test    eax, eax
+  INIT:0000000140A58383                 js      loc_140A83AF2
+  INIT:0000000140A58389                 ; Object
+  INIT:0000000140A58389                 mov     rcx, [rbp+20h+Object]; Object
+  INIT:0000000140A5838D                 lea     rdx, [rbp+20h+arg_8]
+  INIT:0000000140A58391                 mov     rax, 0FFFFFFFFFFFFh
+  INIT:0000000140A5839B                 ; Handle
+  INIT:0000000140A5839B                 mov     [rsp+120h+Handle], rdx; Handle
+  INIT:0000000140A583A0                 and     [rsp+120h+var_100], 0
+  INIT:0000000140A583A6                 ; ObjectPointerBias
+  INIT:0000000140A583A6                 xor     r9d, r9d; ObjectPointerBias
+  INIT:0000000140A583A9                 ; PassedAccessState
+  INIT:0000000140A583A9                 xor     edx, edx; PassedAccessState
+  INIT:0000000140A583AB                 mov     [rcx+28h], rsi
+  INIT:0000000140A583AF                 mov     [rcx+30h], rax
+  INIT:0000000140A583B3                 and     dword ptr [rcx+38h], 0
+  INIT:0000000140A583B7                 ; DesiredAccess
+  INIT:0000000140A583B7                 lea     r8d, [r9+4]; DesiredAccess
+  INIT:0000000140A583BB                 mov     eax, [rcx+3Ch]
+  INIT:0000000140A583BE                 and     eax, 0FFFFF040h
+  INIT:0000000140A583C3                 or      eax, 40h
+  INIT:0000000140A583C6                 mov     [rcx+3Ch], eax
+  INIT:0000000140A583C9                 call    ObInsertObject
+  INIT:0000000140A583CE                 test    eax, eax
+  INIT:0000000140A583D0                 js      short loc_140A583F8
+  INIT:0000000140A583D2                 ; Handle
+  INIT:0000000140A583D2                 mov     rcx, [rbp+20h+arg_8]; Handle
+  INIT:0000000140A583D6                 ; PreviousMode
+  INIT:0000000140A583D6                 xor     edx, edx; PreviousMode
+  INIT:0000000140A583D8                 call    ObCloseHandle
+  INIT:0000000140A583DD                 mov     eax, 1
+  INIT:0000000140A583E2                 lea     r11, [rsp+120h+var_s0]
+  INIT:0000000140A583EA                 mov     rbx, [r11+20h]
+  INIT:0000000140A583EE                 mov     rsi, [r11+28h]
+  INIT:0000000140A583F2                 mov     rsp, r11
+  INIT:0000000140A583F5                 pop     rbp
+  INIT:0000000140A583F6                 retn
+  INIT:0000000140A583F8                 xor     eax, eax
+  INIT:0000000140A583FA                 jmp     short loc_140A583E2
+  INIT:0000000140A83AF2                 ; Tag
+  INIT:0000000140A83AF2                 xor     edx, edx; Tag
+  INIT:0000000140A83AF4                 ; P
+  INIT:0000000140A83AF4                 mov     rcx, rbx; P
+  INIT:0000000140A83AF7                 call    ExFreePoolWithTag
+  INIT:0000000140A83AFC                 nop
+  INIT:0000000140A83AFD                 jmp     loc_140A583F8
+procedure: |-
+  __int64 MiSectionInitialization()
+  {
+    _QWORD *Pool; // rbx
+    _QWORD *v1; // rcx
+    UNICODE_STRING v3; // [rsp+50h] [rbp-B0h] BYREF
+    _QWORD v4[2]; // [rsp+60h] [rbp-A0h] BYREF
+    _DWORD v5[2]; // [rsp+70h] [rbp-90h] BYREF
+    __int64 v6; // [rsp+78h] [rbp-88h]
+    _QWORD *v7; // [rsp+80h] [rbp-80h]
+    int v8; // [rsp+88h] [rbp-78h]
+    int v9; // [rsp+8Ch] [rbp-74h]
+    __int128 v10; // [rsp+90h] [rbp-70h]
+    _QWORD v11[16]; // [rsp+A0h] [rbp-60h] BYREF
+    PVOID Object; // [rsp+130h] [rbp+30h] BYREF
+    HANDLE Handle; // [rsp+138h] [rbp+38h] BYREF
+
+    v5[1] = 0;
+    v9 = 0;
+    Object = nullptr;
+    Handle = nullptr;
+    dword_140C4EBD0 = -1;
+    qword_140C4C808 = 0;
+    v3.Buffer = L"Section"; // unicode string "Section" (object type name)
+    v4[1] = L"\\Device\\PhysicalMemory"; // unicode string "\\Device\\PhysicalMemory" (device name)
+    *(_QWORD *)&v3.Length = 1048590;
+    v4[0] = 3014700;
+    memset(v11, 0, 0x78u);
+    BYTE2(v11[0]) |= 4u;
+    v11[7] = MiSectionOpen; // object type open routine = MiSectionOpen
+    LOWORD(v11[0]) = 120;
+    v11[8] = MiSectionClose; // object type close routine = MiSectionClose
+    HIDWORD(v11[4]) = 1;
+    v11[9] = MiSectionDelete; // object type delete routine = MiSectionDelete
+    LODWORD(v11[1]) = 256;
+    LODWORD(v11[5]) = 64;
+    HIDWORD(v11[3]) = 983071;
+    *(_OWORD *)((char *)&v11[1] + 4) = MiSectionMapping; // object type mapping routine = MiSectionMapping
+    HIDWORD(v11[0]) = 128;
+    if ( (int)ObCreateObjectType(&v3, (__int64)v11, 0, (__int64)&MmSectionObjectType) >= 0 )
+    {
+      Pool = (_QWORD *)MiAllocatePool(256, 72, 'gSmM'); // pool tag 'gSmM' = 0x67536D4D
+      if ( Pool )
+      {
+        memset(&qword_140C4C830, 0, 0x110u);
+        Pool[5] = 0;
+        dword_140C4C8F8 |= 0x400u;
+        v6 = 0;
+        v7 = v4;
+        qword_140C4C830 = (__int64)&qword_140C4C8C0;
+        qword_140C4C8C0 = (__int64)Pool;
+        qword_140C4C8D8 = 1;
+        *Pool = &qword_140C4C8C0;
+        v5[0] = 48;
+        v8 = 65552;
+        v10 = 0;
+        if ( (int)ObCreateObject(0, (_DWORD)MmSectionObjectType, (unsigned int)v5, 0, 0, 64, 64, 0, (__int64)&Object) < 0 )
+        {
+          ExFreePoolWithTag(Pool, 0);
+        }
+        else
+        {
+          v1 = Object;
+          *((_QWORD *)Object + 5) = &qword_140C4C8C0;
+          v1[6] = 0xFFFFFFFFFFFFLL;
+          *((_DWORD *)v1 + 14) = 0;
+          *((_DWORD *)v1 + 15) = *((_DWORD *)v1 + 15) & 0xFFFFF000 | 0x40;
+          if ( ObInsertObject(v1, nullptr, 4u, 0, nullptr, &Handle) >= 0 )
+          {
+            ObCloseHandle(Handle, 0);
+            return 1;
+          }
+        }
+      }
+    }
+    return 0;
+  }

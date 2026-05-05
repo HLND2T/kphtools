@@ -1,250 +1,496 @@
 modules:
-- name: ntoskrnl
-  path:
-  - ntoskrnl.exe
-  - ntkrla57.exe
-  skills:
-  - name: find-AlpcpInitSystem
-    expected_output:
-    - AlpcpInitSystem.yaml
-  - name: find-EgeGuid-AND-EreGuidEntry
-    expected_output:
-    - EgeGuid.yaml
-    - EreGuidEntry.yaml
-  - name: find-EpObjectTable
-    expected_output:
-    - EpObjectTable.yaml
-  - name: find-OtName
-    expected_output:
-    - OtName.yaml
-  - name: find-OtIndex
-    expected_output:
-    - OtIndex.yaml
-  - name: find-ObAttributesShift-AND-ObDecodeShift-AND-HtHandleContentionEvent
-    expected_output:
-    - ObAttributesShift.yaml
-    - ObDecodeShift.yaml
-    - HtHandleContentionEvent.yaml
-  - name: find-AlpcHandleTable-AND-AlpcPortContext-AND-AlpcPortObjectLock
-    expected_output:
-    - AlpcHandleTable.yaml
-    - AlpcPortContext.yaml
-    - AlpcPortObjectLock.yaml
-  - name: find-AlpcHandleTableLock
-    expected_output:
-    - AlpcHandleTableLock.yaml
-  - name: find-AlpcAttributes-AND-AlpcAttributesFlags-AND-AlpcCommunicationInfo-AND-AlpcOwnerProcess-AND-AlpcConnectionPort-AND-AlpcServerCommunicationPort-AND-AlpcClientCommunicationPort
-    expected_output:
-    - AlpcAttributes.yaml
-    - AlpcAttributesFlags.yaml
-    - AlpcCommunicationInfo.yaml
-    - AlpcOwnerProcess.yaml
-    - AlpcConnectionPort.yaml
-    - AlpcServerCommunicationPort.yaml
-    - AlpcClientCommunicationPort.yaml
-  - name: find-AlpcSequenceNo-AND-AlpcState
-    expected_output:
-    - AlpcSequenceNo.yaml
-    - AlpcState.yaml
-  - name: find-KtInitialStack-AND-KtStackBase-AND-KtStackLimit
-    expected_output:
-    - KtInitialStack.yaml
-    - KtStackBase.yaml
-    - KtStackLimit.yaml
-  - name: find-KtKernelStack
-    expected_output:
-    - KtKernelStack.yaml
-  - name: find-KtReadOperationCount-AND-KtWriteOperationCount-AND-KtOtherOperationCount-AND-KtReadTransferCount-AND-KtWriteTransferCount-AND-KtOtherTransferCount
-    expected_output:
-    - KtReadOperationCount.yaml
-    - KtWriteOperationCount.yaml
-    - KtOtherOperationCount.yaml
-    - KtReadTransferCount.yaml
-    - KtWriteTransferCount.yaml
-    - KtOtherTransferCount.yaml
-  - name: find-MmSectionControlArea
-    expected_output:
-    - MmSectionControlArea.yaml
-  - name: find-MmControlAreaListHead
-    expected_output:
-    - MmControlAreaListHead.yaml
-  - name: find-MmControlAreaLock
-    expected_output:
-    - MmControlAreaLock.yaml
-  - name: find-EpCookie-AND-EpSectionObject
-    expected_output:
-    - EpCookie.yaml
-    - EpSectionObject.yaml
-  - name: find-EpProtection
-    expected_output:
-    - EpProtection.yaml
-  - name: find-EpBreakOnTermination
-    expected_output:
-    - EpBreakOnTermination.yaml
-  - name: find-KpDirectoryTableBase
-    expected_output:
-    - KpDirectoryTableBase.yaml
-  - name: find-PspCreateProcessNotifyRoutine
-    expected_output:
-    - PspCreateProcessNotifyRoutine.yaml
-  - name: find-PspLoadImageNotifyRoutine
-    expected_output:
-    - PspLoadImageNotifyRoutine.yaml
-  - name: find-PspCreateThreadNotifyRoutine
-    expected_output:
-    - PspCreateThreadNotifyRoutine.yaml
-  - name: find-ExReferenceCallBackBlock
-    expected_output:
-    - ExReferenceCallBackBlock.yaml
-  - name: find-ExDereferenceCallBackBlock
-    expected_output:
-    - ExDereferenceCallBackBlock.yaml
-  - name: find-PspEnumerateCallback
-    expected_output:
-    - PspEnumerateCallback.yaml
-  - name: find-CmpEnumerateCallback
-    expected_output:
-    - CmpEnumerateCallback.yaml
+  - name: ntoskrnl
 
-  symbols:
-  - name: EgeGuid
-    category: struct_offset
-    data_type: uint16
-  - name: EpObjectTable
-    category: struct_offset
-    data_type: uint16
-  - name: EreGuidEntry
-    category: struct_offset
-    data_type: uint16
-  - name: HtHandleContentionEvent
-    category: struct_offset
-    data_type: uint16
-  - name: OtName
-    category: struct_offset
-    data_type: uint16
-  - name: OtIndex
-    category: struct_offset
-    data_type: uint16
-  - name: ObDecodeShift
-    category: struct_offset
-    data_type: uint16
-  - name: ObAttributesShift
-    category: struct_offset
-    data_type: uint16
-  - name: AlpcCommunicationInfo
-    category: struct_offset
-    data_type: uint16
-  - name: AlpcOwnerProcess
-    category: struct_offset
-    data_type: uint16
-  - name: AlpcConnectionPort
-    category: struct_offset
-    data_type: uint16
-  - name: AlpcServerCommunicationPort
-    category: struct_offset
-    data_type: uint16
-  - name: AlpcClientCommunicationPort
-    category: struct_offset
-    data_type: uint16
-  - name: AlpcHandleTable
-    category: struct_offset
-    data_type: uint16
-  - name: AlpcHandleTableLock
-    category: struct_offset
-    data_type: uint16
-  - name: AlpcAttributes
-    category: struct_offset
-    data_type: uint16
-  - name: AlpcAttributesFlags
-    category: struct_offset
-    data_type: uint16
-  - name: AlpcPortContext
-    category: struct_offset
-    data_type: uint16
-  - name: AlpcPortObjectLock
-    category: struct_offset
-    data_type: uint16
-  - name: AlpcSequenceNo
-    category: struct_offset
-    data_type: uint16
-  - name: AlpcState
-    category: struct_offset
-    data_type: uint16
-  - name: AlpcpInitSystem
-    category: func
-    data_type: uint32
-  - name: KtInitialStack
-    category: struct_offset
-    data_type: uint16
-  - name: KtStackLimit
-    category: struct_offset
-    data_type: uint16
-  - name: KtStackBase
-    category: struct_offset
-    data_type: uint16
-  - name: KtKernelStack
-    category: struct_offset
-    data_type: uint16
-  - name: KtReadOperationCount
-    category: struct_offset
-    data_type: uint16
-  - name: KtWriteOperationCount
-    category: struct_offset
-    data_type: uint16
-  - name: KtOtherOperationCount
-    category: struct_offset
-    data_type: uint16
-  - name: KtReadTransferCount
-    category: struct_offset
-    data_type: uint16
-  - name: KtWriteTransferCount
-    category: struct_offset
-    data_type: uint16
-  - name: KtOtherTransferCount
-    category: struct_offset
-    data_type: uint16
-  - name: MmSectionControlArea
-    category: struct_offset
-    data_type: uint16
-  - name: MmControlAreaListHead
-    category: struct_offset
-    data_type: uint16
-  - name: MmControlAreaLock
-    category: struct_offset
-    data_type: uint16
-  - name: EpSectionObject
-    category: struct_offset
-    data_type: uint16
-  - name: EpProtection
-    category: struct_offset
-    data_type: uint16
-  - name: EpCookie
-    category: struct_offset
-    data_type: uint16
-  - name: EpBreakOnTermination
-    category: struct_offset
-    data_type: uint16
-  - name: KpDirectoryTableBase
-    category: struct_offset
-    data_type: uint16
-  - name: PspCreateProcessNotifyRoutine
-    category: gv
-    data_type: uint32
-  - name: PspLoadImageNotifyRoutine
-    category: gv
-    data_type: uint32
-  - name: PspCreateThreadNotifyRoutine
-    category: gv
-    data_type: uint32
-  - name: ExReferenceCallBackBlock
-    category: func
-    data_type: uint32
-  - name: ExDereferenceCallBackBlock
-    category: func
-    data_type: uint32
-  - name: PspEnumerateCallback
-    category: func
-    data_type: uint32
-  - name: CmpEnumerateCallback
-    category: func
-    data_type: uint32
+    path:
+      - ntoskrnl.exe
+      - ntkrla57.exe
+
+    skills:
+
+      - name: find-AlpcpInitSystem
+        expected_output:
+          - AlpcpInitSystem.yaml
+
+      - name: find-AlpcpDeletePort-AND-ObCreateObjectTypeEx
+        expected_input:
+          - AlpcpInitSystem.yaml
+        expected_output:
+          - AlpcpDeletePort.yaml
+          - ObCreateObjectTypeEx.yaml
+
+      - name: find-NtSecureConnectPort
+        expected_output:
+          - NtSecureConnectPort.yaml
+
+      - name: find-NtAlpcCreatePortSection
+        expected_output:
+          - NtAlpcCreatePortSection.yaml
+
+      - name: find-NtAlpcDisconnectPort
+        expected_output:
+          - NtAlpcDisconnectPort.yaml
+
+      - name: find-AlpcpDisconnectPort
+        expected_input:
+          - NtAlpcDisconnectPort.yaml
+        expected_output:
+          - AlpcpDisconnectPort.yaml
+
+      - name: find-AlpcpCreateSection
+        expected_input:
+          - NtAlpcCreatePortSection.yaml
+        expected_output:
+          - AlpcpCreateSection.yaml
+
+      - name: find-AlpcAddHandleTableEntry
+        expected_input:
+          - AlpcpCreateSection.yaml
+        expected_output:
+          - AlpcAddHandleTableEntry.yaml
+
+      - name: find-AlpcpCreateClientPort
+        expected_input:
+          - NtSecureConnectPort.yaml
+        expected_output:
+          - AlpcpCreateClientPort.yaml
+
+      - name: find-EgeGuid-AND-EreGuidEntry
+        expected_output:
+          - EgeGuid.yaml
+          - EreGuidEntry.yaml
+        expected_input:
+          - EtwGetProviderIdFromHandle.yaml
+
+      - name: find-EpObjectTable
+        expected_output:
+          - EpObjectTable.yaml
+        expected_input:
+          - ObReferenceProcessHandleTable.yaml
+
+      - name: find-SepQueryTypeString
+        expected_output:
+          - SepQueryTypeString.yaml
+
+      - name: find-ObQueryTypeName
+        expected_output:
+          - ObQueryTypeName.yaml
+        expected_input:
+          - SepQueryTypeString.yaml
+
+      - name: find-OtName
+        expected_output:
+          - OtName.yaml
+        expected_input:
+          - ObQueryTypeName.yaml
+
+      - name: find-OtIndex
+        expected_output:
+          - OtIndex.yaml
+
+      - name: find-ObAttributesShift-AND-ObDecodeShift-AND-HtHandleContentionEvent
+        expected_output:
+          - ObAttributesShift.yaml
+          - ObDecodeShift.yaml
+          - HtHandleContentionEvent.yaml
+        prerequisite:
+          - find-ObReferenceProcessHandleTable-AND-ObpEnumFindHandleProcedure
+
+      - name: find-AlpcHandleTable-AND-AlpcPortContext-AND-AlpcPortObjectLock
+        expected_output:
+          - AlpcHandleTable.yaml
+          - AlpcPortContext.yaml
+          - AlpcPortObjectLock.yaml
+        expected_input:
+          - AlpcpCreateClientPort.yaml
+
+      - name: find-AlpcHandleTableLock
+        expected_input:
+          - AlpcAddHandleTableEntry.yaml
+        expected_output:
+          - AlpcHandleTableLock.yaml
+
+      - name: find-AlpcAttributes-AND-AlpcAttributesFlags-AND-AlpcCommunicationInfo-AND-AlpcOwnerProcess-AND-AlpcConnectionPort-AND-AlpcServerCommunicationPort-AND-AlpcClientCommunicationPort
+        expected_output:
+          - AlpcAttributes.yaml
+          - AlpcAttributesFlags.yaml
+          - AlpcCommunicationInfo.yaml
+          - AlpcOwnerProcess.yaml
+          - AlpcConnectionPort.yaml
+          - AlpcServerCommunicationPort.yaml
+          - AlpcClientCommunicationPort.yaml
+        expected_input:
+          - AlpcpDeletePort.yaml
+
+      - name: find-AlpcSequenceNo-AND-AlpcState
+        expected_output:
+          - AlpcSequenceNo.yaml
+          - AlpcState.yaml
+        expected_input:
+          - AlpcpDisconnectPort.yaml
+
+      - name: find-KtInitialStack-AND-KtStackBase-AND-KtStackLimit
+        expected_output:
+          - KtInitialStack.yaml
+          - KtStackBase.yaml
+          - KtStackLimit.yaml
+        prerequisite:
+          - find-KeQueryCurrentStackInformation-OR-KeQueryCurrentStackInformationEx
+
+      - name: find-KtKernelStack
+        expected_output:
+          - KtKernelStack.yaml
+        expected_input:
+          - SwapContext.yaml
+
+      - name: find-KtReadOperationCount-AND-KtWriteOperationCount-AND-KtOtherOperationCount-AND-KtReadTransferCount-AND-KtWriteTransferCount-AND-KtOtherTransferCount
+        expected_output:
+          - KtReadOperationCount.yaml
+          - KtWriteOperationCount.yaml
+          - KtOtherOperationCount.yaml
+          - KtReadTransferCount.yaml
+          - KtWriteTransferCount.yaml
+          - KtOtherTransferCount.yaml
+        expected_input:
+          - KeFoldProcessStatisticsThread.yaml
+
+      - name: find-MiSectionInitialization
+        expected_output:
+          - MiSectionInitialization.yaml
+
+      - name: find-MiSectionOpen
+        expected_input:
+          - MiSectionInitialization.yaml
+        expected_output:
+          - MiSectionOpen.yaml
+
+      - name: find-MiSectionControlArea
+        expected_output:
+          - MiSectionControlArea.yaml
+        prerequisite:
+          - find-MiSectionOpen
+
+      - name: find-MmSectionControlArea
+        expected_output:
+          - MmSectionControlArea.yaml
+
+      - name: find-MmControlAreaListHead
+        expected_input:
+          - MiInsertUnusedSegment.yaml
+        expected_output:
+          - MmControlAreaListHead.yaml
+
+      - name: find-MmControlAreaLock
+        expected_output:
+          - MmControlAreaLock.yaml
+        expected_input:
+          - MiCheckControlArea.yaml
+
+      - name: find-EpCookie-AND-EpSectionObject-AND-MmCreateProcessAddressSpace
+        expected_output:
+          - EpCookie.yaml
+          - EpSectionObject.yaml
+          - MmCreateProcessAddressSpace.yaml
+        expected_input:
+          - PspAllocateProcess.yaml
+
+      - name: find-EpProtection
+        expected_output:
+          - EpProtection.yaml
+
+      - name: find-EpBreakOnTermination
+        expected_output:
+          - EpBreakOnTermination.yaml
+        expected_input:
+          - PspTerminateAllThreads.yaml
+
+      - name: find-KpDirectoryTableBase
+        expected_output:
+          - KpDirectoryTableBase.yaml
+        expected_input:
+          - MmCreateProcessAddressSpace.yaml
+
+      - name: find-PspCreateProcessNotifyRoutine-AND-PspCreateThreadNotifyRoutine-AND-PspLoadImageNotifyRoutine
+        expected_output:
+          - PspCreateProcessNotifyRoutine.yaml
+          - PspCreateThreadNotifyRoutine.yaml
+          - PspLoadImageNotifyRoutine.yaml
+        expected_input:
+          - PspEnumerateCallback.yaml
+
+      # find-PgInitContextFnptrs as alternative workaround 
+      - name: find-ExReferenceCallBackBlock
+        optional_output:
+          - ExReferenceCallBackBlock.yaml
+
+      - name: find-ExDereferenceCallBackBlock
+        optional_output:
+          - ExDereferenceCallBackBlock.yaml
+
+      - name: find-PspEnumerateCallback
+        optional_output:
+          - PspEnumerateCallback.yaml
+
+      - name: find-CmpEnumerateCallback
+        optional_output:
+          - CmpEnumerateCallback.yaml
+
+      - name: find-PspTerminateAllThreads
+        expected_output:
+          - PspTerminateAllThreads.yaml
+
+      - name: find-PspAllocateProcess
+        expected_output:
+          - PspAllocateProcess.yaml
+
+      - name: find-ObFindHandleForObject
+        expected_output:
+          - ObFindHandleForObject.yaml
+
+      - name: find-ObReferenceProcessHandleTable-AND-ObpEnumFindHandleProcedure
+        expected_input:
+          - ObFindHandleForObject.yaml
+        expected_output:
+          - ObReferenceProcessHandleTable.yaml
+        optional_output:
+          - ObpEnumFindHandleProcedure.yaml
+
+      - name: find-IoGetStackLimits
+        expected_output:
+          - IoGetStackLimits.yaml
+
+      - name: find-RtlpGetStackLimits
+        expected_output:
+          - RtlpGetStackLimits.yaml
+        prerequisite:
+          - find-IoGetStackLimits
+
+      - name: find-KeQueryCurrentStackInformation-OR-KeQueryCurrentStackInformationEx
+        expected_output:
+          - KeQueryCurrentStackInformation.yaml
+          - KeQueryCurrentStackInformationEx.yaml
+        skip_if_any_exists:
+          - KeQueryCurrentStackInformation.yaml
+          - KeQueryCurrentStackInformationEx.yaml
+        prerequisite:
+          - find-RtlpGetStackLimits
+
+      - name: find-PgInitContext
+        expected_output:
+          - PgInitContext.yaml
+        skip_if_all_exists:
+          - ExReferenceCallBackBlock.yaml
+          - ExDereferenceCallBackBlock.yaml
+          - CmpEnumerateCallback.yaml
+          - PspEnumerateCallback.yaml
+        prerequisite:
+          - find-ExReferenceCallBackBlock
+          - find-ExDereferenceCallBackBlock
+          - find-CmpEnumerateCallback
+          - find-PspEnumerateCallback
+        arch: amd64
+
+      - name: find-PgInitContextFnptrs
+        expected_output:
+          - ExReferenceCallBackBlock.yaml
+          - ExDereferenceCallBackBlock.yaml
+          - PspEnumerateCallback.yaml
+          - CmpEnumerateCallback.yaml
+        prerequisite:
+          - find-PgInitContext
+        arch: amd64
+
+      - name: find-PerfDiagInitialize
+        expected_output:
+          - PerfDiagInitialize.yaml
+
+      - name: find-EtwWriteStartScenario
+        expected_input:
+          - PerfDiagInitialize.yaml
+        expected_output:
+          - EtwWriteStartScenario.yaml
+
+      - name: find-EtwGetProviderIdFromHandle
+        expected_input:
+          - EtwWriteStartScenario.yaml
+        expected_output:
+          - EtwGetProviderIdFromHandle.yaml
+
+      - name: find-SwapContext
+        expected_output:
+          - SwapContext.yaml
+
+      - name: find-PspThreadDelete
+        expected_output:
+          - PspThreadDelete.yaml
+
+      - name: find-KeFoldProcessStatisticsThread
+        expected_input:
+          - PspThreadDelete.yaml
+        expected_output:
+          - KeFoldProcessStatisticsThread.yaml
+
+      - name: find-PfSnInitializePrefetcher
+        expected_output:
+          - PfSnInitializePrefetcher.yaml
+
+      - name: find-KiSetTimerEx
+        expected_input:
+          - PfSnInitializePrefetcher.yaml
+        expected_output:
+          - KiSetTimerEx.yaml
+
+      - name: find-MmPurgeSection
+        expected_output:
+          - MmPurgeSection.yaml
+
+      - name: find-MiCheckControlArea
+        expected_input:
+          - MmPurgeSection.yaml
+        expected_output:
+          - MiCheckControlArea.yaml
+
+      - name: find-MiInsertUnusedSegment
+        expected_input:
+          - MiCheckControlArea.yaml
+        expected_output:
+          - MiInsertUnusedSegment.yaml
+
+    symbols:
+      - name: EgeGuid
+        category: struct_offset
+        data_type: uint16
+      - name: EpObjectTable
+        category: struct_offset
+        data_type: uint16
+      - name: EreGuidEntry
+        category: struct_offset
+        data_type: uint16
+      - name: HtHandleContentionEvent
+        category: struct_offset
+        data_type: uint16
+      - name: OtName
+        category: struct_offset
+        data_type: uint16
+      - name: OtIndex
+        category: struct_offset
+        data_type: uint16
+      - name: ObDecodeShift
+        category: struct_offset
+        data_type: uint16
+      - name: ObAttributesShift
+        category: struct_offset
+        data_type: uint16
+      - name: AlpcCommunicationInfo
+        category: struct_offset
+        data_type: uint16
+      - name: AlpcOwnerProcess
+        category: struct_offset
+        data_type: uint16
+      - name: AlpcConnectionPort
+        category: struct_offset
+        data_type: uint16
+      - name: AlpcServerCommunicationPort
+        category: struct_offset
+        data_type: uint16
+      - name: AlpcClientCommunicationPort
+        category: struct_offset
+        data_type: uint16
+      - name: AlpcHandleTable
+        category: struct_offset
+        data_type: uint16
+      - name: AlpcHandleTableLock
+        category: struct_offset
+        data_type: uint16
+      - name: AlpcAttributes
+        category: struct_offset
+        data_type: uint16
+      - name: AlpcAttributesFlags
+        category: struct_offset
+        data_type: uint16
+      - name: AlpcPortContext
+        category: struct_offset
+        data_type: uint16
+      - name: AlpcPortObjectLock
+        category: struct_offset
+        data_type: uint16
+      - name: AlpcSequenceNo
+        category: struct_offset
+        data_type: uint16
+      - name: AlpcState
+        category: struct_offset
+        data_type: uint16
+      - name: KtInitialStack
+        category: struct_offset
+        data_type: uint16
+      - name: KtStackLimit
+        category: struct_offset
+        data_type: uint16
+      - name: KtStackBase
+        category: struct_offset
+        data_type: uint16
+      - name: KtKernelStack
+        category: struct_offset
+        data_type: uint16
+      - name: KtReadOperationCount
+        category: struct_offset
+        data_type: uint16
+      - name: KtWriteOperationCount
+        category: struct_offset
+        data_type: uint16
+      - name: KtOtherOperationCount
+        category: struct_offset
+        data_type: uint16
+      - name: KtReadTransferCount
+        category: struct_offset
+        data_type: uint16
+      - name: KtWriteTransferCount
+        category: struct_offset
+        data_type: uint16
+      - name: KtOtherTransferCount
+        category: struct_offset
+        data_type: uint16
+      - name: MmSectionControlArea
+        category: struct_offset
+        data_type: uint16
+      - name: MmControlAreaListHead
+        category: struct_offset
+        data_type: uint16
+      - name: MmControlAreaLock
+        category: struct_offset
+        data_type: uint16
+      - name: EpSectionObject
+        category: struct_offset
+        data_type: uint16
+      - name: EpProtection
+        category: struct_offset
+        data_type: uint16
+      - name: EpCookie
+        category: struct_offset
+        data_type: uint16
+      - name: EpBreakOnTermination
+        category: struct_offset
+        data_type: uint16
+      - name: KpDirectoryTableBase
+        category: struct_offset
+        data_type: uint16
+      - name: PspCreateProcessNotifyRoutine
+        category: gv
+        data_type: uint32
+      - name: PspLoadImageNotifyRoutine
+        category: gv
+        data_type: uint32
+      - name: PspCreateThreadNotifyRoutine
+        category: gv
+        data_type: uint32
+      - name: ExReferenceCallBackBlock
+        category: func
+        data_type: uint32
+      - name: ExDereferenceCallBackBlock
+        category: func
+        data_type: uint32
+      - name: PspEnumerateCallback
+        category: func
+        data_type: uint32
+      - name: CmpEnumerateCallback
+        category: func
+        data_type: uint32

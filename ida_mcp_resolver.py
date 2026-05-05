@@ -10,6 +10,7 @@ from typing import Any
 import yaml
 
 from ida_reference_export import (
+    build_code_region_detail_export_py_eval,
     build_function_detail_export_py_eval,
     build_remote_text_export_py_eval,
     validate_reference_yaml_payload,
@@ -112,6 +113,7 @@ async def resolve_public_name_via_mcp(
 def _empty_llm_decompile_result() -> dict[str, list[dict[str, str]]]:
     return {
         "found_call": [],
+        "found_funcptr": [],
         "found_gv": [],
         "found_struct_offset": [],
     }
@@ -176,7 +178,7 @@ def _parse_yaml_mapping(text: str) -> dict[str, Any] | None:
 
 def _repair_glued_llm_yaml_headers(text: str) -> str:
     return re.sub(
-        r"([^\n])((?:found_call|found_gv|found_struct_offset):)",
+        r"([^\n])((?:found_call|found_funcptr|found_gv|found_struct_offset):)",
         r"\1\n\2",
         text,
     )
@@ -219,6 +221,10 @@ def parse_llm_decompile_response(response_text: str) -> dict[str, list[dict[str,
         "found_call": _normalize_llm_entries(
             parsed.get("found_call", []),
             ("insn_va", "insn_disasm", "func_name"),
+        ),
+        "found_funcptr": _normalize_llm_entries(
+            parsed.get("found_funcptr", []),
+            ("insn_va", "insn_disasm", "funcptr_name"),
         ),
         "found_gv": _normalize_llm_entries(
             parsed.get("found_gv", []),
@@ -615,12 +621,8 @@ def _load_target_func_va_from_current_yaml(
     func_name: str,
     image_base: int,
 ) -> int | None:
-    artifact_path = Path(binary_dir) / f"{func_name}.yaml"
-    if not artifact_path.is_file():
-        return None
-    try:
-        payload = yaml.safe_load(artifact_path.read_text(encoding="utf-8")) or {}
-    except Exception:
+    payload = _load_target_yaml_payload(binary_dir, func_name)
+    if payload is None:
         return None
     for key in ("func_va", "func_rva"):
         value = payload.get(key)
@@ -634,24 +636,63 @@ def _load_target_func_va_from_current_yaml(
     return None
 
 
-async def _export_function_detail_via_mcp(
+def _load_target_yaml_payload(
+    binary_dir: str | Path,
+    target_name: str,
+) -> dict[str, Any] | None:
+    artifact_path = Path(binary_dir) / f"{target_name}.yaml"
+    if not artifact_path.is_file():
+        return None
+    try:
+        payload = yaml.safe_load(artifact_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _load_target_code_region_from_current_yaml(
+    binary_dir: str | Path,
+    code_name: str,
+    image_base: int,
+) -> dict[str, Any] | None:
+    payload = _load_target_yaml_payload(binary_dir, code_name)
+    if payload is None or payload.get("category") != "code":
+        return None
+    try:
+        code_size = _parse_offset_value(payload.get("code_size"))
+    except (TypeError, ValueError):
+        return None
+    if code_size <= 0:
+        return None
+    for key in ("code_va", "code_rva"):
+        value = payload.get(key)
+        if value is None:
+            continue
+        try:
+            parsed = _parse_offset_value(value)
+        except (TypeError, ValueError):
+            continue
+        resolved_name = str(payload.get("code_name") or code_name).strip() or code_name
+        return {
+            "code_name": resolved_name,
+            "code_va": parsed if key == "code_va" else image_base + parsed,
+            "code_size": code_size,
+        }
+    return None
+
+
+async def _export_detail_payload_via_mcp(
     session,
-    func_name: str,
-    func_va: int,
-) -> dict[str, str] | None:
+    producer_code: str,
+) -> dict[str, Any] | None:
     with tempfile.TemporaryDirectory(
         prefix=".llm_decompile_",
         dir=os.fspath(Path(__file__).resolve().parent),
     ) as temp_dir:
         detail_path = Path(temp_dir) / "function-detail.json"
-        producer_code = (
-            build_function_detail_export_py_eval(int(func_va)).rstrip()
-            + "\n"
-            + "payload_text = result\n"
-        )
         py_code = build_remote_text_export_py_eval(
             output_path=detail_path,
-            producer_code=producer_code,
+            producer_code=producer_code.rstrip() + "\npayload_text = result\n",
             content_var="payload_text",
             format_name="json",
         )
@@ -665,11 +706,17 @@ async def _export_function_detail_via_mcp(
             payload = json.loads(detail_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError, TypeError):
             return None
+    return payload if isinstance(payload, dict) else None
 
+
+def _normalize_target_detail_payload(
+    target_name: str,
+    payload: dict[str, Any] | None,
+) -> dict[str, str] | None:
     if not isinstance(payload, dict):
         return None
     normalized = {
-        "func_name": str(func_name or payload.get("func_name", "")).strip(),
+        "func_name": str(target_name or payload.get("func_name", "")).strip(),
         "func_va": str(payload.get("func_va", "")).strip(),
         "disasm_code": str(payload.get("disasm_code", "") or "").strip(),
         "procedure": str(payload.get("procedure", "") or ""),
@@ -677,6 +724,67 @@ async def _export_function_detail_via_mcp(
     if not normalized["func_name"] or not normalized["func_va"] or not normalized["disasm_code"]:
         return None
     return normalized
+
+
+async def _export_function_detail_via_mcp(
+    session,
+    func_name: str,
+    func_va: int,
+) -> dict[str, str] | None:
+    payload = await _export_detail_payload_via_mcp(
+        session,
+        build_function_detail_export_py_eval(int(func_va)),
+    )
+    return _normalize_target_detail_payload(func_name, payload)
+
+
+async def _export_code_region_detail_via_mcp(
+    session,
+    code_name: str,
+    code_va: int,
+    code_size: int,
+) -> dict[str, str] | None:
+    try:
+        payload = await _export_detail_payload_via_mcp(
+            session,
+            build_code_region_detail_export_py_eval(
+                int(code_va),
+                int(code_size),
+                code_name=code_name,
+            ),
+        )
+    except (TypeError, ValueError):
+        return None
+    return _normalize_target_detail_payload(code_name, payload)
+
+
+async def _load_code_region_target_detail_via_mcp(
+    session,
+    target_name: str,
+    *,
+    binary_dir: str | Path,
+    image_base: int,
+    debug: bool = False,
+) -> tuple[bool, dict[str, str] | None]:
+    code_region = _load_target_code_region_from_current_yaml(
+        binary_dir,
+        target_name,
+        image_base,
+    )
+    if code_region is None:
+        return False, None
+    target_detail = await _export_code_region_detail_via_mcp(
+        session,
+        code_region["code_name"],
+        code_region["code_va"],
+        code_region["code_size"],
+    )
+    if target_detail is None:
+        _debug_log(
+            debug,
+            f"llm_decompile failed to export target code region: {target_name}",
+        )
+    return True, target_detail
 
 
 async def _load_llm_decompile_target_details_via_mcp(
@@ -689,6 +797,18 @@ async def _load_llm_decompile_target_details_via_mcp(
 ) -> list[dict[str, str]]:
     target_items: list[dict[str, str]] = []
     for target_func_name in target_func_names:
+        handled_code_region, target_detail = await _load_code_region_target_detail_via_mcp(
+            session,
+            target_func_name,
+            binary_dir=binary_dir,
+            image_base=image_base,
+            debug=debug,
+        )
+        if handled_code_region:
+            if target_detail is not None:
+                target_items.append(target_detail)
+            continue
+
         func_va = _load_target_func_va_from_current_yaml(
             binary_dir,
             target_func_name,
@@ -742,6 +862,34 @@ async def _resolve_direct_call_target_via_mcp(session, insn_va: Any) -> int | No
         "    func = ida_funcs.get_func(target_ea)\n"
         "    if func is not None:\n"
         "        matches.append(hex(int(func.start_ea)))\n"
+        "result = json.dumps({'matches': sorted(set(matches))})\n"
+    )
+    try:
+        payload = _parse_py_eval_result(await session.call_tool("py_eval", {"code": py_code}))
+    except Exception:
+        return None
+    matches = payload.get("matches") if isinstance(payload, dict) else None
+    if not isinstance(matches, list) or len(matches) != 1:
+        return None
+    try:
+        return int(str(matches[0]), 0)
+    except (TypeError, ValueError):
+        return None
+
+
+async def _resolve_funcptr_target_via_mcp(session, insn_va: Any) -> int | None:
+    try:
+        insn_va_int = _parse_offset_value(insn_va)
+    except Exception:
+        return None
+    py_code = (
+        "import ida_funcs, idautils, json\n"
+        f"insn_ea = {insn_va_int}\n"
+        "matches = []\n"
+        "for target_ea in idautils.DataRefsFrom(insn_ea):\n"
+        "    func = ida_funcs.get_func(target_ea)\n"
+        "    if func is not None and int(func.start_ea) == int(target_ea):\n"
+        "        matches.append(hex(int(target_ea)))\n"
         "result = json.dumps({'matches': sorted(set(matches))})\n"
     )
     try:
@@ -878,6 +1026,7 @@ async def resolve_symbol_via_llm_decompile(
         debug,
         "llm_decompile result for "
         f"{symbol_name}: found_call={len(result.get('found_call', []))}, "
+        f"found_funcptr={len(result.get('found_funcptr', []))}, "
         f"found_gv={len(result.get('found_gv', []))}, "
         f"found_struct_offset={len(result.get('found_struct_offset', []))}",
     )
@@ -887,6 +1036,16 @@ async def resolve_symbol_via_llm_decompile(
             if entry.get("func_name") not in {symbol_name, llm_symbol_name}:
                 continue
             func_va = await _resolve_direct_call_target_via_mcp(session, entry.get("insn_va"))
+            if func_va is not None:
+                return {
+                    "func_name": symbol_name,
+                    "func_va": func_va,
+                    "func_rva": func_va - image_base,
+                }
+        for entry in result.get("found_funcptr", []):
+            if entry.get("funcptr_name") not in {symbol_name, llm_symbol_name}:
+                continue
+            func_va = await _resolve_funcptr_target_via_mcp(session, entry.get("insn_va"))
             if func_va is not None:
                 return {
                     "func_name": symbol_name,

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, patch
@@ -18,7 +20,53 @@ def _tool_result(payload):
     )
 
 
+def _tool_result_structured(payload):
+    return SimpleNamespace(
+        content=[
+            SimpleNamespace(
+                text=json.dumps({"result": payload})
+            )
+        ]
+    )
+
+
 class TestGenericFuncXrefs(unittest.IsolatedAsyncioTestCase):
+    async def test_preprocess_func_symbol_uses_pe_export_when_pdb_missing(
+        self,
+    ) -> None:
+        session = AsyncMock()
+
+        with TemporaryDirectory() as temp_dir:
+            binary_path = Path(temp_dir) / "ntoskrnl.exe"
+            binary_path.write_bytes(b"MZ")
+            with patch.object(
+                generic_func,
+                "resolve_pe_export_symbol",
+                return_value={"name": "IoGetStackLimits", "rva": 0x2494F0},
+            ) as mock_resolve_export:
+                payload = await generic_func.preprocess_func_symbol(
+                    session=session,
+                    symbol_name="IoGetStackLimits",
+                    metadata={"alias": ["IoGetStackLimits"]},
+                    pdb_path=None,
+                    debug=True,
+                    llm_config=None,
+                    binary_dir=temp_dir,
+                    image_base=0x140000000,
+                )
+
+        self.assertEqual(
+            {
+                "func_name": "IoGetStackLimits",
+                "func_rva": 0x2494F0,
+            },
+            payload,
+        )
+        mock_resolve_export.assert_called_once_with(
+            binary_path,
+            "IoGetStackLimits",
+        )
+
     async def test_preprocess_func_symbol_uses_xref_after_pdb_miss(self) -> None:
         session = AsyncMock()
         with (
@@ -132,6 +180,28 @@ class TestGenericFuncXrefs(unittest.IsolatedAsyncioTestCase):
             {"patterns": ["41 B8 41 6C 49 6E"]},
             session.call_tool.await_args_list[0].kwargs["arguments"],
         )
+
+    async def test_signature_xrefs_accepts_structured_find_bytes_result(self) -> None:
+        session = AsyncMock()
+        session.call_tool.side_effect = [
+            _tool_result_structured(
+                [
+                    {
+                        "pattern": "41 B8 41 6C 49 6E",
+                        "matches": ["0x140020123", "0x140020456"],
+                    }
+                ]
+            ),
+            _tool_result({"func_starts": ["0x140020000"]}),
+        ]
+
+        addrs = await generic_func._collect_xref_func_starts_for_signature(
+            session=session,
+            xref_signature="41 B8 41 6C 49 6E",
+            debug=True,
+        )
+
+        self.assertEqual({0x140020000}, addrs)
 
     async def test_func_xrefs_intersects_positive_sources_and_excludes(self) -> None:
         session = AsyncMock()

@@ -6,14 +6,23 @@ from typing import Any
 
 import yaml
 
+from pe_resolver import resolve_export_symbol as resolve_pe_export_symbol
 from pdb_resolver import resolve_public_symbol
+
+
+_PE_BINARY_SUFFIXES = frozenset({".exe", ".sys", ".dll"})
 
 
 def _parse_tool_json_result(tool_result: Any) -> Any | None:
     try:
         text = tool_result.content[0].text
         payload = json.loads(text)
-        return json.loads(payload["result"])
+        if not isinstance(payload, dict) or "result" not in payload:
+            return payload
+        result_payload = payload["result"]
+        if isinstance(result_payload, str):
+            return json.loads(result_payload)
+        return result_payload
     except Exception:
         return None
 
@@ -39,6 +48,49 @@ def _intersect_addr_sets(candidate_sets: list[set[int]]) -> set[int]:
     return common
 
 
+def _format_addr_set(addrs: set[int]) -> list[str]:
+    return [hex(addr) for addr in sorted(addrs)]
+
+
+def _iter_pe_binary_candidates(binary_dir) -> list[Path]:
+    if binary_dir is None:
+        return []
+
+    root = Path(binary_dir)
+    if root.is_file():
+        return [root]
+
+    try:
+        return [
+            path
+            for path in sorted(root.iterdir())
+            if path.is_file() and path.suffix.lower() in _PE_BINARY_SUFFIXES
+        ]
+    except OSError:
+        return []
+
+
+def _resolve_func_export_from_binary_dir(
+    *,
+    binary_dir,
+    aliases: list[str],
+    debug: bool = False,
+) -> dict[str, int | str] | None:
+    for binary_path in _iter_pe_binary_candidates(binary_dir):
+        for lookup_name in aliases:
+            try:
+                return resolve_pe_export_symbol(binary_path, lookup_name)
+            except KeyError:
+                continue
+
+    if debug:
+        print(
+            "    Preprocess: PE export lookup failed for aliases "
+            f"{aliases!r} in {binary_dir}"
+        )
+    return None
+
+
 async def _collect_func_starts_for_code_addrs(
     *,
     session,
@@ -46,6 +98,8 @@ async def _collect_func_starts_for_code_addrs(
     debug: bool = False,
 ) -> set[int] | None:
     if not code_addrs:
+        if debug:
+            print("    Preprocess: no code addresses to normalize")
         return set()
 
     py_code = (
@@ -75,6 +129,11 @@ async def _collect_func_starts_for_code_addrs(
     payload = _parse_tool_json_result(result)
     starts = payload.get("func_starts") if isinstance(payload, dict) else None
     if not isinstance(starts, list):
+        if debug:
+            print(
+                "    Preprocess: invalid function-start normalization payload "
+                f"for code addrs {_format_addr_set(code_addrs)}"
+            )
         return None
 
     parsed: set[int] = set()
@@ -83,6 +142,11 @@ async def _collect_func_starts_for_code_addrs(
             parsed.add(_parse_int_value(item))
         except (TypeError, ValueError):
             continue
+    if debug:
+        print(
+            "    Preprocess: normalized code addrs "
+            f"{_format_addr_set(code_addrs)} -> funcs {_format_addr_set(parsed)}"
+        )
     return parsed
 
 
@@ -111,25 +175,33 @@ async def _collect_xref_func_starts_for_string(
         "unicode_type_names = ('STRTYPE_C_16', 'STRTYPE_C_32', 'STRTYPE_LEN2_16', 'STRTYPE_LEN2_32')",
         "unicode_types = {getattr(ida_nalt, name) for name in unicode_type_names if hasattr(ida_nalt, name)}",
         "strings = idautils.Strings(default_setup=False)",
+        "setup_error = None",
         "try:",
         "    if unicode_only and unicode_types:",
         "        strings.setup(strtypes=list(unicode_types), minlen=2)",
         "    else:",
         "        strings.setup(minlen=2)",
-        "except Exception:",
-        "    pass",
+        "except Exception as exc:",
+        "    setup_error = repr(exc)",
         "func_starts = set()",
+        "matched_strings = []",
+        "xref_count = 0",
         "for s in strings:",
         "    current_str = str(s)",
-        "    string_type = getattr(s, 'type', None)",
-        "    if unicode_only and unicode_types and string_type not in unicode_types:",
-        "        continue",
         f"    if {match_expr}:",
+        "        matched_strings.append(hex(int(s.ea)))",
         "        for xref in idautils.XrefsTo(s.ea, 0):",
+        "            xref_count += 1",
         "            func = ida_funcs.get_func(xref.frm)",
         "            if func is not None:",
         "                func_starts.add(int(func.start_ea))",
-        "result = json.dumps({'func_starts': [hex(ea) for ea in sorted(func_starts)]})",
+        "result = json.dumps({",
+        "    'func_starts': [hex(ea) for ea in sorted(func_starts)],",
+        "    'matched_strings': matched_strings,",
+        "    'xref_count': xref_count,",
+        "    'unicode_types': [int(item) for item in sorted(unicode_types)],",
+        "    'setup_error': setup_error,",
+        "})",
     ]
     try:
         result = await session.call_tool(
@@ -144,6 +216,11 @@ async def _collect_xref_func_starts_for_string(
     payload = _parse_tool_json_result(result)
     starts = payload.get("func_starts") if isinstance(payload, dict) else None
     if not isinstance(starts, list):
+        if debug:
+            print(
+                "    Preprocess: invalid xref string payload for "
+                f"{xref_string!r} (unicode_only={unicode_only})"
+            )
         return None
 
     parsed: set[int] = set()
@@ -152,6 +229,18 @@ async def _collect_xref_func_starts_for_string(
             parsed.add(_parse_int_value(item))
         except (TypeError, ValueError):
             continue
+    if debug:
+        matched_strings = payload.get("matched_strings", [])
+        xref_count = payload.get("xref_count", 0)
+        setup_error = payload.get("setup_error")
+        unicode_types = payload.get("unicode_types", [])
+        print(
+            "    Preprocess: xref string "
+            f"{xref_string!r} unicode_only={unicode_only} "
+            f"unicode_types={unicode_types} setup_error={setup_error!r} "
+            f"matched_strings={matched_strings} xref_count={xref_count} "
+            f"funcs={_format_addr_set(parsed)}"
+        )
     return parsed
 
 
@@ -176,24 +265,47 @@ async def _collect_xref_func_starts_for_signature(
 
     payload = _parse_tool_json_result(result)
     if not isinstance(payload, list) or not payload:
+        if debug:
+            print(
+                "    Preprocess: invalid find_bytes payload for xref signature "
+                f"{xref_signature!r}"
+            )
         return set()
 
     raw_matches = payload[0].get("matches", [])
     if not isinstance(raw_matches, list):
+        if debug:
+            print(
+                "    Preprocess: find_bytes payload lacks matches for xref "
+                f"signature {xref_signature!r}"
+            )
         return set()
 
     code_addrs: set[int] = set()
+    invalid_matches = 0
     for item in raw_matches:
         try:
             code_addrs.add(_parse_int_value(item))
         except (TypeError, ValueError):
-            continue
+            invalid_matches += 1
 
-    return await _collect_func_starts_for_code_addrs(
+    funcs = await _collect_func_starts_for_code_addrs(
         session=session,
         code_addrs=code_addrs,
         debug=debug,
     )
+    if debug:
+        if funcs is None:
+            funcs_text = "None"
+        else:
+            funcs_text = str(_format_addr_set(funcs))
+        print(
+            "    Preprocess: xref signature "
+            f"{xref_signature!r} matches={len(raw_matches)} "
+            f"parsed_code_addrs={_format_addr_set(code_addrs)} "
+            f"invalid_matches={invalid_matches} funcs={funcs_text}"
+        )
+    return funcs
 
 
 async def _collect_xref_func_starts_for_ea(
@@ -389,8 +501,19 @@ async def preprocess_func_xrefs_symbol(
             debug=debug,
         )
         if addr_set is None or not addr_set:
+            if debug:
+                print(
+                    "    Preprocess: func_xrefs source failed for "
+                    f"{symbol_name}: xref_strings item {item!r}"
+                )
             return None
         candidate_sets.append(addr_set)
+        if debug:
+            print(
+                "    Preprocess: func_xrefs source accepted for "
+                f"{symbol_name}: xref_strings item {item!r} -> "
+                f"{_format_addr_set(addr_set)}"
+            )
 
     for item in func_xref.get("xref_unicode_strings", []):
         addr_set = await _collect_xref_func_starts_for_string(
@@ -400,8 +523,19 @@ async def preprocess_func_xrefs_symbol(
             debug=debug,
         )
         if addr_set is None or not addr_set:
+            if debug:
+                print(
+                    "    Preprocess: func_xrefs source failed for "
+                    f"{symbol_name}: xref_unicode_strings item {item!r}"
+                )
             return None
         candidate_sets.append(addr_set)
+        if debug:
+            print(
+                "    Preprocess: func_xrefs source accepted for "
+                f"{symbol_name}: xref_unicode_strings item {item!r} -> "
+                f"{_format_addr_set(addr_set)}"
+            )
 
     if not await _append_ea_candidate_sets(
         session=session,
@@ -413,6 +547,11 @@ async def preprocess_func_xrefs_symbol(
         image_base=image_base,
         debug=debug,
     ):
+        if debug:
+            print(
+                "    Preprocess: func_xrefs source failed for "
+                f"{symbol_name}: xref_gvs"
+            )
         return None
 
     for item in func_xref.get("xref_signatures", []):
@@ -422,8 +561,19 @@ async def preprocess_func_xrefs_symbol(
             debug=debug,
         )
         if addr_set is None or not addr_set:
+            if debug:
+                print(
+                    "    Preprocess: func_xrefs source failed for "
+                    f"{symbol_name}: xref_signatures item {item!r}"
+                )
             return None
         candidate_sets.append(addr_set)
+        if debug:
+            print(
+                "    Preprocess: func_xrefs source accepted for "
+                f"{symbol_name}: xref_signatures item {item!r} -> "
+                f"{_format_addr_set(addr_set)}"
+            )
 
     if not await _append_ea_candidate_sets(
         session=session,
@@ -435,10 +585,20 @@ async def preprocess_func_xrefs_symbol(
         image_base=image_base,
         debug=debug,
     ):
+        if debug:
+            print(
+                "    Preprocess: func_xrefs source failed for "
+                f"{symbol_name}: xref_funcs"
+            )
         return None
 
     common_funcs = _intersect_addr_sets(candidate_sets)
     if not common_funcs:
+        if debug:
+            print(
+                "    Preprocess: func_xrefs positive sources have no "
+                f"intersection for {symbol_name}"
+            )
         return None
 
     excluded: set[int] = set()
@@ -509,6 +669,11 @@ async def preprocess_func_xrefs_symbol(
         )
 
     if len(common_funcs) != 1:
+        if debug:
+            print(
+                "    Preprocess: func_xrefs expected one candidate for "
+                f"{symbol_name}, got {len(common_funcs)}"
+            )
         return None
 
     func_va = next(iter(common_funcs))
@@ -540,6 +705,15 @@ async def preprocess_func_symbol(
             return {"func_name": symbol_name, "func_rva": payload["rva"]}
         except KeyError:
             pass
+
+    if pdb_path is None and aliases:
+        payload = _resolve_func_export_from_binary_dir(
+            binary_dir=binary_dir,
+            aliases=list(aliases),
+            debug=debug,
+        )
+        if payload is not None:
+            return {"func_name": symbol_name, "func_rva": payload["rva"]}
 
     if func_xref is not None:
         return await preprocess_func_xrefs_symbol(

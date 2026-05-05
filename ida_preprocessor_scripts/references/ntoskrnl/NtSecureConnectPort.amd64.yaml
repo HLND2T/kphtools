@@ -1,0 +1,627 @@
+func_name: NtSecureConnectPort
+func_va: '0x1405e8d70'
+disasm_code: |-
+  PAGE:00000001405E8D70                 push    rsi
+  PAGE:00000001405E8D72                 push    rdi
+  PAGE:00000001405E8D73                 push    r12
+  PAGE:00000001405E8D75                 push    r13
+  PAGE:00000001405E8D77                 push    r14
+  PAGE:00000001405E8D79                 push    r15
+  PAGE:00000001405E8D7B                 sub     rsp, 198h
+  PAGE:00000001405E8D82                 mov     rax, cs:__security_cookie
+  PAGE:00000001405E8D89                 xor     rax, rsp
+  PAGE:00000001405E8D8C                 mov     [rsp+1C8h+var_48], rax
+  PAGE:00000001405E8D94                 mov     rsi, r9
+  PAGE:00000001405E8D97                 mov     rdi, r8
+  PAGE:00000001405E8D9A                 mov     [rsp+1C8h+var_130], rdx
+  PAGE:00000001405E8DA2                 mov     [rsp+1C8h+var_120], rcx
+  PAGE:00000001405E8DAA                 mov     r12, [rsp+1C8h+Src]
+  PAGE:00000001405E8DB2                 mov     r14, [rsp+1C8h+arg_28]
+  PAGE:00000001405E8DBA                 mov     r13, [rsp+1C8h+arg_30]
+  PAGE:00000001405E8DC2                 mov     [rsp+1C8h+var_E0], r13
+  PAGE:00000001405E8DCA                 mov     rax, [rsp+1C8h+arg_38]
+  PAGE:00000001405E8DD2                 mov     [rsp+1C8h+Address], rax
+  PAGE:00000001405E8DD7                 mov     r15, [rsp+1C8h+arg_40]
+  PAGE:00000001405E8DDF                 mov     [rsp+1C8h+var_E8], r15
+  PAGE:00000001405E8DE7                 and     [rsp+1C8h+DmaAdapter], 0
+  PAGE:00000001405E8DF0                 ; Val
+  PAGE:00000001405E8DF0                 xor     edx, edx; Val
+  PAGE:00000001405E8DF2                 ; Size
+  PAGE:00000001405E8DF2                 lea     r8d, [rdx+40h]; Size
+  PAGE:00000001405E8DF6                 ; void *
+  PAGE:00000001405E8DF6                 lea     rcx, [rsp+1C8h+var_98]; void *
+  PAGE:00000001405E8DFE                 call    memset
+  PAGE:00000001405E8E03                 and     [rsp+1C8h+Handle], 0
+  PAGE:00000001405E8E0C                 and     [rsp+1C8h+var_158], 0
+  PAGE:00000001405E8E12                 and     [rsp+1C8h+BugCheckParameter2], 0
+  PAGE:00000001405E8E1B                 xorps   xmm0, xmm0
+  PAGE:00000001405E8E1E                 xor     eax, eax
+  PAGE:00000001405E8E20                 movups  [rsp+1C8h+var_C0], xmm0
+  PAGE:00000001405E8E28                 movups  [rsp+1C8h+var_B0], xmm0
+  PAGE:00000001405E8E30                 mov     [rsp+1C8h+var_A0], rax
+  PAGE:00000001405E8E38                 and     [rsp+1C8h+var_160], eax
+  PAGE:00000001405E8E3C                 mov     [rsp+1C8h+var_58], rax
+  PAGE:00000001405E8E44                 mov     [rsp+1C8h+var_50], eax
+  PAGE:00000001405E8E4B                 and     [rsp+1C8h+var_140], rax
+  PAGE:00000001405E8E53                 mov     rax, gs:188h
+  PAGE:00000001405E8E5C                 dec     word ptr [rax+1E4h]
+  PAGE:00000001405E8E63                 xor     eax, eax
+  PAGE:00000001405E8E65                 movups  [rsp+1C8h+var_D8], xmm0
+  PAGE:00000001405E8E6D                 mov     [rsp+1C8h+var_C8], rax
+  PAGE:00000001405E8E75                 xorps   xmm1, xmm1
+  PAGE:00000001405E8E78                 movups  [rsp+1C8h+var_118], xmm1
+  PAGE:00000001405E8E80                 movups  [rsp+1C8h+var_108], xmm1
+  PAGE:00000001405E8E88                 movups  [rsp+1C8h+var_F8], xmm1
+  PAGE:00000001405E8E90                 mov     rax, gs:188h
+  PAGE:00000001405E8E99                 mov     dl, [rax+232h]
+  PAGE:00000001405E8E9F                 mov     [rsp+1C8h+var_168], dl
+  PAGE:00000001405E8EA3                 test    dl, dl
+  PAGE:00000001405E8EA5                 jz      loc_1405E92C9
+  PAGE:00000001405E8EAB                 mov     rcx, [rsp+1C8h+var_120]
+  PAGE:00000001405E8EB3                 mov     r8, 7FFFFFFF0000h
+  PAGE:00000001405E8EBD                 cmp     rcx, r8
+  PAGE:00000001405E8EC0                 cmovnb  rcx, r8
+  PAGE:00000001405E8EC4                 mov     rax, [rcx]
+  PAGE:00000001405E8EC7                 mov     [rcx], rax
+  PAGE:00000001405E8ECA                 test    r15, r15
+  PAGE:00000001405E8ECD                 jz      short loc_1405E8EFF
+  PAGE:00000001405E8ECF                 mov     rax, r15
+  PAGE:00000001405E8ED2                 cmp     r15, r8
+  PAGE:00000001405E8ED5                 cmovnb  rax, r8
+  PAGE:00000001405E8ED9                 mov     eax, [rax]
+  PAGE:00000001405E8EDB                 mov     [rsp+1C8h+var_160], eax
+  PAGE:00000001405E8EDF                 ; Length
+  PAGE:00000001405E8EDF                 mov     edx, eax; Length
+  PAGE:00000001405E8EE1                 ; Alignment
+  PAGE:00000001405E8EE1                 mov     r8d, 1; Alignment
+  PAGE:00000001405E8EE7                 ; Address
+  PAGE:00000001405E8EE7                 mov     rcx, [rsp+1C8h+Address]; Address
+  PAGE:00000001405E8EEC                 call    ProbeForWrite
+  PAGE:00000001405E8EF1                 mov     dl, [rsp+1C8h+var_168]
+  PAGE:00000001405E8EF5                 mov     r8, 7FFFFFFF0000h
+  PAGE:00000001405E8EFF                 test    rsi, rsi
+  PAGE:00000001405E8F02                 jz      short loc_1405E8F5C
+  PAGE:00000001405E8F04                 mov     rax, rsi
+  PAGE:00000001405E8F07                 cmp     rsi, r8
+  PAGE:00000001405E8F0A                 cmovnb  rax, r8
+  PAGE:00000001405E8F0E                 movups  xmm2, xmmword ptr [rax]
+  PAGE:00000001405E8F11                 movups  [rsp+1C8h+var_118], xmm2
+  PAGE:00000001405E8F19                 movups  xmm0, xmmword ptr [rax+10h]
+  PAGE:00000001405E8F1D                 movups  [rsp+1C8h+var_108], xmm0
+  PAGE:00000001405E8F25                 movups  xmm1, xmmword ptr [rax+20h]
+  PAGE:00000001405E8F29                 movups  [rsp+1C8h+var_F8], xmm1
+  PAGE:00000001405E8F31                 movd    eax, xmm2
+  PAGE:00000001405E8F35                 cmp     eax, 30h ; '0'
+  PAGE:00000001405E8F38                 jnz     loc_1405E8FF8
+  PAGE:00000001405E8F3E                 test    sil, 3
+  PAGE:00000001405E8F42                 jnz     loc_1405E9012
+  PAGE:00000001405E8F48                 mov     rcx, rsi
+  PAGE:00000001405E8F4B                 cmp     rsi, r8
+  PAGE:00000001405E8F4E                 cmovnb  rcx, r8
+  PAGE:00000001405E8F52                 mov     al, [rcx]
+  PAGE:00000001405E8F54                 mov     [rcx], al
+  PAGE:00000001405E8F56                 mov     al, [rcx+2Fh]
+  PAGE:00000001405E8F59                 mov     [rcx+2Fh], al
+  PAGE:00000001405E8F5C                 test    r14, r14
+  PAGE:00000001405E8F5F                 jz      short loc_1405E8F94
+  PAGE:00000001405E8F61                 mov     rax, r14
+  PAGE:00000001405E8F64                 cmp     r14, r8
+  PAGE:00000001405E8F67                 cmovnb  rax, r8
+  PAGE:00000001405E8F6B                 mov     eax, [rax]
+  PAGE:00000001405E8F6D                 cmp     eax, 18h
+  PAGE:00000001405E8F70                 jnz     loc_1405E9005
+  PAGE:00000001405E8F76                 test    r14b, 3
+  PAGE:00000001405E8F7A                 jnz     loc_1405E9012
+  PAGE:00000001405E8F80                 mov     rcx, r14
+  PAGE:00000001405E8F83                 cmp     r14, r8
+  PAGE:00000001405E8F86                 cmovnb  rcx, r8
+  PAGE:00000001405E8F8A                 mov     al, [rcx]
+  PAGE:00000001405E8F8C                 mov     [rcx], al
+  PAGE:00000001405E8F8E                 mov     al, [rcx+17h]
+  PAGE:00000001405E8F91                 mov     [rcx+17h], al
+  PAGE:00000001405E8F94                 test    r13, r13
+  PAGE:00000001405E8F97                 jz      short loc_1405E8FA7
+  PAGE:00000001405E8F99                 mov     rcx, r13
+  PAGE:00000001405E8F9C                 cmp     r13, r8
+  PAGE:00000001405E8F9F                 cmovnb  rcx, r8
+  PAGE:00000001405E8FA3                 mov     eax, [rcx]
+  PAGE:00000001405E8FA5                 mov     [rcx], eax
+  PAGE:00000001405E8FA7                 test    rdi, rdi
+  PAGE:00000001405E8FAA                 jz      short loc_1405E8FCD
+  PAGE:00000001405E8FAC                 mov     rax, rdi
+  PAGE:00000001405E8FAF                 cmp     rdi, r8
+  PAGE:00000001405E8FB2                 cmovnb  rax, r8
+  PAGE:00000001405E8FB6                 movsd   xmm0, qword ptr [rax]
+  PAGE:00000001405E8FBA                 movsd   [rsp+1C8h+var_58], xmm0
+  PAGE:00000001405E8FC3                 mov     eax, [rax+8]
+  PAGE:00000001405E8FC6                 mov     [rsp+1C8h+var_50], eax
+  PAGE:00000001405E8FCD                 mov     [rsp+1C8h+var_158], r12
+  PAGE:00000001405E8FD2                 test    r12, r12
+  PAGE:00000001405E8FD5                 jz      short loc_1405E901D
+  PAGE:00000001405E8FD7                 lea     rax, [rsp+1C8h+var_158]
+  PAGE:00000001405E8FDC                 ; __int64
+  PAGE:00000001405E8FDC                 mov     [rsp+1C8h+var_198], rax; __int64
+  PAGE:00000001405E8FE1                 ; char
+  PAGE:00000001405E8FE1                 mov     [rsp+1C8h+var_1A0], 1; char
+  PAGE:00000001405E8FE6                 ; Src
+  PAGE:00000001405E8FE6                 mov     rcx, r12; Src
+  PAGE:00000001405E8FE9                 call    SeCaptureSid
+  PAGE:00000001405E8FEE                 mov     [rsp+1C8h+var_164], eax
+  PAGE:00000001405E8FF2                 test    eax, eax
+  PAGE:00000001405E8FF4                 js      short loc_1405E9018
+  PAGE:00000001405E8FF6                 jmp     short loc_1405E901D
+  PAGE:00000001405E8FF8                 mov     [rsp+1C8h+var_164], 0C000000Dh
+  PAGE:00000001405E9000                 jmp     loc_1405E9294
+  PAGE:00000001405E9005                 mov     [rsp+1C8h+var_164], 0C000000Dh
+  PAGE:00000001405E900D                 jmp     loc_1405E9294
+  PAGE:00000001405E9012                 call    ExRaiseDatatypeMisalignment
+  PAGE:00000001405E9018                 jmp     loc_1405E9294
+  PAGE:00000001405E901D                 jmp     short loc_1405E9028
+  PAGE:00000001405E901F                 mov     [rsp+1C8h+var_164], eax
+  PAGE:00000001405E9023                 jmp     loc_1405E9294
+  PAGE:00000001405E9028                 neg     rdi
+  PAGE:00000001405E902B                 sbb     rax, rax
+  PAGE:00000001405E902E                 lea     rcx, [rsp+1C8h+var_58]
+  PAGE:00000001405E9036                 and     rax, rcx
+  PAGE:00000001405E9039                 mov     [rsp+1C8h+var_178], 1
+  PAGE:00000001405E903E                 mov     [rsp+1C8h+var_180], rax
+  PAGE:00000001405E9043                 mov     rdi, [rsp+1C8h+var_158]
+  PAGE:00000001405E9048                 mov     [rsp+1C8h+var_188], rdi
+  PAGE:00000001405E904D                 and     [rsp+1C8h+var_190], 0
+  PAGE:00000001405E9053                 and     [rsp+1C8h+var_198], 0
+  PAGE:00000001405E9059                 and     qword ptr [rsp+1C8h+var_1A0], 0
+  PAGE:00000001405E905F                 and     [rsp+1C8h+var_1A8], 0
+  PAGE:00000001405E9065                 mov     r9, [rsp+1C8h+var_130]
+  PAGE:00000001405E906D                 xor     r8d, r8d
+  PAGE:00000001405E9070                 lea     rdx, [rsp+1C8h+DmaAdapter]
+  PAGE:00000001405E9078                 lea     rcx, [rsp+1C8h+Handle]
+  PAGE:00000001405E9080                 call    AlpcpCreateClientPort ; AlpcpCreateClientPort - target function to find
+  PAGE:00000001405E9085                 mov     r15d, eax
+  PAGE:00000001405E9088                 mov     [rsp+1C8h+var_164], eax
+  PAGE:00000001405E908C                 cmp     rdi, r12
+  PAGE:00000001405E908F                 mov     r12b, [rsp+1C8h+var_168]
+  PAGE:00000001405E9094                 jnz     loc_1405E931C
+  PAGE:00000001405E909A                 test    r15d, r15d
+  PAGE:00000001405E909D                 js      loc_1405E9294
+  PAGE:00000001405E90A3                 movzx   eax, word ptr [rsp+1C8h+var_160]
+  PAGE:00000001405E90A8                 mov     word ptr [rsp+1C8h+var_C0], ax
+  PAGE:00000001405E90B0                 mov     rax, rsi
+  PAGE:00000001405E90B3                 neg     rax
+  PAGE:00000001405E90B6                 sbb     rax, rax
+  PAGE:00000001405E90B9                 lea     rcx, [rsp+1C8h+var_118]
+  PAGE:00000001405E90C1                 and     rax, rcx
+  PAGE:00000001405E90C4                 mov     [rsp+1C8h+var_130], rax
+  PAGE:00000001405E90CC                 mov     byte ptr [rsp+1C8h+var_180], r12b
+  PAGE:00000001405E90D1                 mov     byte ptr [rsp+1C8h+var_188], 1
+  PAGE:00000001405E90D6                 lea     rcx, [rsp+1C8h+var_140]
+  PAGE:00000001405E90DE                 mov     [rsp+1C8h+var_190], rcx
+  PAGE:00000001405E90E3                 mov     [rsp+1C8h+var_198], rax
+  PAGE:00000001405E90E8                 and     qword ptr [rsp+1C8h+var_1A0], 0
+  PAGE:00000001405E90EE                 lea     rax, [rsp+1C8h+var_C0]
+  PAGE:00000001405E90F6                 mov     [rsp+1C8h+var_1A8], rax
+  PAGE:00000001405E90FB                 mov     r9, [rsp+1C8h+Address]
+  PAGE:00000001405E9100                 mov     r13, [rsp+1C8h+DmaAdapter]
+  PAGE:00000001405E9108                 mov     r8, r13
+  PAGE:00000001405E910B                 xor     edx, edx
+  PAGE:00000001405E910D                 lea     rcx, [rsp+1C8h+BugCheckParameter2]
+  PAGE:00000001405E9115                 call    AlpcpFormatConnectionRequest
+  PAGE:00000001405E911A                 mov     edi, eax
+  PAGE:00000001405E911C                 mov     [rsp+1C8h+var_164], eax
+  PAGE:00000001405E9120                 test    eax, eax
+  PAGE:00000001405E9122                 js      loc_1405E926D
+  PAGE:00000001405E9128                 mov     r15, [rsp+1C8h+BugCheckParameter2]
+  PAGE:00000001405E9130                 mov     r12d, [r15+108h]
+  PAGE:00000001405E9137                 cmp     cs:AlpcpLogEnabled, 0
+  PAGE:00000001405E913E                 jnz     loc_1407E78C0
+  PAGE:00000001405E9144                 mov     [rsp+1C8h+var_98], r13
+  PAGE:00000001405E914C                 mov     [rsp+1C8h+var_90], r15
+  PAGE:00000001405E9154                 mov     [rsp+1C8h+var_68], 20000h
+  PAGE:00000001405E915F                 lea     rcx, [rsp+1C8h+var_98]
+  PAGE:00000001405E9167                 call    AlpcpDispatchConnectionRequest
+  PAGE:00000001405E916C                 mov     edi, eax
+  PAGE:00000001405E916E                 mov     [rsp+1C8h+var_164], eax
+  PAGE:00000001405E9172                 test    eax, eax
+  PAGE:00000001405E9174                 js      loc_1407E78CE
+  PAGE:00000001405E917A                 mov     rax, r14
+  PAGE:00000001405E917D                 neg     rax
+  PAGE:00000001405E9180                 sbb     rcx, rcx
+  PAGE:00000001405E9183                 lea     rax, [rsp+1C8h+var_D8]
+  PAGE:00000001405E918B                 and     rcx, rax
+  PAGE:00000001405E918E                 mov     qword ptr [rsp+1C8h+var_1A0], rcx
+  PAGE:00000001405E9193                 mov     rax, [rsp+1C8h+var_130]
+  PAGE:00000001405E919B                 mov     [rsp+1C8h+var_1A8], rax
+  PAGE:00000001405E91A0                 mov     r9, [rsp+1C8h+var_140]
+  PAGE:00000001405E91A8                 lea     r8, [rsp+1C8h+var_160]
+  PAGE:00000001405E91AD                 mov     rdx, [rsp+1C8h+Address]
+  PAGE:00000001405E91B2                 lea     rcx, [rsp+1C8h+var_98]
+  PAGE:00000001405E91BA                 call    AlpcpReceiveLegacyConnectionReply
+  PAGE:00000001405E91BF                 mov     edi, eax
+  PAGE:00000001405E91C1                 mov     [rsp+1C8h+var_164], eax
+  PAGE:00000001405E91C5                 test    eax, eax
+  PAGE:00000001405E91C7                 jnz     loc_1407E78EF
+  PAGE:00000001405E91CD                 cmp     cs:AlpcpLogEnabled, al
+  PAGE:00000001405E91D3                 jnz     loc_1407E790C
+  PAGE:00000001405E91D9                 mov     rax, [rsp+1C8h+Handle]
+  PAGE:00000001405E91E1                 mov     rcx, [rsp+1C8h+var_120]
+  PAGE:00000001405E91E9                 mov     [rcx], rax
+  PAGE:00000001405E91EC                 test    rsi, rsi
+  PAGE:00000001405E91EF                 jz      short loc_1405E9214
+  PAGE:00000001405E91F1                 movups  xmm0, [rsp+1C8h+var_118]
+  PAGE:00000001405E91F9                 movups  xmmword ptr [rsi], xmm0
+  PAGE:00000001405E91FC                 movups  xmm1, [rsp+1C8h+var_108]
+  PAGE:00000001405E9204                 movups  xmmword ptr [rsi+10h], xmm1
+  PAGE:00000001405E9208                 movups  xmm0, [rsp+1C8h+var_F8]
+  PAGE:00000001405E9210                 movups  xmmword ptr [rsi+20h], xmm0
+  PAGE:00000001405E9214                 test    r14, r14
+  PAGE:00000001405E9217                 jz      short loc_1405E9234
+  PAGE:00000001405E9219                 movups  xmm0, [rsp+1C8h+var_D8]
+  PAGE:00000001405E9221                 movups  xmmword ptr [r14], xmm0
+  PAGE:00000001405E9225                 movsd   xmm0, [rsp+1C8h+var_C8]
+  PAGE:00000001405E922E                 movsd   qword ptr [r14+10h], xmm0
+  PAGE:00000001405E9234                 mov     rcx, [rsp+1C8h+var_E8]
+  PAGE:00000001405E923C                 test    rcx, rcx
+  PAGE:00000001405E923F                 jz      short loc_1405E9247
+  PAGE:00000001405E9241                 mov     eax, [rsp+1C8h+var_160]
+  PAGE:00000001405E9245                 mov     [rcx], eax
+  PAGE:00000001405E9247                 mov     rcx, [rsp+1C8h+var_E0]
+  PAGE:00000001405E924F                 test    rcx, rcx
+  PAGE:00000001405E9252                 jz      short loc_1405E925D
+  PAGE:00000001405E9254                 mov     eax, [r13+110h]
+  PAGE:00000001405E925B                 mov     [rcx], eax
+  PAGE:00000001405E925D                 jmp     short loc_1405E926D
+  PAGE:00000001405E925F                 mov     edi, eax
+  PAGE:00000001405E9261                 mov     [rsp+1C8h+var_164], eax
+  PAGE:00000001405E9265                 mov     r13, [rsp+1C8h+DmaAdapter]
+  PAGE:00000001405E926D                 ; DmaAdapter
+  PAGE:00000001405E926D                 mov     rcx, r13; DmaAdapter
+  PAGE:00000001405E9270                 call    ObDereferenceObjectWithTag
+  PAGE:00000001405E9275                 ; _ALPC_COMMUNICATION_INFO *
+  PAGE:00000001405E9275                 mov     rcx, [rsp+1C8h+var_140]; _ALPC_COMMUNICATION_INFO *
+  PAGE:00000001405E927D                 test    rcx, rcx
+  PAGE:00000001405E9280                 jz      short loc_1405E928C
+  PAGE:00000001405E9282                 ; a2
+  PAGE:00000001405E9282                 mov     edx, 1; a2
+  PAGE:00000001405E9287                 call    AlpcpDereferenceBlobEx
+  PAGE:00000001405E928C                 test    edi, edi
+  PAGE:00000001405E928E                 jnz     loc_1407E791A
+  PAGE:00000001405E9294                 mov     rcx, gs:188h
+  PAGE:00000001405E929D                 call    KeLeaveCriticalRegionThread
+  PAGE:00000001405E92A2                 mov     eax, [rsp+1C8h+var_164]
+  PAGE:00000001405E92A6                 mov     rcx, [rsp+1C8h+var_48]
+  PAGE:00000001405E92AE                 ; StackCookie
+  PAGE:00000001405E92AE                 xor     rcx, rsp; StackCookie
+  PAGE:00000001405E92B1                 call    __security_check_cookie
+  PAGE:00000001405E92B6                 add     rsp, 198h
+  PAGE:00000001405E92BD                 pop     r15
+  PAGE:00000001405E92BF                 pop     r14
+  PAGE:00000001405E92C1                 pop     r13
+  PAGE:00000001405E92C3                 pop     r12
+  PAGE:00000001405E92C5                 pop     rdi
+  PAGE:00000001405E92C6                 pop     rsi
+  PAGE:00000001405E92C7                 retn
+  PAGE:00000001405E92C9                 test    r15, r15
+  PAGE:00000001405E92CC                 jnz     short loc_1405E932F
+  PAGE:00000001405E92CE                 test    rsi, rsi
+  PAGE:00000001405E92D1                 jz      short loc_1405E92F6
+  PAGE:00000001405E92D3                 movups  xmm0, xmmword ptr [rsi]
+  PAGE:00000001405E92D6                 movups  [rsp+1C8h+var_118], xmm0
+  PAGE:00000001405E92DE                 movups  xmm1, xmmword ptr [rsi+10h]
+  PAGE:00000001405E92E2                 movups  [rsp+1C8h+var_108], xmm1
+  PAGE:00000001405E92EA                 movups  xmm0, xmmword ptr [rsi+20h]
+  PAGE:00000001405E92EE                 movups  [rsp+1C8h+var_F8], xmm0
+  PAGE:00000001405E92F6                 test    rdi, rdi
+  PAGE:00000001405E92F9                 jz      short loc_1405E9312
+  PAGE:00000001405E92FB                 movsd   xmm0, qword ptr [rdi]
+  PAGE:00000001405E92FF                 movsd   [rsp+1C8h+var_58], xmm0
+  PAGE:00000001405E9308                 mov     eax, [rdi+8]
+  PAGE:00000001405E930B                 mov     [rsp+1C8h+var_50], eax
+  PAGE:00000001405E9312                 mov     [rsp+1C8h+var_158], r12
+  PAGE:00000001405E9317                 jmp     loc_1405E9028
+  PAGE:00000001405E931C                 mov     r8b, 1
+  PAGE:00000001405E931F                 mov     dl, r12b
+  PAGE:00000001405E9322                 mov     rcx, rdi
+  PAGE:00000001405E9325                 call    SeReleaseSid
+  PAGE:00000001405E932A                 jmp     loc_1405E909A
+  PAGE:00000001405E932F                 mov     eax, [r15]
+  PAGE:00000001405E9332                 mov     [rsp+1C8h+var_160], eax
+  PAGE:00000001405E9336                 jmp     short loc_1405E92CE
+  PAGE:00000001407E78C0                 mov     rcx, r15
+  PAGE:00000001407E78C3                 call    AlpcpLogConnectRequest
+  PAGE:00000001407E78C8                 nop
+  PAGE:00000001407E78C9                 jmp     loc_1405E9144
+  PAGE:00000001407E78CE                 cmp     cs:AlpcpLogEnabled, 0
+  PAGE:00000001407E78D5                 jz      short loc_1407E78E1
+  PAGE:00000001407E78D7                 mov     edx, eax
+  PAGE:00000001407E78D9                 mov     ecx, r12d
+  PAGE:00000001407E78DC                 call    AlpcpLogConnectFail
+  PAGE:00000001407E78E1                 ; BugCheckParameter2
+  PAGE:00000001407E78E1                 mov     rcx, r15; BugCheckParameter2
+  PAGE:00000001407E78E4                 call    AlpcpUnlockMessage
+  PAGE:00000001407E78E9                 nop
+  PAGE:00000001407E78EA                 jmp     loc_1405E926D
+  PAGE:00000001407E78EF                 cmp     cs:AlpcpLogEnabled, 0
+  PAGE:00000001407E78F6                 jz      loc_1405E926D
+  PAGE:00000001407E78FC                 mov     edx, eax
+  PAGE:00000001407E78FE                 mov     ecx, r12d
+  PAGE:00000001407E7901                 call    AlpcpLogConnectFail
+  PAGE:00000001407E7906                 nop
+  PAGE:00000001407E7907                 jmp     loc_1405E926D
+  PAGE:00000001407E790C                 mov     ecx, r12d
+  PAGE:00000001407E790F                 call    AlpcpLogConnectSuccess
+  PAGE:00000001407E7914                 nop
+  PAGE:00000001407E7915                 jmp     loc_1405E91D9
+  PAGE:00000001407E791A                 ; Handle
+  PAGE:00000001407E791A                 mov     rcx, [rsp+1C8h+Handle]; Handle
+  PAGE:00000001407E7922                 call    NtClose
+  PAGE:00000001407E7927                 nop
+  PAGE:00000001407E7928                 jmp     loc_1405E9294
+procedure: |-
+  __int64 __fastcall NtSecureConnectPort(
+          HANDLE *a1,
+          unsigned __int64 a2,
+          unsigned __int64 a3,
+          unsigned __int64 a4,
+          void *Src,
+          unsigned __int64 a6,
+          unsigned __int64 a7,
+          volatile void *a8,
+          unsigned int *a9)
+  {
+    struct _KTHREAD *CurrentThread; // rax
+    __int64 v12; // rcx
+    __int64 v13; // rax
+    __int64 v14; // rax
+    __int64 v15; // rcx
+    __int64 v16; // rax
+    __int64 v17; // rcx
+    __int64 v18; // rcx
+    __int64 v19; // rax
+    void *v20; // rdi
+    __int64 v21; // rdx
+    __int64 v22; // r8
+    int ClientPort; // r15d
+    PADAPTER_OBJECT v24; // r13
+    int v25; // edi
+    ULONG_PTR v26; // r15
+    unsigned int v27; // r12d
+    int v28; // eax
+    unsigned int v29; // eax
+    int v31; // [rsp+20h] [rbp-1A8h]
+    int v32; // [rsp+40h] [rbp-188h]
+    unsigned __int64 v33; // [rsp+48h] [rbp-180h]
+    int v34; // [rsp+48h] [rbp-180h]
+    char PreviousMode; // [rsp+60h] [rbp-168h]
+    int v36; // [rsp+64h] [rbp-164h]
+    unsigned int v37; // [rsp+68h] [rbp-160h] BYREF
+    __int64 v38; // [rsp+70h] [rbp-158h] BYREF
+    volatile void *Address; // [rsp+78h] [rbp-150h]
+    PADAPTER_OBJECT DmaAdapter; // [rsp+80h] [rbp-148h] BYREF
+    ULONG_PTR v41; // [rsp+88h] [rbp-140h] BYREF
+    HANDLE Handle; // [rsp+90h] [rbp-138h] BYREF
+    unsigned __int64 v43; // [rsp+98h] [rbp-130h]
+    ULONG_PTR BugCheckParameter2; // [rsp+A0h] [rbp-128h] BYREF
+    HANDLE *v45; // [rsp+A8h] [rbp-120h]
+    __m128i v46; // [rsp+B0h] [rbp-118h] BYREF
+    __int128 v47; // [rsp+C0h] [rbp-108h]
+    __int128 v48; // [rsp+D0h] [rbp-F8h]
+    unsigned int *v49; // [rsp+E0h] [rbp-E8h]
+    _DWORD *v50; // [rsp+E8h] [rbp-E0h]
+    __int128 v51; // [rsp+F0h] [rbp-D8h] BYREF
+    __int64 v52; // [rsp+100h] [rbp-C8h]
+    _OWORD v53[2]; // [rsp+108h] [rbp-C0h] BYREF
+    __int64 v54; // [rsp+128h] [rbp-A0h]
+    _QWORD v55[8]; // [rsp+130h] [rbp-98h] BYREF
+    __int64 v56; // [rsp+170h] [rbp-58h] BYREF
+    int v57; // [rsp+178h] [rbp-50h]
+
+    v43 = a2;
+    v45 = a1;
+    v50 = (_DWORD *)a7;
+    Address = a8;
+    v49 = a9;
+    DmaAdapter = nullptr;
+    memset(v55, 0, sizeof(v55));
+    Handle = nullptr;
+    v38 = 0;
+    BugCheckParameter2 = 0;
+    memset(v53, 0, sizeof(v53));
+    v54 = 0;
+    v37 = 0;
+    v56 = 0;
+    v57 = 0;
+    v41 = 0;
+    CurrentThread = KeGetCurrentThread();
+    --CurrentThread->KernelApcDisable;
+    v51 = 0;
+    v52 = 0;
+    v46 = 0;
+    v47 = 0;
+    v48 = 0;
+    PreviousMode = KeGetCurrentThread()->PreviousMode;
+    if ( !PreviousMode )
+    {
+      if ( a9 )
+        v37 = *a9;
+      if ( a4 )
+      {
+        v46 = *(__m128i *)a4;
+        v47 = *(_OWORD *)(a4 + 16);
+        v48 = *(_OWORD *)(a4 + 32);
+      }
+      if ( a3 )
+      {
+        v56 = *(_QWORD *)a3;
+        v57 = *(_DWORD *)(a3 + 8);
+      }
+      v38 = (__int64)Src;
+      goto LABEL_39;
+    }
+    v12 = (__int64)v45;
+    if ( (unsigned __int64)v45 >= 0x7FFFFFFF0000LL )
+      v12 = 0x7FFFFFFF0000LL;
+    *(_QWORD *)v12 = *(_QWORD *)v12;
+    if ( a9 )
+    {
+      v13 = (__int64)a9;
+      if ( (unsigned __int64)a9 >= 0x7FFFFFFF0000LL )
+        v13 = 0x7FFFFFFF0000LL;
+      v37 = *(_DWORD *)v13;
+      ProbeForWrite(Address, v37, 1u);
+    }
+    if ( a4 )
+    {
+      v14 = a4;
+      if ( a4 >= 0x7FFFFFFF0000LL )
+        v14 = 0x7FFFFFFF0000LL;
+      v46 = *(__m128i *)v14;
+      v47 = *(_OWORD *)(v14 + 16);
+      v48 = *(_OWORD *)(v14 + 32);
+      if ( _mm_cvtsi128_si32(v46) != 48 )
+      {
+        v36 = -1073741811;
+        goto LABEL_61;
+      }
+      if ( (a4 & 3) != 0 )
+        goto LABEL_37;
+      v15 = a4;
+      if ( a4 >= 0x7FFFFFFF0000LL )
+        v15 = 0x7FFFFFFF0000LL;
+      *(_BYTE *)v15 = *(_BYTE *)v15;
+      *(_BYTE *)(v15 + 47) = *(_BYTE *)(v15 + 47);
+    }
+    if ( !a6 )
+      goto LABEL_24;
+    v16 = a6;
+    if ( a6 >= 0x7FFFFFFF0000LL )
+      v16 = 0x7FFFFFFF0000LL;
+    if ( *(_DWORD *)v16 != 24 )
+    {
+      v36 = -1073741811;
+      goto LABEL_61;
+    }
+    if ( (a6 & 3) != 0 )
+  LABEL_37:
+      ExRaiseDatatypeMisalignment();
+    v17 = a6;
+    if ( a6 >= 0x7FFFFFFF0000LL )
+      v17 = 0x7FFFFFFF0000LL;
+    *(_BYTE *)v17 = *(_BYTE *)v17;
+    *(_BYTE *)(v17 + 23) = *(_BYTE *)(v17 + 23);
+  LABEL_24:
+    if ( a7 )
+    {
+      v18 = a7;
+      if ( a7 >= 0x7FFFFFFF0000LL )
+        v18 = 0x7FFFFFFF0000LL;
+      *(_DWORD *)v18 = *(_DWORD *)v18;
+    }
+    if ( a3 )
+    {
+      v19 = a3;
+      if ( a3 >= 0x7FFFFFFF0000LL )
+        v19 = 0x7FFFFFFF0000LL;
+      v56 = *(_QWORD *)v19;
+      v57 = *(_DWORD *)(v19 + 8);
+    }
+    v38 = (__int64)Src;
+    if ( !Src || (v36 = SeCaptureSid(Src, v31, 1, (__int64)&v38), v36 >= 0) )
+    {
+  LABEL_39:
+      v33 = (unsigned __int64)&v56 & -(__int64)(a3 != 0);
+      v20 = (void *)v38;
+      ClientPort = AlpcpCreateClientPort( // AlpcpCreateClientPort - target function to find
+                     (__int64 *)&Handle,
+                     (_ALPC_PORT **)&DmaAdapter,
+                     0,
+                     v43,
+                     0,
+                     0,
+                     nullptr,
+                     0,
+                     v38,
+                     v33,
+                     1);
+      v36 = ClientPort;
+      if ( v20 != Src )
+      {
+        LOBYTE(v22) = 1;
+        LOBYTE(v21) = PreviousMode;
+        SeReleaseSid(v20, v21, v22);
+      }
+      if ( ClientPort >= 0 )
+      {
+        LOWORD(v53[0]) = v37;
+        v43 = (unsigned __int64)&v46 & -(__int64)(a4 != 0);
+        LOBYTE(v34) = PreviousMode;
+        LOBYTE(v32) = 1;
+        v24 = DmaAdapter;
+        v25 = AlpcpFormatConnectionRequest(&BugCheckParameter2, 0, DmaAdapter, Address, v53, 0, v43, &v41, v32, v34);
+        v36 = v25;
+        if ( v25 >= 0 )
+        {
+          v26 = BugCheckParameter2;
+          v27 = *(_DWORD *)(BugCheckParameter2 + 264);
+          if ( AlpcpLogEnabled )
+            AlpcpLogConnectRequest(BugCheckParameter2);
+          v55[0] = v24;
+          v55[1] = v26;
+          LODWORD(v55[6]) = 0x20000;
+          v28 = AlpcpDispatchConnectionRequest(v55);
+          v25 = v28;
+          v36 = v28;
+          if ( v28 < 0 )
+          {
+            if ( AlpcpLogEnabled )
+              AlpcpLogConnectFail(v27, (unsigned int)v28);
+            AlpcpUnlockMessage(v26);
+          }
+          else
+          {
+            v29 = AlpcpReceiveLegacyConnectionReply(
+                    (unsigned int)v55,
+                    (_DWORD)Address,
+                    (unsigned int)&v37,
+                    v41,
+                    v43,
+                    (unsigned __int64)&v51 & -(__int64)(a6 != 0));
+            v25 = v29;
+            v36 = v29;
+            if ( v29 )
+            {
+              if ( AlpcpLogEnabled )
+                AlpcpLogConnectFail(v27, v29);
+            }
+            else
+            {
+              if ( AlpcpLogEnabled )
+                AlpcpLogConnectSuccess(v27);
+              *v45 = Handle;
+              if ( a4 )
+              {
+                *(__m128i *)a4 = v46;
+                *(_OWORD *)(a4 + 16) = v47;
+                *(_OWORD *)(a4 + 32) = v48;
+              }
+              if ( a6 )
+              {
+                *(_OWORD *)a6 = v51;
+                *(_QWORD *)(a6 + 16) = v52;
+              }
+              if ( v49 )
+                *v49 = v37;
+              if ( v50 )
+                *v50 = *(_DWORD *)&v24[17].Version;
+            }
+          }
+        }
+        ObDereferenceObjectWithTag(v24);
+        if ( v41 )
+          AlpcpDereferenceBlobEx((_ALPC_COMMUNICATION_INFO *)v41, 1);
+        if ( v25 )
+          NtClose(Handle);
+      }
+    }
+  LABEL_61:
+    KeLeaveCriticalRegionThread(KeGetCurrentThread());
+    return (unsigned int)v36;
+  }

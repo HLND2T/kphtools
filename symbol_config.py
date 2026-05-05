@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -12,11 +12,26 @@ class SkillSpec:
     name: str
     expected_output: list[str]
     expected_input: list[str]
+    arch: str | None = None
     max_retries: int | None = None
+    optional_output: list[str] = field(default_factory=list)
+    preprocessor_only_output: list[str] = field(default_factory=list)
+    skip_if_any_exists: list[str] = field(default_factory=list)
+    skip_if_all_exists: list[str] = field(default_factory=list)
+    prerequisite: list[str] = field(default_factory=list)
+    expected_input_amd64: list[str] = field(default_factory=list)
+    expected_input_arm64: list[str] = field(default_factory=list)
 
     @property
     def produced_symbols(self) -> list[str]:
-        return [symbol_name_from_artifact_name(item) for item in self.expected_output]
+        return [
+            symbol_name_from_artifact_name(item)
+            for item in (
+                self.expected_output
+                + self.optional_output
+                + self.preprocessor_only_output
+            )
+        ]
 
 
 @dataclass(frozen=True)
@@ -39,12 +54,31 @@ class ConfigSpec:
     modules: list[ModuleSpec]
 
 
-_ALLOWED_SKILL_FIELDS = frozenset({"name", "expected_input", "expected_output", "max_retries"})
+_ALLOWED_SKILL_FIELDS = frozenset(
+    {
+        "name",
+        "arch",
+        "expected_input",
+        "expected_input_amd64",
+        "expected_input_arm64",
+        "expected_output",
+        "optional_output",
+        "preprocessor_only_output",
+        "skip_if_any_exists",
+        "skip_if_all_exists",
+        "prerequisite",
+        "max_retries",
+    }
+)
 _ALLOWED_SYMBOL_FIELDS = frozenset({"name", "category", "data_type"})
+_SUPPORTED_SKILL_ARCHES = frozenset({"amd64", "arm64"})
 _LEGACY_FIELD_MESSAGES = {
     "skill": {
         "agent_skill": "is not supported; use skill.name",
-        "symbol": "is not supported; derive it from skill.expected_output",
+        "symbol": "is not supported; declare artifacts with skill.expected_output",
+        "skip_if_exists": (
+            "is not supported; use skill.skip_if_any_exists or skill.skip_if_all_exists"
+        ),
     },
     "symbol": {
         "symbol_expr": "is not supported; move it to the skill script",
@@ -95,12 +129,27 @@ def _require_string_list(
     return items
 
 
-def _validate_expected_output_name(name: str) -> str:
+def _validate_artifact_name(name: str, field_name: str) -> str:
     if not name.endswith(".yaml"):
-        raise ValueError(f"expected_output must end with .yaml: {name}")
+        raise ValueError(f"{field_name} must end with .yaml: {name}")
     if name.endswith(".amd64.yaml") or name.endswith(".arm64.yaml"):
-        raise ValueError(f"expected_output must not encode arch in filename: {name}")
+        raise ValueError(f"{field_name} must not encode arch in filename: {name}")
     return name
+
+
+def _validate_expected_output_name(name: str) -> str:
+    return _validate_artifact_name(name, "expected_output")
+
+
+def _validate_skill_arch(value: Any) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("skill.arch must be one of: amd64, arm64")
+    arch = value.strip().lower()
+    if arch not in _SUPPORTED_SKILL_ARCHES:
+        raise ValueError("skill.arch must be one of: amd64, arm64")
+    return arch
 
 
 def symbol_name_from_artifact_name(name: str) -> str:
@@ -121,17 +170,60 @@ def _reject_unknown_fields(
 
 def _load_skill(entry: dict[str, Any]) -> SkillSpec:
     _reject_unknown_fields(entry, _ALLOWED_SKILL_FIELDS, "skill")
-    expected_output = _require_string_list(
-        entry.get("expected_output", []), "expected_output", allow_empty=False
+    expected_output = _require_string_list(entry.get("expected_output", []), "expected_output")
+    optional_output = _require_string_list(entry.get("optional_output", []), "optional_output")
+    preprocessor_only_output = _require_string_list(
+        entry.get("preprocessor_only_output", []),
+        "preprocessor_only_output",
     )
+    if not expected_output and not optional_output and not preprocessor_only_output:
+        raise ValueError(
+            "expected_output, optional_output, or preprocessor_only_output must be a non-empty list"
+        )
     expected_input = _require_string_list(entry.get("expected_input", []), "expected_input")
+    expected_input_amd64 = _require_string_list(
+        entry.get("expected_input_amd64", []),
+        "expected_input_amd64",
+    )
+    expected_input_arm64 = _require_string_list(
+        entry.get("expected_input_arm64", []),
+        "expected_input_arm64",
+    )
+    skip_if_any_exists = _require_string_list(
+        entry.get("skip_if_any_exists", []),
+        "skip_if_any_exists",
+    )
+    skip_if_all_exists = _require_string_list(
+        entry.get("skip_if_all_exists", []),
+        "skip_if_all_exists",
+    )
+    prerequisite = _require_string_list(entry.get("prerequisite", []), "prerequisite")
     max_retries = entry.get("max_retries")
     if max_retries is not None and type(max_retries) is not int:
         raise ValueError("skill.max_retries must be an integer or null")
     return SkillSpec(
         name=_require_non_empty_string(entry, "name", "skill"),
+        arch=_validate_skill_arch(entry.get("arch")),
         expected_output=[_validate_expected_output_name(item) for item in expected_output],
+        optional_output=[
+            _validate_artifact_name(item, "optional_output") for item in optional_output
+        ],
+        preprocessor_only_output=[
+            _validate_artifact_name(item, "preprocessor_only_output")
+            for item in preprocessor_only_output
+        ],
         expected_input=expected_input,
+        expected_input_amd64=expected_input_amd64,
+        expected_input_arm64=expected_input_arm64,
+        skip_if_any_exists=[
+            _validate_artifact_name(item, "skip_if_any_exists")
+            for item in skip_if_any_exists
+        ],
+        skip_if_all_exists=[
+            _validate_artifact_name(item, "skip_if_all_exists")
+            for item in skip_if_all_exists
+        ],
+        prerequisite=prerequisite,
         max_retries=max_retries,
     )
 
@@ -166,14 +258,7 @@ def load_config(path: str | Path) -> ConfigSpec:
             raise ValueError("symbols must be a non-empty list")
 
         symbols = [_load_symbol(_require_mapping(item, "symbol")) for item in symbol_items]
-        symbol_names = {symbol.name for symbol in symbols}
         skills = [_load_skill(_require_mapping(item, "skill")) for item in skill_items]
-        for skill in skills:
-            for symbol_name in skill.produced_symbols:
-                if symbol_name not in symbol_names:
-                    raise ValueError(
-                        f"skill expected_output references unknown symbol: {symbol_name}"
-                    )
 
         modules.append(
             ModuleSpec(

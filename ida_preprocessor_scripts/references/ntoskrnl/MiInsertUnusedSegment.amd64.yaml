@@ -1,0 +1,196 @@
+func_name: MiInsertUnusedSegment
+func_va: '0x1402d745c'
+disasm_code: |-
+  .text:00000001402D745C                 mov     [rsp+arg_0], rbx
+  .text:00000001402D7461                 mov     [rsp+arg_8], rbp
+  .text:00000001402D7466                 mov     [rsp+arg_10], rsi
+  .text:00000001402D746B                 push    rdi
+  .text:00000001402D746C                 sub     rsp, 30h
+  .text:00000001402D7470                 mov     eax, [rcx+38h]
+  .text:00000001402D7473                 xor     esi, esi
+  .text:00000001402D7475                 mov     rbx, rcx
+  .text:00000001402D7478                 bt      eax, 8
+  .text:00000001402D747C                 jb      loc_1402D754D
+  .text:00000001402D7482                 test    al, 20h
+  .text:00000001402D7484                 jnz     short loc_1402D748E
+  .text:00000001402D7486                 call    MiConvertStaticSubsections
+  .text:00000001402D748B                 mov     rsi, rax
+  .text:00000001402D748E                 movzx   edx, word ptr [rbx+3Ch]
+  .text:00000001402D7492                 mov     rcx, cs:qword_140C4E4C8
+  .text:00000001402D7499                 and     edx, 3FFh
+  .text:00000001402D749F                 mov     rdi, [rcx+rdx*8]
+  .text:00000001402D74A3                 lea     rbp, [rdi+540h]
+  .text:00000001402D74AA                 ; SpinLock
+  .text:00000001402D74AA                 mov     rcx, rbp; SpinLock
+  .text:00000001402D74AD                 call    ExAcquireSpinLockExclusiveAtDpcLevel
+  .text:00000001402D74B2                 test    rsi, rsi
+  .text:00000001402D74B5                 jnz     short loc_1402D74C5
+  .text:00000001402D74B7                 lea     edx, [rsi+1]
+  .text:00000001402D74BA                 mov     rcx, rbx
+  .text:00000001402D74BD                 call    MiReleaseControlAreaCharges
+  .text:00000001402D74C2                 mov     rsi, rax
+  .text:00000001402D74C5                 mov     edx, [rbx+38h]
+  .text:00000001402D74C8                 mov     r8d, 40000h
+  .text:00000001402D74CE                 bts     edx, 1Bh
+  .text:00000001402D74D2                 mov     [rbx+38h], edx
+  .text:00000001402D74D5                 mov     ecx, edx
+  .text:00000001402D74D7                 mov     eax, [rdi+4]
+  .text:00000001402D74DA                 test    al, 1
+  .text:00000001402D74DC                 jnz     loc_14045BB90
+  .text:00000001402D74E2                 lea     rax, [rbx+8] ; 0x8 = 8 = _CONTROL_AREA->ListHead
+  .text:00000001402D74E6                 test    r8d, ecx
+  .text:00000001402D74E9                 jnz     loc_14045BBA4
+  .text:00000001402D74EF                 lea     rcx, [rdi+6A8h]
+  .text:00000001402D74F6                 mov     rdx, [rcx+8]
+  .text:00000001402D74FA                 cmp     [rdx], rcx
+  .text:00000001402D74FD                 jnz     loc_14045BC01
+  .text:00000001402D7503                 mov     [rax], rcx
+  .text:00000001402D7506                 ; 0x8 = 8 = _CONTROL_AREA->ListHead
+  .text:00000001402D7506                 mov     [rax+8], rdx; 0x8 = 8 = _CONTROL_AREA->ListHead
+  .text:00000001402D750A                 mov     [rdx], rax
+  .text:00000001402D750D                 mov     [rcx+8], rax
+  .text:00000001402D7511                 mov     rcx, rbx
+  .text:00000001402D7514                 call    MiComputePagedPoolSegmentBytes
+  .text:00000001402D7519                 add     [rdi+6A0h], rax
+  .text:00000001402D7520                 ; SpinLock
+  .text:00000001402D7520                 mov     rcx, rbp; SpinLock
+  .text:00000001402D7523                 mov     rbx, rax
+  .text:00000001402D7526                 call    ExReleaseSpinLockExclusiveFromDpcLevel
+  .text:00000001402D752B                 lock xadd cs:qword_140C4C818, rbx
+  .text:00000001402D7534                 mov     rax, rsi
+  .text:00000001402D7537                 mov     rbx, [rsp+38h+arg_0]
+  .text:00000001402D753C                 mov     rbp, [rsp+38h+arg_8]
+  .text:00000001402D7541                 mov     rsi, [rsp+38h+arg_10]
+  .text:00000001402D7546                 add     rsp, 30h
+  .text:00000001402D754A                 pop     rdi
+  .text:00000001402D754B                 retn
+  .text:00000001402D754D                 xor     eax, eax
+  .text:00000001402D754F                 jmp     short loc_1402D7537
+  .text:000000014045BB90                 test    r8d, edx
+  .text:000000014045BB93                 jnz     loc_1402D74E2
+  .text:000000014045BB99                 or      ecx, r8d
+  .text:000000014045BB9C                 mov     [rbx+38h], ecx
+  .text:000000014045BB9F                 jmp     loc_1402D74E2
+  .text:000000014045BBA4                 lea     rcx, [rdi+640h]
+  .text:000000014045BBAB                 mov     rdx, [rcx+8]
+  .text:000000014045BBAF                 cmp     [rdx], rcx
+  .text:000000014045BBB2                 jnz     short loc_14045BC01
+  .text:000000014045BBB4                 mov     [rax], rcx
+  .text:000000014045BBB7                 mov     [rax+8], rdx
+  .text:000000014045BBBB                 mov     [rdx], rax
+  .text:000000014045BBBE                 mov     [rcx+8], rax
+  .text:000000014045BBC2                 inc     dword ptr [rdi+544h]
+  .text:000000014045BBC8                 cmp     byte ptr [rdi+690h], 0
+  .text:000000014045BBCF                 jnz     loc_1402D7511
+  .text:000000014045BBD5                 and     [rsp+38h+var_18], 0
+  .text:000000014045BBDB                 lea     rcx, [rdi+650h]
+  .text:000000014045BBE2                 mov     byte ptr [rdi+690h], 1
+  .text:000000014045BBE9                 xor     r9d, r9d
+  .text:000000014045BBEC                 mov     rdx, qword ptr cs:Mi10Milliseconds
+  .text:000000014045BBF3                 xor     r8d, r8d
+  .text:000000014045BBF6                 call    KiSetTimerEx
+  .text:000000014045BBFB                 nop
+  .text:000000014045BBFC                 jmp     loc_1402D7511
+  .text:000000014045BC01                 mov     ecx, 3
+  .text:000000014045BC06                 ; Win8: RtlFailFast(ecx)
+  .text:000000014045BC06                 int     29h; Win8: RtlFailFast(ecx)
+procedure: |-
+  
+  00000000 union $A137B9C37146706030C7BCD1F4B95A7F // sizeof=0x10
+  00000000 {
+  00000000     _LIST_ENTRY ListHead;
+  00000000     void *AweContext;
+  00000000 };
+  
+  00000000 struct _CONTROL_AREA // sizeof=0x80
+  00000000 {
+  00000000     _SEGMENT *Segment;
+  00000008     $A137B9C37146706030C7BCD1F4B95A7F ___u1;
+  00000018     unsigned __int64 NumberOfSectionReferences;
+  00000020     unsigned __int64 NumberOfPfnReferences;
+  00000028     unsigned __int64 NumberOfMappedViews;
+  00000030     unsigned __int64 NumberOfUserReferences;
+  00000038     _CONTROL_AREA::$2257A259A56943B2E8581919CF69C9D3 u;
+  0000003C     _CONTROL_AREA::$967FB2FA5A90B1BA65166771E8B9926E u1;
+  00000040     _EX_FAST_REF FilePointer;
+  00000048     volatile int ControlAreaLock;
+  0000004C     unsigned int ModifiedWriteCount;
+  00000050     _MI_CONTROL_AREA_WAIT_BLOCK *WaitList;
+  00000058     _CONTROL_AREA::$9F89FF6BE4365F7E3364D557C23B190A u2;
+  00000068     _EX_PUSH_LOCK FileObjectLock;
+  00000070     volatile unsigned __int64 LockedPages;
+  00000078     _CONTROL_AREA::$3C381E829A02702E54439ABD0F27D758 u3;
+  00000080 };
+  
+  __int64 __fastcall MiInsertUnusedSegment(_CONTROL_AREA *ControlArea)
+  {
+    unsigned int LongFlags; // eax
+    __int64 v2; // rsi
+    _MI_PARTITION *v4; // rdi
+    unsigned int v5; // edx
+    int v6; // ecx
+    $A137B9C37146706030C7BCD1F4B95A7F *v7; // rax
+    struct _LIST_ENTRY *v8; // rdx
+    __int64 v9; // rax
+    unsigned __int64 v10; // rbx
+    struct _LIST_ENTRY *Blink; // rdx
+
+    LongFlags = ControlArea->u.LongFlags;
+    v2 = 0;
+    if ( (LongFlags & 0x100) == 0 )
+    {
+      if ( (LongFlags & 0x20) == 0 )
+        v2 = MiConvertStaticSubsections();
+      v4 = *(_MI_PARTITION **)(qword_140C4E4C8 + 8LL * (ControlArea->u1.LongFlags & 0x3FF));
+      ExAcquireSpinLockExclusiveAtDpcLevel(&v4->Segments.SegmentListLock);
+      if ( !v2 )
+        v2 = MiReleaseControlAreaCharges(ControlArea, 1);
+      v5 = ControlArea->u.LongFlags | 0x8000000;
+      ControlArea->u.LongFlags = v5;
+      v6 = v5;
+      if ( (v4->Core.u.LongFlags & 1) != 0 && (v5 & 0x40000) == 0 )
+      {
+        v6 = v5 | 0x40000;
+        ControlArea->u.LongFlags = v5 | 0x40000;
+      }
+      v7 = &ControlArea->___u1; // 0x8 = 8 = _CONTROL_AREA->ListHead
+      if ( (v6 & 0x40000) != 0 )
+      {
+        Blink = v4->Segments.DeleteOnCloseList.Blink;
+        if ( Blink->Flink == &v4->Segments.DeleteOnCloseList )
+        {
+          v7->ListHead.Flink = &v4->Segments.DeleteOnCloseList;
+          ControlArea->ListHead.Blink = Blink;
+          Blink->Flink = &v7->ListHead;
+          v4->Segments.DeleteOnCloseList.Blink = &v7->ListHead;
+          ++v4->Segments.DeleteOnCloseCount;
+          if ( !v4->Segments.DeleteOnCloseTimerActive )
+          {
+            v4->Segments.DeleteOnCloseTimerActive = 1;
+            KiSetTimerEx((__int64)&v4->Segments.DeleteOnCloseTimer, Mi10Milliseconds.QuadPart, 0, 0, 0);
+          }
+          goto LABEL_10;
+        }
+      }
+      else
+      {
+        v8 = v4->Segments.UnusedSegmentList.Blink;
+        if ( v8->Flink == &v4->Segments.UnusedSegmentList )
+        {
+          v7->ListHead.Flink = &v4->Segments.UnusedSegmentList;
+          ControlArea->ListHead.Blink = v8;       // 0x8 = 8 = _CONTROL_AREA->ListHead
+          v8->Flink = &v7->ListHead;
+          v4->Segments.UnusedSegmentList.Blink = &v7->ListHead;
+  LABEL_10:
+          v9 = MiComputePagedPoolSegmentBytes((__int64)ControlArea);
+          v4->Segments.UnusedSegmentPagedPool += v9;
+          v10 = v9;
+          ExReleaseSpinLockExclusiveFromDpcLevel(&v4->Segments.SegmentListLock);
+          _InterlockedExchangeAdd64(&qword_140C4C818, v10);
+          return v2;
+        }
+      }
+      __fastfail(3u);
+    }
+    return 0;
+  }

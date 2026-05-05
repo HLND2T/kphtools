@@ -1,86 +1,78 @@
-# update_symbols.py 概述
-`update_symbols.py` 是 **kphdyn.xml 符号偏移更新器**。它以 YAML 配置为驱动，借助 `llvm-pdbutil` 解析 PDB，更新 XML 中的字段偏移；并提供 `-syncfile`（同步符号文件到 XML）、`-fixnull`（基于 SymbolMapping.yaml 修复空字段）、`-fixstruct`（从最接近版本拷贝 struct_offset 回填）三种辅助模式。
+# update_symbols.py
 
-# 职责
-- 解析命令行参数与运行模式。
-- 读取 YAML 配置（目标文件列表与符号定义），校验符号格式与类型。
-- 解析 XML 并维护 `<data>`/`<fields>` 结构，分配/复用 fields id。
-- 调用 `llvm-pdbutil` 解析 PDB，提取结构成员/全局变量/函数偏移。
-- 在不同模式下更新 XML：正常更新、同步新增条目、修复 null、修复 fallback struct。
+## Overview
+`update_symbols.py` is the XML export and file-synchronization entry point for kphdyn symbol data. The current implementation no longer parses PDBs directly; it consumes YAML symbol artifacts and PE metadata from the symbol directory to update `kphdyn.xml` `<data>` and `<fields>` mappings.
 
-# 架构
-- **配置层**：
-  - `parse_args()`：处理 `-xml/-symboldir/-yaml/-debug/-sha256/-pdbutil/-outxml/-syncfile/-fast/-fixnull/-fixstruct`。
-  - `HAS_YAML` / `HAS_PEFILE`：按需依赖检测。
-- **YAML 解析与校验**：
-  - `load_yaml_config()`：读取 `file` 与 `symbols` 列表，校验 `name`、`type` 与 `struct_offset/var_offset/fn_offset` 的唯一性。
-  - `parse_symbol()` / `parse_symbol_with_fallback()`：解析 `STRUCT->Member` 与多候选备用字段。
-- **PDB 解析层（llvm-pdbutil）**：
-  - `run_llvm_pdbutil()`：`dump -types` 用于结构成员解析。
-  - `run_llvm_pdbutil_publics()`：`dump -publics` 用于全局/函数符号解析。
-  - `run_llvm_pdbutil_sections()` + `parse_section_headers()`：解析段信息以辅助计算偏移。
-  - `parse_llvm_pdbutil_output()` + `find_member_*()`：解析成员偏移，支持嵌套成员（`u1.State`）与 bitfield。
-  - `parse_public_symbol_offset()`：从 publics/sections 解析符号偏移。
-  - `parse_pdb_all_symbols()`：汇总所有符号偏移，支持 `struct_offset/var_offset/fn_offset`，并处理 `bits` 输出。
-- **XML 操作层**：
-  - `collect_existing_fields()` / `find_matching_fields_id()` / `allocate_new_fields_id()` / `create_fields_element()`：复用或创建 `<fields>`。
-  - `collect_all_referenced_ids()` / `remove_orphan_fields()`：清理孤立 fields。
-  - `save_xml_with_header()`：保持固定 XML 头与顺序输出。
-- **模式流程层**：
-  - `syncfile_main()`：从符号目录增量补齐 `<data>`。
-  - `fixnull_main()`：对 fields id=0 的条目使用 `SymbolMapping.yaml` 修复。
-  - `fixstruct_main()`：对 struct_offset fallback 值进行版本回填。
-  - `main()`：入口调度与结果输出。
+## Responsibilities
+- Parse command-line options for XML input/output, symbol directory, config YAML, sync-only mode, and debug logging.
+- Synchronize missing XML `<data>` entries from the on-disk symbol directory layout.
+- Validate symbol-directory path shape and SHA-256 directory names before using PE files.
+- Extract PE timestamp and image size with `pefile`, and verify SHA-256 in `-syncfile` mode.
+- Load configured module symbol specs and colocated `<symbol>.yaml` artifacts, then convert them into XML field values.
+- Reuse existing `<fields>` elements when values match, or allocate a new fields id when needed.
+- Ensure matching `<data>` entries exist and attach the resolved fields id during normal export.
 
-# 核心实现与工作流
-## 正常模式（更新 XML 偏移）
-1. `main()` 解析参数并校验 XML/符号目录。
-2. `load_yaml_config()` 读取 YAML 配置（目标文件列表与符号定义）。
-3. 解析 XML：`collect_existing_fields()`、`get_all_entries_for_files()`。
-4. 逐条 `<data>` 处理：
-   - 通过 `get_pdb_path()` 定位 `ntkrnlmp.pdb`。
-   - `parse_pdb_all_symbols()` 调用 `llvm-pdbutil` 解析 offsets（支持 struct/var/fn 与 bitfield）。
-   - `find_matching_fields_id()` 复用已有 fields；否则 `allocate_new_fields_id()` 新建。
-   - 将 fields id 写回 `<data>`。
-5. `create_fields_element()` 添加新 fields；`remove_orphan_fields()` 清理无引用 fields。
-6. `save_xml_with_header()` 输出到 `-outxml`（默认覆盖输入）。
+## Involved Files & Symbols
+- `update_symbols.py` - `parse_args`, `main`, `syncfile_main`, `export_xml`
+- `update_symbols.py` - `FilePathInfo`, `SyncStats`, `HashMismatchError`
+- `update_symbols.py` - `scan_symbol_directory`, `parse_file_path_info`, `find_data_entry`, `create_data_entry`, `find_insert_position`
+- `update_symbols.py` - `parse_pe_info`, `_calculate_sha256`, `_load_binary_metadata`
+- `update_symbols.py` - `collect_symbol_values`, `_load_module_yaml`, `_find_or_create_fields_id`, `_ensure_data_entry`
+- `symbol_config.py` - `load_config`, `ModuleSpec`, `SymbolSpec`
+- `symbol_artifacts.py` - `load_artifact`
+- `tests/test_update_symbols.py` - unit coverage for CLI parsing, path parsing, syncfile behavior, PE metadata, YAML value conversion, and XML export behavior
 
-## syncfile 模式
-- `scan_symbol_directory()` 遍历 `{symboldir}/{arch}/{file}.{version}/{sha256}/{file}`。
-- `parse_file_path_info()` 解析 `arch/file/version/sha256`；`find_data_entry()` 检查 XML 是否存在。
-- 对缺失条目：`parse_pe_info()`（`pefile`）提取 `timestamp/size`，并校验 SHA256；
-  `find_insert_position()` 找到插入位置；`create_data_entry()` 新增 `<data>`（fields id=0）。
-- 最后保存 XML 并输出统计。
+## Architecture
+The script has two top-level workflows selected by `main()`. With `-syncfile`, it only scans `{symboldir}/{arch}/{binary}.{version}/{sha256}/{binary}` and adds missing `<data>0</data>` entries. Without `-syncfile`, it loads `config.yaml`, walks configured module paths under `amd64` and `arm64`, reads colocated symbol YAML artifacts, computes field values, and writes the matching fields id onto each `<data>` entry.
 
-## fixnull 模式
-- `get_null_entries_for_files()` 选出 fields id=0 的条目。
-- 读取 `SymbolMapping.yaml`：`get_symbol_mapping_path()` + `load_symbol_mapping()` + `parse_symbols_from_mapping()`。
-- **var_offset/fn_offset**：通过 `symbol_addr - ImageBase` 计算偏移。
-- **struct_offset**：仍需 PDB；若缺失则写入 fallback 值（`0xffff` / `0xffffffff`）。
-- 完成后保存 XML。
+```mermaid
+flowchart TD
+    A["main(argv)"] --> B["parse_args()"]
+    B --> C{"args.syncfile?"}
+    C -->|yes| D["syncfile_main(args)"]
+    D --> E["scan_symbol_directory(symboldir)"]
+    E --> F["parse_file_path_info()"]
+    F --> G{"matching <data>?"}
+    G -->|yes| H["SyncStats.existing += 1"]
+    G -->|no| I["parse_pe_info()"]
+    I --> J["create_data_entry()"]
+    J --> K["find_insert_position()"]
+    K --> L["tree.write(out_path) when entries were added"]
+    C -->|no| M["load_config(configyaml)"]
+    M --> N["ET.parse(xml)"]
+    N --> O["export_xml(tree, config, symboldir)"]
+    O --> P["_load_module_yaml() and load_artifact()"]
+    P --> Q["collect_symbol_values()"]
+    Q --> R["_find_or_create_fields_id()"]
+    R --> S["_ensure_data_entry()"]
+    S --> T["tree.write(out_path)"]
+```
 
-## fixstruct 模式
-- `get_entries_needing_struct_fix()` 识别包含 fallback struct_offset 的条目。
-- `find_closest_valid_entry()` 基于 `version_distance()` 在同架构内选最接近的有效版本。
-- 复制 struct_offset 并重建/复用 fields id，最后保存 XML。
+Important internal boundaries:
+- CLI/environment handling is isolated in `parse_args`; `KPHTOOLS_XML` and `KPHTOOLS_SYMBOLDIR` override parsed/default values.
+- Directory discovery is intentionally lightweight in `scan_symbol_directory`; strict validation is deferred to `parse_file_path_info`.
+- `find_data_entry` and `_ensure_data_entry` support both `hash` and legacy `sha256` XML attributes.
+- `collect_symbol_values` maps `struct_offset` to `offset` or bitfield bit position, `gv` to `gv_rva`, and `func` to `func_rva`.
+- Missing symbol artifacts are exported as fallback values: `uint16` -> `0xffff`, `uint32` -> `0xffffffff`.
+- `_find_or_create_fields_id` compares sorted `(name, value)` pairs to reuse existing `<fields>` entries before appending a new one.
 
-# 依赖
-- **标准库**：`os`, `re`, `argparse`, `subprocess`, `sys`, `hashlib`, `xml.etree.ElementTree`。
-- **第三方**：`pyyaml`（YAML 配置）；`pefile`（syncfile）；
-- **外部工具**：`llvm-pdbutil`（`dump -types/-publics/-section-headers`）。
-- **输入文件**：`kphdyn.xml`、YAML 配置（如 `kphdyn.yaml`）、符号目录中的 PDB/PE。
-- **辅助文件**：`SymbolMapping.yaml`（fixnull 依赖）。
+## Dependencies
+- Python standard library: `argparse`, `dataclasses`, `hashlib`, `os`, `pathlib.Path`, `xml.etree.ElementTree`.
+- Third-party library: `pefile` for PE timestamp and image-size extraction.
+- Internal modules: `symbol_config.load_config` for `config.yaml`; `symbol_artifacts.load_artifact` for generated YAML symbol artifacts.
+- Runtime inputs: `kphdyn.xml`, `config.yaml`, and the symbol directory layout `{symboldir}/{arch}/{binary}.{version}/{sha256}/`.
+- Tested behavior is concentrated in `tests/test_update_symbols.py`.
 
-# 注意事项
-- 非 `-syncfile` 模式必须提供 `-yaml`；缺少 `pyyaml` 会直接退出。
-- `-syncfile` 依赖 `pefile`，缺失则退出；`-fast` 会跳过已存在条目的 PE 解析。
-- PDB 路径固定为 `ntoskrnl.exe.<version>/<sha256>/ntkrnlmp.pdb`，若不存在会跳过或报错。
-- `parse_symbol_with_fallback()` 支持逗号分隔的备用结构成员；成员为嵌套字段时按 `u1.State` 解析。
-- bitfield 输出由 `bits: true` 控制，按位输出 `(byte_offset*8 + bit_offset)`。
-- `fixnull` 中 var/fn 偏移依赖 `SymbolMapping.yaml` 的 ImageBase；缺失将导致无法计算。
-- `remove_orphan_fields()` 会扫描全部 `<data>`，可能删除未被引用的 `<fields>`。
-- 默认覆盖输入 XML（`-outxml` 可改写）；请注意版本管理。
+## Notes
+- `-syncfile` writes the XML only when at least one new entry is added; normal export always writes to `-outxml` or overwrites `-xml`.
+- `syncfile_main` verifies file content SHA-256 before reading PE metadata; mismatches are counted and skipped.
+- `parse_pe_info` records the SHA-256 in returned metadata, but `create_data_entry` currently writes it as the `hash` attribute, while `_ensure_data_entry` writes both `hash` and `sha256` for new normal-export entries.
+- `scan_symbol_directory` returns only candidate files whose parent version directory starts with `<binary>.`; malformed paths can still be skipped later by `parse_file_path_info`.
+- `export_xml` iterates fixed architectures `amd64` and `arm64`; other architectures in the symbol directory are ignored by normal export.
+- The current script does not invoke `llvm-pdbutil`, does not implement legacy `-fixnull` or `-fixstruct` modes, and does not directly resolve PDB offsets.
+- Missing YAML artifacts are not treated as fatal during export; they become type-based fallback values.
 
-# 关联关系
-- 依赖符号目录结构与 `SymbolMapping.yaml`，常与 `reverse_symbols.py` / `ida/generate_mapping.py` 产物联动。
-- `llvm-pdbutil` 是核心解析工具，决定 struct/var/fn 偏移获取能力。
+## Callers
+- `update_symbols.py` module entrypoint: `if __name__ == "__main__": raise SystemExit(main())`
+- README workflow commands invoke `uv run python update_symbols.py ...` for sync and export.
+- `tests/test_update_symbols.py` imports `update_symbols` and exercises public helpers plus `main`, `syncfile_main`, and `export_xml`.

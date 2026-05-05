@@ -1,0 +1,23 @@
+func_name: MiSectionOpen
+func_va: '0x14068f980'
+disasm_code: |-
+  PAGE:000000014068F980                 sub     rsp, 28h
+  PAGE:000000014068F984                 ; a1
+  PAGE:000000014068F984                 mov     rcx, r9; a1
+  PAGE:000000014068F987                 mov     r10, r8
+  PAGE:000000014068F98A                 call    MiSectionControlArea ; call target: MiSectionControlArea
+  PAGE:000000014068F98F                 mov     rdx, r10
+  PAGE:000000014068F992                 mov     rcx, rax
+  PAGE:000000014068F995                 xor     r8d, r8d
+  PAGE:000000014068F998                 call    MiInsertSharedCommitNode
+  PAGE:000000014068F99D                 add     rsp, 28h
+  PAGE:000000014068F9A1                 retn
+procedure: |-
+  __int64 __fastcall MiSectionOpen(_SECTION *a1, __int64 a2, __int64 a3, _SECTION *a4)
+  {
+    _CONTROL_AREA *v4; // rax
+    unsigned __int64 v5; // r10
+
+    v4 = MiSectionControlArea(a4); // call target: MiSectionControlArea
+    return MiInsertSharedCommitNode(v4, v5, 0);
+  }

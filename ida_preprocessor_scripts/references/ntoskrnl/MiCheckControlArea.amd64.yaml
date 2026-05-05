@@ -1,0 +1,492 @@
+func_name: MiCheckControlArea
+func_va: '0x1402d7180'
+disasm_code: |-
+  .text:00000001402D7180                 mov     [rsp+arg_8], rbx
+  .text:00000001402D7185                 push    rbp
+  .text:00000001402D7186                 push    rsi
+  .text:00000001402D7187                 push    rdi
+  .text:00000001402D7188                 push    r12
+  .text:00000001402D718A                 push    r13
+  .text:00000001402D718C                 push    r14
+  .text:00000001402D718E                 push    r15
+  .text:00000001402D7190                 sub     rsp, 40h
+  .text:00000001402D7194                 mov     rax, cs:qword_140C4E4C8
+  .text:00000001402D719B                 xor     r12d, r12d
+  .text:00000001402D719E                 mov     rdi, rcx
+  .text:00000001402D71A1                 movzx   ebp, dl
+  .text:00000001402D71A4                 mov     rdx, [rcx+40h] ; 0x40 = 64 = _CONTROL_AREA->FilePointer
+  .text:00000001402D71A8                 xor     r14d, r14d
+  .text:00000001402D71AB                 movzx   ecx, word ptr [rcx+3Ch] ; 0x3c = 60 = _CONTROL_AREA->u1.LongFlags
+  .text:00000001402D71AF                 xor     esi, esi
+  .text:00000001402D71B1                 xor     ebx, ebx
+  .text:00000001402D71B3                 xorps   xmm0, xmm0
+  .text:00000001402D71B6                 test    rdx, rdx
+  .text:00000001402D71B9                 mov     r15, 0FFFFFFFFFFFFFFFFh
+  .text:00000001402D71C0                 movdqu  [rsp+78h+var_50], xmm0
+  .text:00000001402D71C6                 setnz   r12b
+  .text:00000001402D71CA                 mov     [rsp+78h+var_58], r15
+  .text:00000001402D71CF                 and     ecx, 3FFh
+  .text:00000001402D71D5                 mov     r13, [rax+rcx*8]
+  .text:00000001402D71D9                 cmp     [rdi+28h], rbx ; 0x28 = 40 = _CONTROL_AREA->NumberOfMappedViews
+  .text:00000001402D71DD                 jz      loc_1402D7277
+  .text:00000001402D71E3                 cmp     [rdi+50h], rbx ; 0x50 = 80 = _CONTROL_AREA->WaitList
+  .text:00000001402D71E7                 jnz     loc_1402D7409
+  .text:00000001402D71ED                 cmp     ebx, 4
+  .text:00000001402D71F0                 jnb     loc_1402D73F1
+  .text:00000001402D71F6                 test    ebx, ebx
+  .text:00000001402D71F8                 jnz     loc_1402D734A
+  .text:00000001402D71FE                 test    byte ptr cs:PerfGlobalGroupMask+6, 1
+  .text:00000001402D7205                 jnz     loc_14045BA86
+  .text:00000001402D720B                 mov     [rdi+48h], ebx ; 0x48 = 72 = _CONTROL_AREA->ControlAreaLock
+  .text:00000001402D720E                 mov     rcx, gs:20h
+  .text:00000001402D7217                 mov     rdx, [rcx+84B8h]
+  .text:00000001402D721E                 test    rdx, rdx
+  .text:00000001402D7221                 jnz     loc_14045BA9A
+  .text:00000001402D7227                 mov     eax, cs:KiIrqlFlags
+  .text:00000001402D722D                 test    eax, eax
+  .text:00000001402D722F                 jnz     loc_14045BABE
+  .text:00000001402D7235                 movzx   eax, bpl
+  .text:00000001402D7239                 mov     cr8, rax
+  .text:00000001402D723D                 test    r14, r14
+  .text:00000001402D7240                 jnz     loc_1402D73D2
+  .text:00000001402D7246                 call    MiFreeExcessSegments
+  .text:00000001402D724B                 test    rsi, rsi
+  .text:00000001402D724E                 jnz     loc_14045BB21
+  .text:00000001402D7254                 lea     rcx, [rsp+78h+var_58]
+  .text:00000001402D7259                 call    MiReturnImageBase
+  .text:00000001402D725E                 mov     rbx, [rsp+78h+arg_8]
+  .text:00000001402D7266                 add     rsp, 40h
+  .text:00000001402D726A                 pop     r15
+  .text:00000001402D726C                 pop     r14
+  .text:00000001402D726E                 pop     r13
+  .text:00000001402D7270                 pop     r12
+  .text:00000001402D7272                 pop     rdi
+  .text:00000001402D7273                 pop     rsi
+  .text:00000001402D7274                 pop     rbp
+  .text:00000001402D7275                 retn
+  .text:00000001402D7277                 cmp     [rdi+18h], rbx ; 0x18 = 24 = _CONTROL_AREA->NumberOfSectionReferences
+  .text:00000001402D727B                 jnz     loc_1402D71E3
+  .text:00000001402D7281                 and     rdx, 0FFFFFFFFFFFFFFF0h
+  .text:00000001402D7285                 jz      loc_1402D737F
+  .text:00000001402D728B                 mov     ecx, [rdi+38h] ; 0x38 = 56 = _CONTROL_AREA->u.LongFlags
+  .text:00000001402D728E                 cmp     [rdi+20h], rbx ; 0x20 = 32 = _CONTROL_AREA->NumberOfPfnReferences
+  .text:00000001402D7292                 jz      loc_1402D73BA
+  .text:00000001402D7298                 bt      ecx, 12h
+  .text:00000001402D729C                 jb      loc_14045B982
+  .text:00000001402D72A2                 mov     eax, ecx
+  .text:00000001402D72A4                 and     eax, 20020h
+  .text:00000001402D72A9                 cmp     eax, 20020h
+  .text:00000001402D72AE                 jnz     loc_1402D738D
+  .text:00000001402D72B4                 test    cl, 20h
+  .text:00000001402D72B7                 jnz     loc_1402D73A0
+  .text:00000001402D72BD                 mov     eax, ecx
+  .text:00000001402D72BF                 and     eax, 20020h
+  .text:00000001402D72C4                 cmp     eax, 20020h
+  .text:00000001402D72C9                 jnz     loc_1402D71ED
+  .text:00000001402D72CF                 or      ecx, 4
+  .text:00000001402D72D2                 mov     qword ptr [rdi+28h], 1
+  .text:00000001402D72DA                 mov     [rdi+38h], ecx
+  .text:00000001402D72DD                 ; SpinLock
+  .text:00000001402D72DD                 lea     rcx, [rdi+48h] ; 0x48 = 72 = _CONTROL_AREA->ControlAreaLock
+  .text:00000001402D72E1                 call    ExReleaseSpinLockExclusiveFromDpcLevel
+  .text:00000001402D72E6                 mov     eax, cs:KiIrqlFlags
+  .text:00000001402D72EC                 test    eax, eax
+  .text:00000001402D72EE                 jnz     loc_14045B98C
+  .text:00000001402D72F4                 mov     cr8, rbp
+  .text:00000001402D72F8                 mov     rcx, rdi
+  .text:00000001402D72FB                 call    MiPurgeImageSection
+  .text:00000001402D7300                 ; SpinLock
+  .text:00000001402D7300                 lea     rcx, [rdi+48h] ; 0x48 = 72 = _CONTROL_AREA->ControlAreaLock
+  .text:00000001402D7304                 call    ExAcquireSpinLockExclusive
+  .text:00000001402D7309                 and     dword ptr [rdi+38h], 0FFFFFFFBh
+  .text:00000001402D730D                 movzx   ebp, al
+  .text:00000001402D7310                 sub     qword ptr [rdi+28h], 1
+  .text:00000001402D7315                 jnz     loc_1402D7409
+  .text:00000001402D731B                 cmp     [rdi+18h], r14
+  .text:00000001402D731F                 jnz     loc_1402D7409
+  .text:00000001402D7325                 cmp     [rdi+20h], r14
+  .text:00000001402D7329                 jz      loc_14045B9EF
+  .text:00000001402D732F                 test    ebx, ebx
+  .text:00000001402D7331                 jnz     loc_1402D71ED
+  .text:00000001402D7337                 mov     rcx, rdi
+  .text:00000001402D733A                 call    MiInsertUnusedSegment ; target function call
+  .text:00000001402D733F                 mov     rsi, rax
+  .text:00000001402D7342                 or      ebx, 4
+  .text:00000001402D7345                 jmp     loc_1402D71ED
+  .text:00000001402D734A                 test    bl, 1
+  .text:00000001402D734D                 jnz     loc_14045BA06
+  .text:00000001402D7353                 ; SpinLock
+  .text:00000001402D7353                 lea     rcx, [rdi+48h] ; 0x48 = 72 = _CONTROL_AREA->ControlAreaLock
+  .text:00000001402D7357                 call    ExReleaseSpinLockExclusiveFromDpcLevel
+  .text:00000001402D735C                 mov     eax, cs:KiIrqlFlags
+  .text:00000001402D7362                 test    eax, eax
+  .text:00000001402D7364                 jnz     loc_14045BA23
+  .text:00000001402D736A                 movzx   eax, bpl
+  .text:00000001402D736E                 mov     cr8, rax
+  .text:00000001402D7372                 mov     rcx, rdi
+  .text:00000001402D7375                 call    MiSegmentDelete
+  .text:00000001402D737A                 jmp     loc_1402D724B
+  .text:00000001402D737F                 or      dword ptr [rdi+38h], 1
+  .text:00000001402D7383                 mov     ebx, 2
+  .text:00000001402D7388                 jmp     loc_1402D71ED
+  .text:00000001402D738D                 mov     rcx, rdi
+  .text:00000001402D7390                 call    MiInsertUnusedSegment
+  .text:00000001402D7395                 mov     ecx, [rdi+38h] ; 0x38 = 56 = _CONTROL_AREA->u.LongFlags
+  .text:00000001402D7398                 mov     rsi, rax
+  .text:00000001402D739B                 jmp     loc_1402D72B4
+  .text:00000001402D73A0                 lea     r8, [rsp+78h+var_58]
+  .text:00000001402D73A5                 mov     edx, 1
+  .text:00000001402D73AA                 mov     rcx, rdi
+  .text:00000001402D73AD                 call    MiImageUnused
+  .text:00000001402D73B2                 mov     ecx, [rdi+38h] ; 0x38 = 56 = _CONTROL_AREA->u.LongFlags
+  .text:00000001402D73B5                 jmp     loc_1402D72BD
+  .text:00000001402D73BA                 or      ecx, 1
+  .text:00000001402D73BD                 mov     ebx, 2
+  .text:00000001402D73C2                 mov     [rdi+38h], ecx
+  .text:00000001402D73C5                 mov     rcx, rdi
+  .text:00000001402D73C8                 call    MiClearFilePointer
+  .text:00000001402D73CD                 jmp     loc_1402D71ED
+  .text:00000001402D73D2                 mov     rbx, [r14]
+  .text:00000001402D73D5                 lea     rcx, [r14+10h]
+  .text:00000001402D73D9                 mov     edx, 1
+  .text:00000001402D73DE                 call    KeSignalGate
+  .text:00000001402D73E3                 mov     r14, rbx
+  .text:00000001402D73E6                 test    rbx, rbx
+  .text:00000001402D73E9                 jz      loc_1402D7246
+  .text:00000001402D73EF                 jmp     short loc_1402D73D2
+  .text:00000001402D73F1                 mov     edx, 3
+  .text:00000001402D73F6                 mov     rcx, rdi
+  .text:00000001402D73F9                 call    MiBuildWakeList
+  .text:00000001402D73FE                 mov     r14, rax
+  .text:00000001402D7401                 and     ebx, 0FFFFFFFBh
+  .text:00000001402D7404                 jmp     loc_1402D71F6
+  .text:00000001402D7409                 mov     ebx, 4
+  .text:00000001402D740E                 jmp     loc_1402D71ED
+  .text:000000014045B982                 mov     ebx, 1
+  .text:000000014045B987                 jmp     loc_1402D72BD
+  .text:000000014045B98C                 test    al, 1
+  .text:000000014045B98E                 jz      loc_1402D72F4
+  .text:000000014045B994                 mov     rax, cr8
+  .text:000000014045B998                 cmp     al, 0Fh
+  .text:000000014045B99A                 ja      loc_1402D72F4
+  .text:000000014045B9A0                 cmp     bpl, 0Fh
+  .text:000000014045B9A4                 ja      loc_1402D72F4
+  .text:000000014045B9AA                 cmp     al, 2
+  .text:000000014045B9AC                 jb      loc_1402D72F4
+  .text:000000014045B9B2                 mov     r10, gs:20h
+  .text:000000014045B9BB                 lea     ecx, [rbp+1]
+  .text:000000014045B9BE                 mov     rdx, r15
+  .text:000000014045B9C1                 shl     rdx, cl
+  .text:000000014045B9C4                 movzx   eax, dx
+  .text:000000014045B9C7                 mov     r9, [r10+84B8h]
+  .text:000000014045B9CE                 not     eax
+  .text:000000014045B9D0                 mov     r8d, [r9+14h]
+  .text:000000014045B9D4                 and     r8d, eax
+  .text:000000014045B9D7                 mov     [r9+14h], r8d
+  .text:000000014045B9DB                 jnz     loc_1402D72F4
+  .text:000000014045B9E1                 mov     rcx, r10
+  .text:000000014045B9E4                 call    KiRemoveSystemWorkPriorityKick
+  .text:000000014045B9E9                 nop
+  .text:000000014045B9EA                 jmp     loc_1402D72F4
+  .text:000000014045B9EF                 or      dword ptr [rdi+38h], 1
+  .text:000000014045B9F3                 mov     rcx, rdi
+  .text:000000014045B9F6                 mov     ebx, 2
+  .text:000000014045B9FB                 call    MiClearFilePointer
+  .text:000000014045BA00                 nop
+  .text:000000014045BA01                 jmp     loc_1402D71ED
+  .text:000000014045BA06                 xor     r8d, r8d
+  .text:000000014045BA09                 mov     qword ptr [rdi+28h], 1
+  .text:000000014045BA11                 movzx   edx, bpl
+  .text:000000014045BA15                 mov     rcx, rdi
+  .text:000000014045BA18                 call    MiCleanSection
+  .text:000000014045BA1D                 nop
+  .text:000000014045BA1E                 jmp     loc_1402D724B
+  .text:000000014045BA23                 test    al, 1
+  .text:000000014045BA25                 jz      loc_1402D736A
+  .text:000000014045BA2B                 mov     rax, cr8
+  .text:000000014045BA2F                 cmp     al, 0Fh
+  .text:000000014045BA31                 ja      loc_1402D736A
+  .text:000000014045BA37                 cmp     bpl, 0Fh
+  .text:000000014045BA3B                 ja      loc_1402D736A
+  .text:000000014045BA41                 cmp     al, 2
+  .text:000000014045BA43                 jb      loc_1402D736A
+  .text:000000014045BA49                 mov     r9, gs:20h
+  .text:000000014045BA52                 movzx   ecx, bpl
+  .text:000000014045BA56                 inc     ecx
+  .text:000000014045BA58                 shl     r15, cl
+  .text:000000014045BA5B                 mov     r8, [r9+84B8h]
+  .text:000000014045BA62                 movzx   eax, r15w
+  .text:000000014045BA66                 not     eax
+  .text:000000014045BA68                 mov     edx, [r8+14h]
+  .text:000000014045BA6C                 and     edx, eax
+  .text:000000014045BA6E                 mov     [r8+14h], edx
+  .text:000000014045BA72                 jnz     loc_1402D736A
+  .text:000000014045BA78                 mov     rcx, r9
+  .text:000000014045BA7B                 call    KiRemoveSystemWorkPriorityKick
+  .text:000000014045BA80                 nop
+  .text:000000014045BA81                 jmp     loc_1402D736A
+  .text:000000014045BA86                 mov     rdx, [rsp+78h]
+  .text:000000014045BA8B                 lea     rcx, [rdi+48h] ; 0x48 = 72 = _CONTROL_AREA->ControlAreaLock
+  .text:000000014045BA8F                 call    ExpReleaseSpinLockExclusiveFromDpcLevelInstrumented
+  .text:000000014045BA94                 nop
+  .text:000000014045BA95                 jmp     loc_1402D720E
+  .text:000000014045BA9A                 cmp     byte ptr [rcx+20h], 1
+  .text:000000014045BA9E                 ja      loc_1402D7227
+  .text:000000014045BAA4                 mov     eax, [rdx+18h]
+  .text:000000014045BAA7                 sub     eax, 1
+  .text:000000014045BAAA                 mov     [rdx+18h], eax
+  .text:000000014045BAAD                 jnz     loc_1402D7227
+  .text:000000014045BAB3                 call    KiRemoveSystemWorkPriorityKick
+  .text:000000014045BAB8                 nop
+  .text:000000014045BAB9                 jmp     loc_1402D7227
+  .text:000000014045BABE                 test    al, 1
+  .text:000000014045BAC0                 jz      loc_1402D7235
+  .text:000000014045BAC6                 mov     rax, cr8
+  .text:000000014045BACA                 cmp     al, 0Fh
+  .text:000000014045BACC                 ja      loc_1402D7235
+  .text:000000014045BAD2                 cmp     bpl, 0Fh
+  .text:000000014045BAD6                 ja      loc_1402D7235
+  .text:000000014045BADC                 cmp     al, 2
+  .text:000000014045BADE                 jb      loc_1402D7235
+  .text:000000014045BAE4                 mov     r9, gs:20h
+  .text:000000014045BAED                 movzx   ecx, bpl
+  .text:000000014045BAF1                 inc     ecx
+  .text:000000014045BAF3                 shl     r15, cl
+  .text:000000014045BAF6                 mov     r8, [r9+84B8h]
+  .text:000000014045BAFD                 movzx   eax, r15w
+  .text:000000014045BB01                 not     eax
+  .text:000000014045BB03                 mov     edx, [r8+14h]
+  .text:000000014045BB07                 and     edx, eax
+  .text:000000014045BB09                 mov     [r8+14h], edx
+  .text:000000014045BB0D                 jnz     loc_1402D7235
+  .text:000000014045BB13                 mov     rcx, r9
+  .text:000000014045BB16                 call    KiRemoveSystemWorkPriorityKick
+  .text:000000014045BB1B                 nop
+  .text:000000014045BB1C                 jmp     loc_1402D7235
+  .text:000000014045BB21                 mov     r8, rsi
+  .text:000000014045BB24                 mov     edx, r12d
+  .text:000000014045BB27                 mov     rcx, r13
+  .text:000000014045BB2A                 call    MiReturnCrossPartitionSectionCharges
+  .text:000000014045BB2F                 nop
+  .text:000000014045BB30                 jmp     loc_1402D7254
+procedure: |-
+  void __fastcall MiCheckControlArea(_CONTROL_AREA *a1, unsigned __int8 a2, _DWORD *a3)
+  {
+    unsigned __int64 v4; // rbp
+    unsigned __int64 Value; // rdx
+    _MI_CONTROL_AREA_WAIT_BLOCK *v6; // r14
+    __int16 LongFlags; // cx
+    unsigned __int64 v8; // rsi
+    unsigned int v9; // ebx
+    _BOOL8 v10; // r12
+    _MI_PARTITION *v11; // r13
+    struct _KPRCB *v12; // rcx
+    _DWORD *v13; // rdx
+    unsigned int v14; // ecx
+    KIRQL v15; // al
+    bool v16; // zf
+    __int64 inserted; // rax
+    _MI_CONTROL_AREA_WAIT_BLOCK *Next; // rbx
+    unsigned __int8 CurrentIrql; // al
+    struct _KPRCB *CurrentPrcb; // r10
+    _DWORD *SchedulerAssist; // r9
+    int v22; // eax
+    unsigned __int8 v23; // al
+    struct _KPRCB *v24; // r9
+    _DWORD *v25; // r8
+    int v26; // eax
+    int v27; // eax
+    unsigned __int8 v28; // al
+    struct _KPRCB *v29; // r9
+    _DWORD *v30; // r8
+    int v31; // eax
+    __int64 v32; // [rsp+20h] [rbp-58h] BYREF
+    __int128 v33; // [rsp+28h] [rbp-50h]
+    void *retaddr; // [rsp+78h] [rbp+0h]
+
+    v4 = a2;
+    Value = a1->FilePointer.Value; // 0x40 = 64 = _CONTROL_AREA->FilePointer
+    v6 = nullptr;
+    LongFlags = a1->u1.LongFlags; // 0x3c = 60 = _CONTROL_AREA->u1.LongFlags
+    v8 = 0;
+    v9 = 0;
+    v33 = 0;
+    v10 = Value != 0;
+    v32 = -1;
+    v11 = *(_MI_PARTITION **)(qword_140C4E4C8 + 8LL * (LongFlags & 0x3FF));
+    if ( a1->NumberOfMappedViews || a1->NumberOfSectionReferences ) // 0x28 = 40 = _CONTROL_AREA->NumberOfMappedViews; 0x18 = 24 = _CONTROL_AREA->NumberOfSectionReferences
+    {
+      if ( !a1->WaitList ) // 0x50 = 80 = _CONTROL_AREA->WaitList
+        goto LABEL_3;
+      goto LABEL_37;
+    }
+    if ( (Value & 0xFFFFFFFFFFFFFFF0uLL) == 0 )
+    {
+      a1->u.LongFlags |= 1u; // 0x38 = 56 = _CONTROL_AREA->u.LongFlags
+      v9 = 2;
+      goto LABEL_3;
+    }
+    v14 = a1->u.LongFlags; // 0x38 = 56 = _CONTROL_AREA->u.LongFlags
+    if ( !a1->NumberOfPfnReferences ) // 0x20 = 32 = _CONTROL_AREA->NumberOfPfnReferences
+    {
+      v9 = 2;
+      a1->u.LongFlags = v14 | 1;
+      MiClearFilePointer(a1);
+      goto LABEL_3;
+    }
+    if ( (v14 & 0x40000) != 0 )
+    {
+      v9 = 1;
+    }
+    else
+    {
+      if ( (v14 & 0x20020) != 0x20020 )
+      {
+        inserted = MiInsertUnusedSegment(a1); // target function call
+        v14 = a1->u.LongFlags;
+        v8 = inserted;
+      }
+      if ( (v14 & 0x20) != 0 )
+      {
+        MiImageUnused(a1, 1, &v32);
+        v14 = a1->u.LongFlags;
+      }
+    }
+    if ( (v14 & 0x20020) == 0x20020 )
+    {
+      a1->NumberOfMappedViews = 1;
+      a1->u.LongFlags = v14 | 4;
+      ExReleaseSpinLockExclusiveFromDpcLevel(&a1->ControlAreaLock); // 0x48 = 72 = _CONTROL_AREA->ControlAreaLock
+      if ( KiIrqlFlags )
+      {
+        if ( (KiIrqlFlags & 1) != 0 )
+        {
+          CurrentIrql = KeGetCurrentIrql();
+          if ( CurrentIrql <= 0xFu && (unsigned __int8)v4 <= 0xFu && CurrentIrql >= 2u )
+          {
+            CurrentPrcb = KeGetCurrentPrcb();
+            SchedulerAssist = CurrentPrcb->SchedulerAssist;
+            v22 = ~(unsigned __int16)(-1LL << ((unsigned __int8)v4 + 1));
+            v16 = (v22 & SchedulerAssist[5]) == 0;
+            SchedulerAssist[5] &= v22;
+            if ( v16 )
+              KiRemoveSystemWorkPriorityKick(CurrentPrcb);
+          }
+        }
+      }
+      __writecr8(v4);
+      MiPurgeImageSection((__int64)a1);
+      v15 = ExAcquireSpinLockExclusive(&a1->ControlAreaLock); // 0x48 = 72 = _CONTROL_AREA->ControlAreaLock
+      a1->u.LongFlags &= ~4u;
+      LOBYTE(v4) = v15;
+      v16 = a1->NumberOfMappedViews-- == 1;
+      if ( v16 && !a1->NumberOfSectionReferences )
+      {
+        if ( a1->NumberOfPfnReferences )
+        {
+          if ( !v9 )
+          {
+            v8 = MiInsertUnusedSegment(a1);
+            v9 = 4;
+          }
+        }
+        else
+        {
+          a1->u.LongFlags |= 1u;
+          v9 = 2;
+          MiClearFilePointer(a1);
+        }
+        goto LABEL_3;
+      }
+  LABEL_37:
+      v9 = 4;
+    }
+  LABEL_3:
+    if ( v9 >= 4 )
+    {
+      v6 = MiBuildWakeList(a1, 3);
+      v9 &= ~4u;
+    }
+    if ( v9 )
+    {
+      if ( (v9 & 1) != 0 )
+      {
+        a1->NumberOfMappedViews = 1;
+        MiCleanSection(a1, (unsigned __int8)v4, 0);
+      }
+      else
+      {
+        ExReleaseSpinLockExclusiveFromDpcLevel(&a1->ControlAreaLock); // 0x48 = 72 = _CONTROL_AREA->ControlAreaLock
+        if ( KiIrqlFlags )
+        {
+          if ( (KiIrqlFlags & 1) != 0 )
+          {
+            v23 = KeGetCurrentIrql();
+            if ( v23 <= 0xFu && (unsigned __int8)v4 <= 0xFu && v23 >= 2u )
+            {
+              v24 = KeGetCurrentPrcb();
+              v25 = v24->SchedulerAssist;
+              v26 = ~(unsigned __int16)(-1LL << ((unsigned __int8)v4 + 1));
+              v16 = (v26 & v25[5]) == 0;
+              v25[5] &= v26;
+              if ( v16 )
+                KiRemoveSystemWorkPriorityKick(v24);
+            }
+          }
+        }
+        __writecr8((unsigned __int8)v4);
+        MiSegmentDelete(a1);
+      }
+    }
+    else
+    {
+      if ( (BYTE6(PerfGlobalGroupMask) & 1) != 0 )
+        ExpReleaseSpinLockExclusiveFromDpcLevelInstrumented(&a1->ControlAreaLock, retaddr); // 0x48 = 72 = _CONTROL_AREA->ControlAreaLock
+      else
+        a1->ControlAreaLock = 0; // 0x48 = 72 = _CONTROL_AREA->ControlAreaLock
+      v12 = KeGetCurrentPrcb();
+      v13 = v12->SchedulerAssist;
+      if ( v13 )
+      {
+        if ( v12->NestingLevel <= 1u )
+        {
+          v27 = v13[6] - 1;
+          v13[6] = v27;
+          if ( !v27 )
+            KiRemoveSystemWorkPriorityKick(v12);
+        }
+      }
+      if ( KiIrqlFlags )
+      {
+        if ( (KiIrqlFlags & 1) != 0 )
+        {
+          v28 = KeGetCurrentIrql();
+          if ( v28 <= 0xFu && (unsigned __int8)v4 <= 0xFu && v28 >= 2u )
+          {
+            v29 = KeGetCurrentPrcb();
+            v30 = v29->SchedulerAssist;
+            v31 = ~(unsigned __int16)(-1LL << ((unsigned __int8)v4 + 1));
+            v16 = (v31 & v30[5]) == 0;
+            v30[5] &= v31;
+            if ( v16 )
+              KiRemoveSystemWorkPriorityKick(v29);
+          }
+        }
+      }
+      __writecr8((unsigned __int8)v4);
+      if ( v6 )
+      {
+        do
+        {
+          Next = v6->Next;
+          KeSignalGate(&v6->Gate, 1);
+          v6 = Next;
+        }
+        while ( Next );
+      }
+      MiFreeExcessSegments();
+    }
+    if ( v8 )
+      MiReturnCrossPartitionSectionCharges(v11, v10, v8);
+    MiReturnImageBase(&v32);
+  }

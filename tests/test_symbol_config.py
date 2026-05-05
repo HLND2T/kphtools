@@ -79,6 +79,118 @@ class TestSymbolConfig(unittest.TestCase):
             config.modules[0].skills[0].produced_symbols,
         )
 
+    def test_load_config_reads_optional_and_arch_specific_skill_fields(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-Required
+                            arch: AMD64
+                            expected_output: [Required.yaml]
+                            optional_output: [Optional.yaml]
+                            skip_if_any_exists: [AnySubstitute.yaml]
+                            skip_if_all_exists: [AllSubstituteA.yaml, AllSubstituteB.yaml]
+                            prerequisite: [find-Prereq]
+                            expected_input_amd64: [InputAmd64.yaml]
+                            expected_input_arm64: [InputArm64.yaml]
+                        symbols:
+                          - name: Required
+                            category: func
+                            data_type: uint32
+                          - name: Optional
+                            category: func
+                            data_type: uint32
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            config = symbol_config.load_config(config_path)
+
+        skill = config.modules[0].skills[0]
+        self.assertEqual("amd64", skill.arch)
+        self.assertEqual(["Required.yaml"], skill.expected_output)
+        self.assertEqual(["Optional.yaml"], skill.optional_output)
+        self.assertEqual([], skill.preprocessor_only_output)
+        self.assertEqual(["AnySubstitute.yaml"], skill.skip_if_any_exists)
+        self.assertEqual(
+            ["AllSubstituteA.yaml", "AllSubstituteB.yaml"],
+            skill.skip_if_all_exists,
+        )
+        self.assertEqual(["find-Prereq"], skill.prerequisite)
+        self.assertEqual(["InputAmd64.yaml"], skill.expected_input_amd64)
+        self.assertEqual(["InputArm64.yaml"], skill.expected_input_arm64)
+        self.assertEqual(["Required", "Optional"], skill.produced_symbols)
+
+    def test_load_config_accepts_optional_only_skill(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-Optional
+                            optional_output: [Optional.yaml]
+                        symbols:
+                          - name: Optional
+                            category: func
+                            data_type: uint32
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            config = symbol_config.load_config(config_path)
+
+        skill = config.modules[0].skills[0]
+        self.assertEqual([], skill.expected_output)
+        self.assertEqual(["Optional.yaml"], skill.optional_output)
+        self.assertEqual([], skill.preprocessor_only_output)
+        self.assertEqual(["Optional"], skill.produced_symbols)
+
+    def test_load_config_accepts_skill_output_without_symbol_spec(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-MissingSymbol
+                            expected_output: [MissingSymbol.yaml]
+                        symbols:
+                          - name: EpObjectTable
+                            category: struct_offset
+                            data_type: uint16
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            config = symbol_config.load_config(config_path)
+
+        self.assertEqual(
+            ["MissingSymbol.yaml"],
+            config.modules[0].skills[0].expected_output,
+        )
+        self.assertEqual(
+            {"EpObjectTable"},
+            {symbol.name for symbol in config.modules[0].symbols},
+        )
+
     def test_load_config_rejects_agent_skill_override(self) -> None:
         with TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "config.yaml"
@@ -193,6 +305,32 @@ class TestSymbolConfig(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "skill.unexpected_skill_field"):
                 symbol_config.load_config(config_path)
 
+    def test_load_config_rejects_legacy_skip_if_exists_field(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-EgeGuid
+                            expected_output: [EgeGuid.yaml]
+                            skip_if_exists: [Substitute.yaml]
+                        symbols:
+                          - name: EgeGuid
+                            category: struct_offset
+                            data_type: uint16
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "skill.skip_if_exists"):
+                symbol_config.load_config(config_path)
+
     def test_load_config_rejects_unknown_symbol_field(self) -> None:
         with TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "config.yaml"
@@ -243,6 +381,32 @@ class TestSymbolConfig(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(ValueError, "skill.max_retries"):
+                symbol_config.load_config(config_path)
+
+    def test_load_config_rejects_invalid_skill_arch(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    modules:
+                      - name: ntoskrnl
+                        path: [ntoskrnl.exe]
+                        skills:
+                          - name: find-PgInitContext
+                            arch: x64
+                            expected_output: [PgInitContext.yaml]
+                        symbols:
+                          - name: EpObjectTable
+                            category: struct_offset
+                            data_type: uint16
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "skill.arch"):
                 symbol_config.load_config(config_path)
 
     def test_load_config_rejects_arch_suffix_in_expected_output(self) -> None:
@@ -323,7 +487,7 @@ class TestSymbolConfig(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "must be a list"):
                 symbol_config.load_config(config_path)
 
-    def test_load_config_rejects_unknown_skill_output_symbol(self) -> None:
+    def test_load_config_accepts_preprocessor_only_skill_output(self) -> None:
         with TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "config.yaml"
             config_path.write_text(
@@ -333,8 +497,8 @@ class TestSymbolConfig(unittest.TestCase):
                       - name: ntoskrnl
                         path: [ntoskrnl.exe]
                         skills:
-                          - name: find-EpObjectTable
-                            expected_output: [MissingSymbol.yaml]
+                          - name: find-NtSecureConnectPort
+                            preprocessor_only_output: [NtSecureConnectPort.yaml]
                         symbols:
                           - name: EpObjectTable
                             category: struct_offset
@@ -345,8 +509,20 @@ class TestSymbolConfig(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with self.assertRaisesRegex(ValueError, "unknown symbol"):
-                symbol_config.load_config(config_path)
+            config = symbol_config.load_config(config_path)
+
+        skill = config.modules[0].skills[0]
+        self.assertEqual([], skill.expected_output)
+        self.assertEqual([], skill.optional_output)
+        self.assertEqual(
+            ["NtSecureConnectPort.yaml"],
+            skill.preprocessor_only_output,
+        )
+        self.assertEqual(["NtSecureConnectPort"], skill.produced_symbols)
+        self.assertEqual(
+            {"EpObjectTable"},
+            {symbol.name for symbol in config.modules[0].symbols},
+        )
 
     def test_load_config_rejects_empty_module_sections(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -399,7 +575,7 @@ class TestSymbolConfig(unittest.TestCase):
                 """,
             ),
             (
-                "expected_output must be a non-empty list",
+                "expected_output, optional_output, or preprocessor_only_output must be a non-empty list",
                 """
                 modules:
                   - name: ntoskrnl
@@ -546,6 +722,6 @@ class TestSymbolConfig(unittest.TestCase):
         self.assertEqual("ntoskrnl", config.modules[0].name)
         self.assertGreater(len(config.modules[0].symbols), 0)
         symbol_names = {symbol.name for symbol in config.modules[0].symbols}
+        self.assertNotIn("NtSecureConnectPort", symbol_names)
         for skill in config.modules[0].skills:
             self.assertTrue(skill.produced_symbols)
-            self.assertTrue(set(skill.produced_symbols).issubset(symbol_names))

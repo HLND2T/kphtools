@@ -9,7 +9,7 @@ LLM_DECOMPILE = [
         "MmControlAreaListHead",
         "_CONTROL_AREA->ListHead",
         "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/MiCheckForControlAreaDeletion.{arch}.yaml",
+        "references/ntoskrnl/MiInsertUnusedSegment.{arch}.yaml",
     ),
 ]
 

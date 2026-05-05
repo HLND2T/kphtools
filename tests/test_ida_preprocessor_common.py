@@ -10,6 +10,42 @@ from symbol_artifacts import load_artifact
 
 
 class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
+    def test_arch_from_binary_dir_reads_supported_arch_path_part(self) -> None:
+        self.assertEqual(
+            "amd64",
+            ida_preprocessor_common.arch_from_binary_dir(
+                Path("/symbols/ntoskrnl/amd64/.10.0.17763.1")
+            ),
+        )
+
+    def test_buildnum_from_binary_dir_reads_version_path_part(self) -> None:
+        self.assertEqual(
+            "17763",
+            ida_preprocessor_common.buildnum_from_binary_dir(
+                Path("/symbols/ntoskrnl/amd64/.10.0.17763.1")
+            ),
+        )
+        self.assertEqual(
+            17763,
+            ida_preprocessor_common.buildnum_int_from_binary_dir(
+                Path("/symbols/ntoskrnl/amd64/.10.0.17763.1")
+            ),
+        )
+
+    def test_has_current_stack_information_ex_checks_18305_boundary(self) -> None:
+        self.assertIs(
+            ida_preprocessor_common.has_current_stack_information_ex(
+                Path("/symbols/ntoskrnl/amd64/.10.0.17763.1")
+            ),
+            False,
+        )
+        self.assertIs(
+            ida_preprocessor_common.has_current_stack_information_ex(
+                Path("/symbols/ntoskrnl/amd64/.10.0.18305.1")
+            ),
+            True,
+        )
+
     async def test_preprocess_common_skill_writes_struct_yaml_from_script_metadata(
         self,
     ) -> None:
@@ -229,7 +265,7 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
                 payload,
             )
 
-    async def test_preprocess_common_skill_skips_pdb_preprocess_when_pdb_missing(
+    async def test_preprocess_common_skill_uses_export_preprocess_when_pdb_missing(
         self,
     ) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -237,24 +273,24 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
                 patch.object(
                     ida_preprocessor_common,
                     "preprocess_func_symbol",
-                    new=AsyncMock(return_value=None),
-                ) as mock_pdb_preprocess,
+                    new=AsyncMock(
+                        return_value={
+                            "func_name": "IoGetStackLimits",
+                            "func_rva": 0x2494F0,
+                        }
+                    ),
+                ) as mock_func_preprocess,
                 patch.object(
                     ida_preprocessor_common,
                     "resolve_symbol_via_llm_decompile",
-                    new=AsyncMock(
-                        return_value={
-                            "func_name": "ExReferenceCallBackBlock",
-                            "func_rva": 0x12340,
-                        }
-                    ),
+                    new=AsyncMock(return_value=None),
                 ) as mock_llm,
             ):
                 status = await ida_preprocessor_common.preprocess_common_skill(
                     session=AsyncMock(),
-                    skill=SimpleNamespace(name="find-ExReferenceCallBackBlock"),
+                    skill=SimpleNamespace(name="find-IoGetStackLimits"),
                     symbol=SimpleNamespace(
-                        name="ExReferenceCallBackBlock",
+                        name="IoGetStackLimits",
                         category="func",
                         data_type="uint32",
                     ),
@@ -262,34 +298,24 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
                     pdb_path=None,
                     debug=False,
                     llm_config={"model": "test-model", "api_key": "test-key"},
-                    func_names=["ExReferenceCallBackBlock"],
+                    func_names=["IoGetStackLimits"],
                     func_metadata={
-                        "ExReferenceCallBackBlock": {
-                            "alias": ["ExReferenceCallBackBlock"]
-                        }
+                        "IoGetStackLimits": {"alias": ["IoGetStackLimits"]}
                     },
-                    llm_decompile_specs=[
-                        (
-                            "ExReferenceCallBackBlock",
-                            "ExReferenceCallBackBlock",
-                            "prompt/call_llm_decompile.md",
-                            "references/ntoskrnl/Ref.{arch}.yaml",
-                        )
-                    ],
                     generate_yaml_desired_fields={
-                        "ExReferenceCallBackBlock": ["func_name", "func_rva"]
+                        "IoGetStackLimits": ["func_name", "func_rva"]
                     },
                 )
 
             self.assertEqual(ida_preprocessor_common.PREPROCESS_STATUS_SUCCESS, status)
-            mock_pdb_preprocess.assert_not_awaited()
-            mock_llm.assert_awaited_once()
-            payload = load_artifact(Path(temp_dir) / "ExReferenceCallBackBlock.yaml")
+            mock_func_preprocess.assert_awaited_once()
+            mock_llm.assert_not_awaited()
+            payload = load_artifact(Path(temp_dir) / "IoGetStackLimits.yaml")
             self.assertEqual(
                 {
                     "category": "func",
-                    "func_name": "ExReferenceCallBackBlock",
-                    "func_rva": 0x12340,
+                    "func_name": "IoGetStackLimits",
+                    "func_rva": 0x2494F0,
                 },
                 payload,
             )
@@ -578,6 +604,49 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(ida_preprocessor_common.PREPROCESS_STATUS_SUCCESS, status)
+
+    async def test_preprocess_common_skill_infers_func_category_for_mapping_symbol(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir, patch.object(
+            ida_preprocessor_common,
+            "preprocess_func_symbol",
+            new=AsyncMock(
+                return_value={
+                    "func_name": "AlpcpCreateClientPort",
+                    "func_rva": 0x5E8D70,
+                }
+            ),
+        ):
+            status = await ida_preprocessor_common.preprocess_common_skill(
+                session=AsyncMock(),
+                skill=SimpleNamespace(name="find-AlpcpCreateClientPort"),
+                symbol={"name": "AlpcpCreateClientPort"},
+                binary_dir=Path(temp_dir),
+                pdb_path=Path(temp_dir) / "ntkrnlmp.pdb",
+                debug=False,
+                llm_config=None,
+                func_names=["AlpcpCreateClientPort"],
+                func_metadata={
+                    "AlpcpCreateClientPort": {
+                        "alias": ["AlpcpCreateClientPort"],
+                    }
+                },
+                generate_yaml_desired_fields={
+                    "AlpcpCreateClientPort": ["func_name", "func_rva"]
+                },
+            )
+
+            self.assertEqual(ida_preprocessor_common.PREPROCESS_STATUS_SUCCESS, status)
+            payload = load_artifact(Path(temp_dir) / "AlpcpCreateClientPort.yaml")
+            self.assertEqual(
+                {
+                    "category": "func",
+                    "func_name": "AlpcpCreateClientPort",
+                    "func_rva": 0x5E8D70,
+                },
+                payload,
+            )
 
     async def test_preprocess_common_skill_falls_back_to_llm_decompile_for_struct_specs(
         self,

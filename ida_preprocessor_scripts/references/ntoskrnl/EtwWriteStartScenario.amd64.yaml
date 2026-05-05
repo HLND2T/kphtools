@@ -1,0 +1,154 @@
+func_name: EtwWriteStartScenario
+func_va: '0x1407802a0'
+disasm_code: |-
+  PAGE:00000001407802A0                 push    rbx
+  PAGE:00000001407802A2                 push    rbp
+  PAGE:00000001407802A3                 push    rsi
+  PAGE:00000001407802A4                 push    rdi
+  PAGE:00000001407802A5                 push    r12
+  PAGE:00000001407802A7                 push    r14
+  PAGE:00000001407802A9                 push    r15
+  PAGE:00000001407802AB                 sub     rsp, 50h
+  PAGE:00000001407802AF                 mov     rax, cs:__security_cookie
+  PAGE:00000001407802B6                 xor     rax, rsp
+  PAGE:00000001407802B9                 mov     [rsp+88h+var_40], rax
+  PAGE:00000001407802BE                 mov     r15, [rsp+88h+arg_20]
+  PAGE:00000001407802C6                 xor     r12d, r12d
+  PAGE:00000001407802C9                 mov     [rsp+88h+var_58], r12d
+  PAGE:00000001407802CE                 xorps   xmm0, xmm0
+  PAGE:00000001407802D1                 mov     r14d, r9d
+  PAGE:00000001407802D4                 mov     rbx, r8
+  PAGE:00000001407802D7                 mov     rbp, rdx
+  PAGE:00000001407802DA                 mov     rsi, rcx
+  PAGE:00000001407802DD                 movups  [rsp+88h+var_50], xmm0
+  PAGE:00000001407802E2                 test    rdx, rdx
+  PAGE:00000001407802E5                 jz      loc_14084911E
+  PAGE:00000001407802EB                 test    rbx, rbx
+  PAGE:00000001407802EE                 jz      loc_14084911E
+  PAGE:00000001407802F4                 call    EtwEventEnabled
+  PAGE:00000001407802F9                 test    al, al
+  PAGE:00000001407802FB                 jz      loc_140849128
+  PAGE:0000000140780301                 lea     r8, [rsp+88h+var_50]
+  PAGE:0000000140780306                 xor     edx, edx
+  PAGE:0000000140780308                 mov     rcx, rsi
+  PAGE:000000014078030B                 call    EtwGetProviderIdFromHandle ; EtwGetProviderIdFromHandle - target function to find
+  PAGE:0000000140780310                 mov     edi, eax
+  PAGE:0000000140780312                 test    eax, eax
+  PAGE:0000000140780314                 js      short loc_140780349
+  PAGE:0000000140780316                 cmp     [rbx], r12d
+  PAGE:0000000140780319                 jz      short loc_140780368
+  PAGE:000000014078031B                 ; UserDataCount
+  PAGE:000000014078031B                 mov     r9d, r14d; UserDataCount
+  PAGE:000000014078031E                 ; UserData
+  PAGE:000000014078031E                 mov     [rsp+88h+UserData], r15; UserData
+  PAGE:0000000140780323                 ; ActivityId
+  PAGE:0000000140780323                 mov     r8, rbx; ActivityId
+  PAGE:0000000140780326                 ; EventDescriptor
+  PAGE:0000000140780326                 mov     rdx, rbp; EventDescriptor
+  PAGE:0000000140780329                 ; RegHandle
+  PAGE:0000000140780329                 mov     rcx, rsi; RegHandle
+  PAGE:000000014078032C                 call    EtwWrite
+  PAGE:0000000140780331                 mov     r9d, 0Ah
+  PAGE:0000000140780337                 lea     rcx, [rsp+88h+var_50]
+  PAGE:000000014078033C                 mov     r8, rbp
+  PAGE:000000014078033F                 mov     rdx, rbx
+  PAGE:0000000140780342                 mov     edi, eax
+  PAGE:0000000140780344                 call    WdipStartEndScenario
+  PAGE:0000000140780349                 mov     eax, edi
+  PAGE:000000014078034B                 mov     rcx, [rsp+88h+var_40]
+  PAGE:0000000140780350                 ; StackCookie
+  PAGE:0000000140780350                 xor     rcx, rsp; StackCookie
+  PAGE:0000000140780353                 call    __security_check_cookie
+  PAGE:0000000140780358                 add     rsp, 50h
+  PAGE:000000014078035C                 pop     r15
+  PAGE:000000014078035E                 pop     r14
+  PAGE:0000000140780360                 pop     r12
+  PAGE:0000000140780362                 pop     rdi
+  PAGE:0000000140780363                 pop     rsi
+  PAGE:0000000140780364                 pop     rbp
+  PAGE:0000000140780365                 pop     rbx
+  PAGE:0000000140780366                 retn
+  PAGE:0000000140780368                 cmp     [rbx+4], r12w
+  PAGE:000000014078036D                 jnz     short loc_14078031B
+  PAGE:000000014078036F                 cmp     [rbx+6], r12w
+  PAGE:0000000140780374                 jnz     short loc_14078031B
+  PAGE:0000000140780376                 cmp     [rbx+8], r12b
+  PAGE:000000014078037A                 jnz     short loc_14078031B
+  PAGE:000000014078037C                 cmp     [rbx+9], r12b
+  PAGE:0000000140780380                 jnz     short loc_14078031B
+  PAGE:0000000140780382                 cmp     [rbx+0Ah], r12b
+  PAGE:0000000140780386                 jnz     short loc_14078031B
+  PAGE:0000000140780388                 cmp     [rbx+0Bh], r12b
+  PAGE:000000014078038C                 jnz     short loc_14078031B
+  PAGE:000000014078038E                 cmp     [rbx+0Ch], r12b
+  PAGE:0000000140780392                 jnz     short loc_14078031B
+  PAGE:0000000140780394                 cmp     [rbx+0Dh], r12b
+  PAGE:0000000140780398                 jnz     short loc_14078031B
+  PAGE:000000014078039A                 cmp     [rbx+0Eh], r12b
+  PAGE:000000014078039E                 jnz     loc_14078031B
+  PAGE:00000001407803A4                 cmp     [rbx+0Fh], r12b
+  PAGE:00000001407803A8                 jnz     loc_14078031B
+  PAGE:00000001407803AE                 xor     edx, edx
+  PAGE:00000001407803B0                 lea     rax, [rsp+88h+var_58]
+  PAGE:00000001407803B5                 mov     [rsp+88h+var_60], rax
+  PAGE:00000001407803BA                 mov     r9, rbx
+  PAGE:00000001407803BD                 xor     r8d, r8d
+  PAGE:00000001407803C0                 mov     dword ptr [rsp+88h+UserData], 10h
+  PAGE:00000001407803C8                 lea     ecx, [rdx+0Ch]
+  PAGE:00000001407803CB                 call    ZwTraceControl
+  PAGE:00000001407803D0                 mov     edi, eax
+  PAGE:00000001407803D2                 test    eax, eax
+  PAGE:00000001407803D4                 jns     loc_14078031B
+  PAGE:00000001407803DA                 jmp     loc_140780349
+  PAGE:000000014084911E                 mov     edi, 0C000000Dh
+  PAGE:0000000140849123                 jmp     loc_140780349
+  PAGE:0000000140849128                 mov     edi, 0C0000008h
+  PAGE:000000014084912D                 jmp     loc_140780349
+procedure: |-
+  __int64 __fastcall EtwWriteStartScenario(
+          _ETW_REG_ENTRY *RegHandle,
+          PCEVENT_DESCRIPTOR EventDescriptor,
+          LPCGUID ActivityId,
+          ULONG UserDataCount,
+          PEVENT_DATA_DESCRIPTOR a5)
+  {
+    int status; // edi
+    _GUID v11; // [rsp+38h] [rbp-50h] BYREF
+
+    v11 = 0;
+    if ( EventDescriptor && ActivityId )
+    {
+      if ( EtwEventEnabled((REGHANDLE)RegHandle, EventDescriptor) )
+      {
+        status = EtwGetProviderIdFromHandle(RegHandle, 0, &v11); // EtwGetProviderIdFromHandle - target function to find
+        if ( status >= 0 )
+        {
+          if ( ActivityId->Data1
+            || ActivityId->Data2
+            || ActivityId->Data3
+            || ActivityId->Data4[0]
+            || ActivityId->Data4[1]
+            || ActivityId->Data4[2]
+            || ActivityId->Data4[3]
+            || ActivityId->Data4[4]
+            || ActivityId->Data4[5]
+            || ActivityId->Data4[6]
+            || ActivityId->Data4[7]
+            || (status = ZwTraceControl(12, 0, 0, ActivityId, 16), status >= 0) )
+          {
+            status = EtwWrite((REGHANDLE)RegHandle, EventDescriptor, ActivityId, UserDataCount, a5);
+            WdipStartEndScenario((__int64)&v11, (__int64)ActivityId, &EventDescriptor->Id, 10);
+          }
+        }
+      }
+      else
+      {
+        return 0xC0000008;
+      }
+    }
+    else
+    {
+      return 0xC000000D;
+    }
+    return (unsigned int)status;
+  }

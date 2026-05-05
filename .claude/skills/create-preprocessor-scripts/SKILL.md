@@ -23,7 +23,7 @@ Collect only what the task needs:
 - Symbol names and output YAML names.
 - Category: `struct_offset`, `gv`, or `func`.
 - `data_type`, module name, architecture, aliases, and dependencies if present.
-- Discovery source: direct PDB/name metadata or an LLM_DECOMPILE reference function.
+- Discovery source: direct PDB/name metadata, NtAPI syscall signature bytes, FUNC_XREFS caller-side byte signatures, or an LLM_DECOMPILE reference function.
 - Target struct/member pairs, global variable names, or function names.
 - Desired YAML fields for each output artifact.
 
@@ -45,7 +45,53 @@ Place scripts at:
 ida_preprocessor_scripts/find-<SkillName>.py
 ```
 
-Use `ida_preprocessor_common.preprocess_common_skill` and keep the current kphtools function signature:
+There are two distinct caller shapes depending on discovery method.
+
+#### NtAPI Signature Pattern
+
+Use when the target is a Windows NT system call and a unique byte signature from the syscall stub is known. Import `_extract_ntapi` and call `preprocess_ntapi_symbols` directly — do **not** use `preprocess_common_skill` for this pattern.
+
+```python
+from __future__ import annotations
+
+from ida_preprocessor_scripts import _extract_ntapi
+
+TARGET_FUNCTION_NAMES = ["NtAlpcCreatePortSection"]
+
+NTAPI_SIGNATURES = {
+    "NtAlpcCreatePortSection": ["BE A7 FB 31 06 00 00 00"],
+}
+
+GENERATE_YAML_DESIRED_FIELDS = {
+    "NtAlpcCreatePortSection": ["func_name", "func_rva"],
+}
+
+
+async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, llm_config):
+    return await _extract_ntapi.preprocess_ntapi_symbols(
+        session=session,
+        skill=skill,
+        symbol=symbol,
+        binary_dir=binary_dir,
+        pdb_path=pdb_path,
+        debug=debug,
+        target_function_names=TARGET_FUNCTION_NAMES,
+        ntapi_signatures=NTAPI_SIGNATURES,
+        generate_yaml_desired_fields=GENERATE_YAML_DESIRED_FIELDS,
+    )
+```
+
+Module-level variables for this pattern: `TARGET_FUNCTION_NAMES`, `NTAPI_SIGNATURES`, `GENERATE_YAML_DESIRED_FIELDS`.
+
+The signature bytes come from the NT syscall stub (e.g. `mov eax, <syscall_number>` encodes the system call index). Each signature is a list to allow multiple candidates across OS versions.
+
+NT API finders produce a reference YAML (e.g. `NtAlpcCreatePortSection.yaml`) consumed as `expected_input` by downstream finders. They do **not** get a `symbols` entry in `config.yaml` because they are reference anchors, not kphtools output symbols.
+
+Examples: `ida_preprocessor_scripts/find-NtSecureConnectPort.py`, `ida_preprocessor_scripts/find-NtAlpcCreatePortSection.py`.
+
+#### PDB / Name / LLM Pattern
+
+Use `ida_preprocessor_common.preprocess_common_skill` for all other cases (struct offsets, global variables, named functions, LLM_DECOMPILE):
 
 ```python
 async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, llm_config):
@@ -61,18 +107,75 @@ async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, 
     )
 ```
 
-Common module-level variables:
+Module-level variables for this pattern:
 
 - Struct offsets: `TARGET_STRUCT_MEMBER_NAMES`, `STRUCT_METADATA`, `GENERATE_YAML_DESIRED_FIELDS`.
 - Global variables: `TARGET_GLOBALVAR_NAMES`, `GV_METADATA`, `GENERATE_YAML_DESIRED_FIELDS`.
-- Functions: `TARGET_FUNCTION_NAMES`, `FUNC_METADATA`, `GENERATE_YAML_DESIRED_FIELDS`.
+- Functions (direct): `TARGET_FUNCTION_NAMES`, `FUNC_METADATA`, `GENERATE_YAML_DESIRED_FIELDS`.
+- Functions (by caller xrefs): `TARGET_FUNCTION_NAMES`, `FUNC_XREFS`, `GENERATE_YAML_DESIRED_FIELDS` — pass `func_xrefs=FUNC_XREFS`.
 - LLM_DECOMPILE: `LLM_DECOMPILE`, passed as `llm_decompile_specs=LLM_DECOMPILE`.
 
-Use nearby examples:
+#### FUNC_XREFS Pattern
+
+Use when the target function cannot be found by name or PDB metadata, but its **callers** contain unique byte sequences. IDA locates functions that have at least one caller matching all specified xref criteria.
+
+```python
+from __future__ import annotations
+
+import ida_preprocessor_common as preprocessor_common
+
+TARGET_FUNCTION_NAMES = ["PerfDiagInitialize"]
+
+FUNC_XREFS = [
+    {
+        "func_name": "PerfDiagInitialize",
+        "xref_strings": [],           # caller must reference these ASCII strings
+        "xref_unicode_strings": [],   # caller must reference these Unicode strings (prefix FULLMATCH: for exact match)
+        "xref_gvs": [],               # caller must reference these global variable names
+        "xref_signatures": ["49 49 14 67", "32 51 59 48"],  # caller must contain one of these byte patterns
+        "xref_funcs": [],             # caller must call these functions
+        "exclude_funcs": [],          # discard candidates whose callers call these functions
+        "exclude_strings": [],
+        "exclude_unicode_strings": [],
+        "exclude_gvs": [],
+        "exclude_signatures": [],
+    },
+]
+
+GENERATE_YAML_DESIRED_FIELDS = {
+    "PerfDiagInitialize": ["func_name", "func_rva"],
+}
+
+
+async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, llm_config):
+    return await preprocessor_common.preprocess_common_skill(
+        session=session,
+        skill=skill,
+        symbol=symbol,
+        binary_dir=binary_dir,
+        pdb_path=pdb_path,
+        debug=debug,
+        llm_config=llm_config,
+        func_names=TARGET_FUNCTION_NAMES,
+        func_xrefs=FUNC_XREFS,
+        generate_yaml_desired_fields=GENERATE_YAML_DESIRED_FIELDS,
+    )
+```
+
+Key rules for FUNC_XREFS:
+
+- `xref_signatures` is a list of alternative byte patterns — a caller qualifies if it contains **any one** of them.
+- All non-empty lists within a single entry are ANDed: the caller must satisfy every specified criterion.
+- Multiple entries in `FUNC_XREFS` cover multiple target functions in the same finder.
+- Leave unused lists as `[]` rather than omitting the key — the full dict shape is required.
+
+Examples:
 
 - Direct struct offset: `ida_preprocessor_scripts/find-EpObjectTable.py`.
 - Global variable: `ida_preprocessor_scripts/find-PspCreateProcessNotifyRoutine.py`.
-- Function: `ida_preprocessor_scripts/find-ExReferenceCallBackBlock.py`.
+- Function (direct): `ida_preprocessor_scripts/find-ExReferenceCallBackBlock.py`.
+- Function (FUNC_XREFS, xref_signatures only): `ida_preprocessor_scripts/find-AlpcpInitSystem.py`, `ida_preprocessor_scripts/find-PerfDiagInitialize.py`.
+- Function (FUNC_XREFS, xref_unicode_strings + xref_signatures): `ida_preprocessor_scripts/find-AlpcpInitSystem.py`.
 - Single-symbol LLM_DECOMPILE struct offset: `ida_preprocessor_scripts/find-AlpcHandleTableLock.py` (ref: `AlpcAddHandleTableEntry`).
 - Merged LLM_DECOMPILE struct offsets (two targets, same ref): `ida_preprocessor_scripts/find-AlpcHandleTable-AND-AlpcPortContext.py` (ref: `AlpcpCreateClientPort`).
 - Merged LLM struct offsets: `ida_preprocessor_scripts/find-AlpcAttributes-AND-AlpcAttributesFlags-AND-AlpcCommunicationInfo-AND-AlpcOwnerProcess-AND-AlpcConnectionPort-AND-AlpcServerCommunicationPort-AND-AlpcClientCommunicationPort.py`.
@@ -85,7 +188,7 @@ For the target module:
 
 - Add one `skills` entry whose `name` exactly matches the script basename.
 - Add every produced YAML under `expected_output`.
-- Add or update every symbol under `symbols` with correct `name`, `category`, and `data_type`.
+- **Only** add a `symbols` entry when the user explicitly requests it. Do not add symbols entries by default — many finders produce reference anchors (e.g. function RVAs) consumed only as `expected_input` by downstream finders, not as kphtools output symbols.
 - Avoid duplicate symbol entries.
 - If the finder depends on prior outputs, add `expected_input` so dependency artifacts are produced first.
 - When renaming or merging a finder, remove stale skill entries for old scripts.
@@ -172,9 +275,15 @@ Stage only relevant files (finder scripts, reference YAMLs, `config.yaml`). Do n
 ## Common Mistakes
 
 - Script filename and `config.yaml` skill name do not match.
+- NtAPI finder uses `preprocess_common_skill` instead of `_extract_ntapi.preprocess_ntapi_symbols`.
+- NtAPI finder result YAML gets a `symbols` entry — it should not; it is a reference anchor for downstream `expected_input`, not a kphtools output symbol.
+- Function finder (LLM_DECOMPILE or direct) result YAML gets a `symbols` entry without user request — do not add `symbols` entries unless the user explicitly asks.
 - `expected_output` omits one artifact from a merged finder.
 - Symbol exists in script output but not in `config.yaml` `symbols`.
 - Old finder scripts or old skill entries remain after an authorized merge.
+- FUNC_XREFS finder passes `func_metadata=FUNC_METADATA` instead of `func_xrefs=FUNC_XREFS` — these are different kwargs and the wrong one silently finds nothing.
+- FUNC_XREFS dict omits required keys (e.g. `exclude_signatures`) — always include the full dict shape with empty lists for unused fields.
+- `xref_signatures` contains byte patterns that are too short and match unrelated callers — use patterns of at least 4 bytes; prefer 6+ for uniqueness.
 - `LLM_DECOMPILE` exists but is not passed as `llm_decompile_specs`.
 - Reference YAML lacks annotations, so the LLM returns wrong or incomplete offsets.
 - Raw LLM output contains non-strict YAML such as repeated top-level keys or a truncated member name; fix the parser/prompt or reference annotation rather than accepting an empty parsed result.

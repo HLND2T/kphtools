@@ -9,7 +9,7 @@ LLM_DECOMPILE = [
         "MmControlAreaLock",
         "_CONTROL_AREA->ControlAreaLock",
         "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/MiDereferenceControlAreaPfnList.{arch}.yaml",
+        "references/ntoskrnl/MiCheckControlArea.{arch}.yaml",
     ),
 ]
 

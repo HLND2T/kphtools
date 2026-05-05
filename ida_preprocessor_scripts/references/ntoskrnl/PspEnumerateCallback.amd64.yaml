@@ -1,0 +1,60 @@
+func_name: PspEnumerateCallback
+func_va: '0x140773150'
+disasm_code: |-
+  PAGE:0000000140773150                 mov     r9, rdx
+  PAGE:0000000140773153                 test    ecx, ecx
+  PAGE:0000000140773155                 jz      short loc_14077318C
+  PAGE:0000000140773157                 sub     ecx, 1
+  PAGE:000000014077315A                 jnz     short loc_14077317E
+  PAGE:000000014077315C                 lea     rcx, PspCreateProcessNotifyRoutine ; TARGET GV: PspCreateProcessNotifyRoutine
+  PAGE:0000000140773163                 mov     edx, [rdx]
+  PAGE:0000000140773165                 cmp     edx, 40h ; '@'
+  PAGE:0000000140773168                 jnb     short loc_140773195
+  PAGE:000000014077316A                 lea     eax, [rdx+1]
+  PAGE:000000014077316D                 lea     rcx, [rcx+rdx*8]
+  PAGE:0000000140773171                 mov     [r8], rcx
+  PAGE:0000000140773174                 mov     [r9], eax
+  PAGE:0000000140773177                 mov     eax, 1
+  PAGE:000000014077317C                 retn
+  PAGE:000000014077317E                 cmp     ecx, 1
+  PAGE:0000000140773181                 jnz     short loc_140773195
+  PAGE:0000000140773183                 lea     rcx, PspLoadImageNotifyRoutine ; TARGET GV: PspLoadImageNotifyRoutine
+  PAGE:000000014077318A                 jmp     short loc_140773163
+  PAGE:000000014077318C                 lea     rcx, PspCreateThreadNotifyRoutine ; TARGET GV: PspCreateThreadNotifyRoutine
+  PAGE:0000000140773193                 jmp     short loc_140773163
+  PAGE:0000000140773195                 xor     eax, eax
+  PAGE:0000000140773197                 retn
+procedure: |-
+  __int64 __fastcall PspEnumerateCallback(int NotifyType, _DWORD *a2, _QWORD *a3)
+  {
+    int v4; // ecx
+    __int64 *v5; // rcx
+    __int64 v6; // rdx
+
+    if ( NotifyType )
+    {
+      v4 = NotifyType - 1;
+      if ( v4 )
+      {
+        if ( v4 != 1 )
+          return 0;
+        v5 = (__int64 *)&PspLoadImageNotifyRoutine; // TARGET GV: PspLoadImageNotifyRoutine
+      }
+      else
+      {
+        v5 = (__int64 *)&PspCreateProcessNotifyRoutine; // TARGET GV: PspCreateProcessNotifyRoutine
+      }
+    }
+    else
+    {
+      v5 = (__int64 *)&PspCreateThreadNotifyRoutine; // TARGET GV: PspCreateThreadNotifyRoutine
+    }
+    v6 = (unsigned int)*a2;
+    if ( (unsigned int)v6 < 0x40 )
+    {
+      *a3 = &v5[v6];
+      *a2 = v6 + 1;
+      return 1;
+    }
+    return 0;
+  }

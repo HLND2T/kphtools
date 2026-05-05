@@ -117,6 +117,87 @@ class TestDumpSymbols(unittest.TestCase):
 
         self.assertEqual(["find-A", "find-B"], dump_symbols.topological_sort_skills(skills))
 
+    def test_topological_sort_uses_arch_specific_expected_inputs(self) -> None:
+        skills = [
+            {
+                "name": "find-A",
+                "expected_output": ["A.yaml"],
+                "expected_input_amd64": ["Z.yaml"],
+            },
+            {
+                "name": "find-B",
+                "expected_output": ["B.yaml"],
+                "expected_input_arm64": ["A.yaml"],
+            },
+            {"name": "find-Z", "expected_output": ["Z.yaml"]},
+        ]
+
+        self.assertEqual(
+            ["find-Z", "find-A", "find-B"],
+            dump_symbols.topological_sort_skills(skills),
+        )
+
+    def test_topological_sort_ignores_optional_output(self) -> None:
+        skills = [
+            {
+                "name": "find-A",
+                "expected_output": ["A.yaml"],
+                "expected_input": ["Optional.yaml"],
+            },
+            {
+                "name": "find-Z",
+                "expected_output": ["Z.yaml"],
+                "optional_output": ["Optional.yaml"],
+            },
+        ]
+
+        self.assertEqual(["find-A", "find-Z"], dump_symbols.topological_sort_skills(skills))
+
+    def test_topological_sort_uses_preprocessor_only_output(self) -> None:
+        skills = [
+            {
+                "name": "find-AlpcHandleTable",
+                "expected_output": ["AlpcHandleTable.yaml"],
+                "expected_input": ["AlpcpCreateClientPort.yaml"],
+            },
+            {
+                "name": "find-AlpcpCreateClientPort",
+                "expected_input": ["NtSecureConnectPort.yaml"],
+                "preprocessor_only_output": ["AlpcpCreateClientPort.yaml"],
+            },
+            {
+                "name": "find-NtSecureConnectPort",
+                "preprocessor_only_output": ["NtSecureConnectPort.yaml"],
+            },
+        ]
+
+        self.assertEqual(
+            [
+                "find-NtSecureConnectPort",
+                "find-AlpcpCreateClientPort",
+                "find-AlpcHandleTable",
+            ],
+            dump_symbols.topological_sort_skills(skills),
+        )
+
+    def test_topological_sort_uses_prerequisite_with_optional_output(self) -> None:
+        skills = [
+            {
+                "name": "find-AConsumer",
+                "expected_output": ["Consumer.yaml"],
+                "prerequisite": ["find-ZOptionalPrereq"],
+            },
+            {
+                "name": "find-ZOptionalPrereq",
+                "optional_output": ["OptionalPrereq.yaml"],
+            },
+        ]
+
+        self.assertEqual(
+            ["find-ZOptionalPrereq", "find-AConsumer"],
+            dump_symbols.topological_sort_skills(skills),
+        )
+
     def test_parse_args_reads_arch_and_force(self) -> None:
         args = dump_symbols.parse_args(
             [
@@ -126,12 +207,18 @@ class TestDumpSymbols(unittest.TestCase):
                 "amd64",
                 "-configyaml",
                 "config.yaml",
+                "-version",
+                "10.0.26100.8246",
+                "-skill",
+                "find-Target",
                 "-force",
             ]
         )
 
         self.assertEqual("amd64", args.arch)
         self.assertEqual(["amd64"], args.arches)
+        self.assertEqual("10.0.26100.8246", args.version)
+        self.assertEqual("find-Target", args.skill)
         self.assertTrue(args.force)
 
     def test_parse_args_uses_default_arches_and_symboldir(self) -> None:
@@ -140,6 +227,8 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertEqual("symbols", args.symboldir)
         self.assertEqual("amd64,arm64", args.arch)
         self.assertEqual(["amd64", "arm64"], args.arches)
+        self.assertIsNone(args.version)
+        self.assertIsNone(args.skill)
 
     def test_parse_args_uses_kptools_llm_env_fallbacks(self) -> None:
         with patch.dict(
@@ -326,6 +415,58 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertTrue(ok)
         mock_run_skill.assert_not_called()
 
+    def test_process_binary_debug_logs_successfully_written_yaml_path(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            output_path = binary_dir / "EpObjectTable.yaml"
+            config = {
+                "skills": [
+                    {
+                        "name": "find-EpObjectTable",
+                        "expected_output": ["EpObjectTable.yaml"],
+                    }
+                ],
+                "symbols": [
+                    {
+                        "name": "EpObjectTable",
+                        "category": "struct_offset",
+                        "data_type": "uint16",
+                    }
+                ],
+            }
+
+            async def preprocess_side_effect(**kwargs: object) -> str:
+                output_path.write_text("name: EpObjectTable\n", encoding="utf-8")
+                return dump_symbols.PREPROCESS_STATUS_SUCCESS
+
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=AsyncMock(side_effect=preprocess_side_effect),
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+                patch("builtins.print") as mock_print,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=True,
+                        force=False,
+                        llm_config=None,
+                    )
+                )
+
+        self.assertTrue(ok)
+        mock_run_skill.assert_not_called()
+        mock_print.assert_any_call(
+            f"[debug] successfully wrote YAML: {output_path.resolve(strict=False)}"
+        )
+
     def test_process_binary_preprocesses_each_symbol_derived_from_outputs(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
@@ -387,6 +528,602 @@ class TestDumpSymbols(unittest.TestCase):
         )
         mock_run_skill.assert_not_called()
 
+    def test_process_binary_preprocesses_expected_output_without_symbol_spec(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            config = {
+                "skills": [
+                    {
+                        "name": "find-NtSecureConnectPort",
+                        "expected_output": ["NtSecureConnectPort.yaml"],
+                    }
+                ],
+                "symbols": [],
+            }
+            preprocess_mock = AsyncMock(
+                return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS
+            )
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                    )
+                )
+
+        self.assertTrue(ok)
+        preprocess_mock.assert_awaited_once()
+        self.assertEqual(
+            {"name": "NtSecureConnectPort"},
+            preprocess_mock.await_args.kwargs["symbol"],
+        )
+        mock_run_skill.assert_not_called()
+
+    def test_process_binary_returns_false_for_failed_internal_expected_output(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            config = {
+                "skills": [
+                    {
+                        "name": "find-NtSecureConnectPort",
+                        "expected_output": ["NtSecureConnectPort.yaml"],
+                    }
+                ],
+                "symbols": [],
+            }
+            preprocess_mock = AsyncMock(
+                return_value=dump_symbols.PREPROCESS_STATUS_FAILED
+            )
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                    )
+                )
+
+        self.assertFalse(ok)
+        preprocess_mock.assert_awaited_once()
+        self.assertEqual(
+            {"name": "NtSecureConnectPort"},
+            preprocess_mock.await_args.kwargs["symbol"],
+        )
+        mock_run_skill.assert_not_called()
+
+    def test_process_binary_accepts_absent_ok_for_internal_expected_output(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            config = {
+                "skills": [
+                    {
+                        "name": "find-NtSecureConnectPort",
+                        "expected_output": ["NtSecureConnectPort.yaml"],
+                    }
+                ],
+                "symbols": [],
+            }
+            preprocess_mock = AsyncMock(
+                return_value=dump_symbols.PREPROCESS_STATUS_ABSENT_OK
+            )
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                    )
+                )
+
+        self.assertTrue(ok)
+        preprocess_mock.assert_awaited_once()
+        self.assertEqual(
+            {"name": "NtSecureConnectPort"},
+            preprocess_mock.await_args.kwargs["symbol"],
+        )
+        mock_run_skill.assert_not_called()
+
+    def test_process_binary_falls_back_when_regular_required_output_fails_in_mixed_skill(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            config = {
+                "skills": [
+                    {
+                        "name": "find-RegularAndHelper",
+                        "expected_output": ["Regular.yaml"],
+                        "preprocessor_only_output": ["Helper.yaml"],
+                    }
+                ],
+                "symbols": [
+                    {
+                        "name": "Regular",
+                        "category": "func",
+                        "data_type": "uint32",
+                    }
+                ],
+            }
+
+            async def preprocess_side_effect(**kwargs: object) -> str:
+                symbol = kwargs["symbol"]
+                if not isinstance(symbol, dict):
+                    raise AssertionError("symbol must be a dict")
+                if symbol["name"] == "Regular":
+                    return dump_symbols.PREPROCESS_STATUS_FAILED
+                if symbol["name"] == "Helper":
+                    return dump_symbols.PREPROCESS_STATUS_SUCCESS
+                raise AssertionError(f"unexpected symbol: {symbol['name']}")
+
+            preprocess_mock = AsyncMock(side_effect=preprocess_side_effect)
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                    )
+                )
+
+        self.assertTrue(ok)
+        self.assertEqual(
+            ["Regular", "Helper"],
+            [
+                invocation.kwargs["symbol"]["name"]
+                for invocation in preprocess_mock.await_args_list
+            ],
+        )
+        mock_run_skill.assert_called_once_with(
+            "find-RegularAndHelper",
+            agent="codex",
+            debug=False,
+            expected_yaml_paths=[
+                str(binary_dir / "Regular.yaml"),
+                str(binary_dir / "Helper.yaml"),
+            ],
+            max_retries=3,
+        )
+
+    def test_process_binary_preprocesses_optional_output_symbol(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            config = {
+                "skills": [
+                    {
+                        "name": "find-Optional",
+                        "optional_output": ["Optional.yaml"],
+                    }
+                ],
+                "symbols": [
+                    {
+                        "name": "Optional",
+                        "category": "func",
+                        "data_type": "uint32",
+                    }
+                ],
+            }
+            preprocess_mock = AsyncMock(return_value="failed")
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                    )
+                )
+
+        self.assertTrue(ok)
+        self.assertEqual(["Optional"], [
+            invocation.kwargs["symbol"]["name"]
+            for invocation in preprocess_mock.await_args_list
+        ])
+        mock_run_skill.assert_not_called()
+
+    def test_process_binary_runs_only_selected_skill(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            skills = [
+                {"name": "find-Target", "expected_output": ["Target.yaml"]},
+                {"name": "find-Other", "expected_output": ["Other.yaml"]},
+            ]
+            symbols = [
+                {"name": "Target", "category": "func", "data_type": "uint32"},
+                {"name": "Other", "category": "func", "data_type": "uint32"},
+            ]
+            preprocess_mock = AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS)
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=skills,
+                        symbols=symbols,
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                        skill="find-Target",
+                    )
+                )
+
+        self.assertTrue(ok)
+        self.assertEqual(
+            ["Target"],
+            [
+                invocation.kwargs["symbol"]["name"]
+                for invocation in preprocess_mock.await_args_list
+            ],
+        )
+        mock_run_skill.assert_not_called()
+
+    def test_process_binary_fails_when_selected_skill_is_missing(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            skills = [{"name": "find-Target", "expected_output": ["Target.yaml"]}]
+            symbols = [{"name": "Target", "category": "func", "data_type": "uint32"}]
+            preprocess_mock = AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS)
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch("builtins.print") as mock_print,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=skills,
+                        symbols=symbols,
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                        skill="missing-skill",
+                    )
+                )
+
+        self.assertFalse(ok)
+        preprocess_mock.assert_not_awaited()
+        mock_print.assert_called_once_with(
+            "Skill 'missing-skill' not found; available skills: find-Target"
+        )
+
+    def test_process_binary_skips_optional_only_skill_when_optional_output_exists(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            (binary_dir / "Optional.yaml").write_text("name: Optional\n", encoding="utf-8")
+            activity = {"did_work": False}
+            config = {
+                "skills": [
+                    {
+                        "name": "find-Optional",
+                        "optional_output": ["Optional.yaml"],
+                    }
+                ],
+                "symbols": [
+                    {
+                        "name": "Optional",
+                        "category": "func",
+                        "data_type": "uint32",
+                    }
+                ],
+            }
+            preprocess_mock = AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS)
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                        activity=activity,
+                    )
+                )
+
+        self.assertTrue(ok)
+        self.assertFalse(activity["did_work"])
+        preprocess_mock.assert_not_awaited()
+        mock_run_skill.assert_not_called()
+
+    def test_process_binary_skips_when_any_skip_if_any_exists_artifact_exists(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            (binary_dir / "SubstituteB.yaml").write_text(
+                "name: SubstituteB\n",
+                encoding="utf-8",
+            )
+            activity = {"did_work": False}
+            config = {
+                "skills": [
+                    {
+                        "name": "find-Target",
+                        "expected_output": ["Target.yaml"],
+                        "skip_if_any_exists": [
+                            "SubstituteA.yaml",
+                            "SubstituteB.yaml",
+                        ],
+                    }
+                ],
+                "symbols": [
+                    {
+                        "name": "Target",
+                        "category": "func",
+                        "data_type": "uint32",
+                    }
+                ],
+            }
+            preprocess_mock = AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS)
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                        activity=activity,
+                    )
+                )
+
+        self.assertTrue(ok)
+        self.assertFalse(activity["did_work"])
+        preprocess_mock.assert_not_awaited()
+        mock_run_skill.assert_not_called()
+
+    def test_process_binary_skips_when_all_skip_if_all_exists_artifacts_exist(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            (binary_dir / "SubstituteA.yaml").write_text(
+                "name: SubstituteA\n",
+                encoding="utf-8",
+            )
+            (binary_dir / "SubstituteB.yaml").write_text(
+                "name: SubstituteB\n",
+                encoding="utf-8",
+            )
+            activity = {"did_work": False}
+            config = {
+                "skills": [
+                    {
+                        "name": "find-Target",
+                        "expected_output": ["Target.yaml"],
+                        "skip_if_all_exists": [
+                            "SubstituteA.yaml",
+                            "SubstituteB.yaml",
+                        ],
+                    }
+                ],
+                "symbols": [
+                    {
+                        "name": "Target",
+                        "category": "func",
+                        "data_type": "uint32",
+                    }
+                ],
+            }
+            preprocess_mock = AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS)
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                        activity=activity,
+                    )
+                )
+
+        self.assertTrue(ok)
+        self.assertFalse(activity["did_work"])
+        preprocess_mock.assert_not_awaited()
+        mock_run_skill.assert_not_called()
+
+    def test_process_binary_does_not_skip_until_all_skip_if_all_exists_artifacts_exist(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            (binary_dir / "SubstituteA.yaml").write_text(
+                "name: SubstituteA\n",
+                encoding="utf-8",
+            )
+            activity = {"did_work": False}
+            config = {
+                "skills": [
+                    {
+                        "name": "find-Target",
+                        "expected_output": ["Target.yaml"],
+                        "skip_if_all_exists": [
+                            "SubstituteA.yaml",
+                            "SubstituteB.yaml",
+                        ],
+                    }
+                ],
+                "symbols": [
+                    {
+                        "name": "Target",
+                        "category": "func",
+                        "data_type": "uint32",
+                    }
+                ],
+            }
+            preprocess_mock = AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS)
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                        activity=activity,
+                    )
+                )
+
+        self.assertTrue(ok)
+        self.assertTrue(activity["did_work"])
+        preprocess_mock.assert_awaited_once()
+        mock_run_skill.assert_not_called()
+
+    def test_process_binary_force_ignores_skip_if_any_exists_artifacts(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            (binary_dir / "Substitute.yaml").write_text("name: Substitute\n", encoding="utf-8")
+            activity = {"did_work": False}
+            config = {
+                "skills": [
+                    {
+                        "name": "find-Target",
+                        "expected_output": ["Target.yaml"],
+                        "skip_if_any_exists": ["Substitute.yaml"],
+                    }
+                ],
+                "symbols": [
+                    {
+                        "name": "Target",
+                        "category": "func",
+                        "data_type": "uint32",
+                    }
+                ],
+            }
+            preprocess_mock = AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS)
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=config["skills"],
+                        symbols=config["symbols"],
+                        agent="codex",
+                        debug=False,
+                        force=True,
+                        llm_config=None,
+                        activity=activity,
+                    )
+                )
+
+        self.assertTrue(ok)
+        self.assertTrue(activity["did_work"])
+        preprocess_mock.assert_awaited_once()
+        mock_run_skill.assert_not_called()
+
     def test_iter_binary_dirs_includes_binary_without_pdb(self) -> None:
         with TemporaryDirectory() as temp_dir:
             symboldir = Path(temp_dir)
@@ -404,6 +1141,39 @@ class TestDumpSymbols(unittest.TestCase):
             candidates = list(dump_symbols._iter_binary_dirs(symboldir, "amd64", config))
 
         self.assertEqual([(module, sha_dir, None)], candidates)
+
+    def test_iter_binary_dirs_filters_by_exact_version(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            symboldir = Path(temp_dir)
+            matched_dir = (
+                symboldir
+                / "amd64"
+                / "ntoskrnl.exe.10.0.26100.8246"
+                / "701238de5ba76f55ed65a874d16447dc491ab8d73abf513aee9a403bbeaf332b"
+            )
+            other_dir = (
+                symboldir
+                / "amd64"
+                / "ntoskrnl.exe.10.0.26100.82460"
+                / "801238de5ba76f55ed65a874d16447dc491ab8d73abf513aee9a403bbeaf332c"
+            )
+            matched_dir.mkdir(parents=True)
+            other_dir.mkdir(parents=True)
+            (matched_dir / "ntoskrnl.exe").write_text("", encoding="utf-8")
+            (other_dir / "ntoskrnl.exe").write_text("", encoding="utf-8")
+            module = SimpleNamespace(path=["ntoskrnl.exe"])
+            config = SimpleNamespace(modules=[module])
+
+            candidates = list(
+                dump_symbols._iter_binary_dirs(
+                    symboldir,
+                    "amd64",
+                    config,
+                    "10.0.26100.8246",
+                )
+            )
+
+        self.assertEqual([(module, matched_dir, None)], candidates)
 
     def test_process_binary_dir_passes_missing_pdb_to_preprocessor(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -505,6 +1275,7 @@ class TestDumpSymbols(unittest.TestCase):
     def test_process_binary_dir_debug_logs_preprocess_failure_and_fallback(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
+            output_path = binary_dir / "EpObjectTable.yaml"
             config = {
                 "skills": [
                     {
@@ -526,7 +1297,13 @@ class TestDumpSymbols(unittest.TestCase):
                     "preprocess_single_skill_via_mcp",
                     new=AsyncMock(return_value="failed"),
                 ),
-                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+                patch.object(
+                    dump_symbols,
+                    "run_skill",
+                    side_effect=lambda *args, **kwargs: (
+                        output_path.write_text("ready", encoding="utf-8") or True
+                    ),
+                ) as mock_run_skill,
                 patch("builtins.print") as mock_print,
             ):
                 ok = asyncio.run(
@@ -562,6 +1339,10 @@ class TestDumpSymbols(unittest.TestCase):
         )
         self.assertIn(
             "[debug] falling back to run_skill for find-EpObjectTable",
+            printed_messages,
+        )
+        self.assertIn(
+            f"[debug] successfully wrote YAML: {output_path.resolve(strict=False)}",
             printed_messages,
         )
 
@@ -663,7 +1444,7 @@ class TestDumpSymbols(unittest.TestCase):
             pdb_path.write_text("", encoding="utf-8")
 
             module = SimpleNamespace(path=["ntoskrnl.exe"], skills=[], symbols=[])
-            args = SimpleNamespace(agent="codex", debug=False, force=False)
+            args = SimpleNamespace(agent="codex", debug=False, force=False, skill="find-EpObjectTable")
             fake_lazy_session = MagicMock()
             fake_lazy_session.close = AsyncMock()
 
@@ -702,6 +1483,7 @@ class TestDumpSymbols(unittest.TestCase):
             debug=False,
         )
         self.assertIs(mock_process_binary.await_args.kwargs["session"], fake_lazy_session)
+        self.assertEqual("find-EpObjectTable", mock_process_binary.await_args.kwargs["skill"])
         mock_start.assert_not_called()
         mock_open_session.assert_not_awaited()
         mock_session_matches_binary.assert_not_awaited()
@@ -780,6 +1562,48 @@ class TestDumpSymbols(unittest.TestCase):
 
         self.assertTrue(ok)
         self.assertTrue(activity["did_work"])
+        mock_run_skill.assert_not_called()
+
+    def test_process_binary_dir_skips_skill_when_arch_mismatches(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir) / "symbols" / "arm64" / "ntoskrnl.exe.10.0.1" / "hash"
+            skills = [
+                {
+                    "name": "find-PgInitContext",
+                    "expected_output": ["PgInitContext.yaml"],
+                    "arch": "amd64",
+                }
+            ]
+            activity = {"did_work": False}
+            preprocess_mock = AsyncMock(
+                return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS
+            )
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=preprocess_mock,
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols.process_binary_dir(
+                        binary_dir=binary_dir,
+                        pdb_path=binary_dir / "ntkrnlmp.pdb",
+                        skills=skills,
+                        symbols=[],
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                        activity=activity,
+                        arch="arm64",
+                    )
+                )
+
+        self.assertTrue(ok)
+        self.assertFalse(activity["did_work"])
+        preprocess_mock.assert_not_awaited()
         mock_run_skill.assert_not_called()
 
     def test_process_module_binary_sets_did_work_true_without_eager_start(self) -> None:
@@ -1395,12 +2219,40 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertEqual(0, exit_code)
         mock_print.assert_has_calls(
             [
-                call("Scanning symbols/amd64"),
+                call(f"Scanning {Path('symbols') / 'amd64'}"),
                 call("Found 0 candidate binary directories"),
                 call("No processable binary directories found"),
             ]
         )
         self.assertEqual(3, mock_print.call_count)
+
+    def test_main_passes_version_filter_to_binary_dir_scan(self) -> None:
+        args = SimpleNamespace(
+            symboldir="symbols",
+            arch="amd64",
+            configyaml="config.yaml",
+            agent="codex",
+            debug=False,
+            force=False,
+            version="10.0.26100.8246",
+        )
+        config = SimpleNamespace()
+
+        with (
+            patch.object(dump_symbols, "parse_args", return_value=args),
+            patch.object(dump_symbols, "load_config", return_value=config),
+            patch.object(dump_symbols, "_iter_binary_dirs", return_value=[]) as mock_iter,
+            patch("builtins.print"),
+        ):
+            exit_code = dump_symbols.main([])
+
+        self.assertEqual(0, exit_code)
+        mock_iter.assert_called_once_with(
+            Path("symbols"),
+            "amd64",
+            config,
+            "10.0.26100.8246",
+        )
 
     def test_main_reports_single_binary_success_summary(self) -> None:
         args = SimpleNamespace(
@@ -1435,7 +2287,7 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertEqual(0, exit_code)
         mock_print.assert_has_calls(
             [
-                call("Scanning symbols/amd64"),
+                call(f"Scanning {Path('symbols') / 'amd64'}"),
                 call("Found 1 candidate binary directories"),
                 call(f"Processing {binary_dir}"),
                 call(f"Processed {binary_dir} successfully"),
@@ -1496,7 +2348,7 @@ class TestDumpSymbols(unittest.TestCase):
         mock_start.assert_not_called()
         mock_print.assert_has_calls(
             [
-                call("Scanning symbols/amd64"),
+                call(f"Scanning {Path('symbols') / 'amd64'}"),
                 call("Found 1 candidate binary directories"),
                 call(f"Processing {binary_dir}"),
                 call(f"Skipped {binary_dir} (no work required)"),
@@ -1538,7 +2390,7 @@ class TestDumpSymbols(unittest.TestCase):
 
         mock_print.assert_has_calls(
             [
-                call("Scanning symbols/amd64"),
+                call(f"Scanning {Path('symbols') / 'amd64'}"),
                 call("Found 1 candidate binary directories"),
                 call(f"Processing {binary_dir}"),
                 call(f"Processing {binary_dir} failed"),
@@ -1582,11 +2434,11 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertEqual(0, exit_code)
         mock_print.assert_has_calls(
             [
-                call("Scanning symbols/amd64"),
+                call(f"Scanning {Path('symbols') / 'amd64'}"),
                 call("Found 1 candidate binary directories"),
                 call(f"Processing {amd64_dir}"),
                 call(f"Processed {amd64_dir} successfully"),
-                call("Scanning symbols/arm64"),
+                call(f"Scanning {Path('symbols') / 'arm64'}"),
                 call("Found 1 candidate binary directories"),
                 call(f"Processing {arm64_dir}"),
                 call(f"Skipped {arm64_dir} (no work required)"),
