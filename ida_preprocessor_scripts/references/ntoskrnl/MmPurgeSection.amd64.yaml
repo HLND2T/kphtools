@@ -1,0 +1,808 @@
+func_name: MmPurgeSection
+func_va: '0x14035aeb0'
+disasm_code: |-
+  .text:000000014035AEB0                 mov     r11, rsp
+  .text:000000014035AEB3                 mov     [r11+20h], r9d
+  .text:000000014035AEB7                 push    rbx
+  .text:000000014035AEB8                 push    rsi
+  .text:000000014035AEB9                 push    rdi
+  .text:000000014035AEBA                 push    r13
+  .text:000000014035AEBC                 push    r14
+  .text:000000014035AEBE                 push    r15
+  .text:000000014035AEC0                 sub     rsp, 0C8h
+  .text:000000014035AEC7                 xor     eax, eax
+  .text:000000014035AEC9                 mov     byte ptr [r11+10h], 0
+  .text:000000014035AECE                 xor     edi, edi
+  .text:000000014035AED0                 mov     [r11-48h], rax
+  .text:000000014035AED4                 mov     rax, [rsp+0F8h+arg_20]
+  .text:000000014035AEDC                 xorps   xmm0, xmm0
+  .text:000000014035AEDF                 mov     byte ptr [r11+8], 0
+  .text:000000014035AEE4                 xorps   xmm1, xmm1
+  .text:000000014035AEE7                 mov     [rsp+0F8h+var_A0], rdi
+  .text:000000014035AEEC                 mov     r15d, r9d
+  .text:000000014035AEEF                 mov     rsi, r8
+  .text:000000014035AEF2                 mov     rbx, rdx
+  .text:000000014035AEF5                 mov     [rax], dil
+  .text:000000014035AEF8                 movups  xmmword ptr [rsp+0F8h+BugCheckParameter2], xmm0
+  .text:000000014035AEFD                 movups  xmmword ptr [rsp+0F8h+var_88], xmm0
+  .text:000000014035AF02                 movups  xmmword ptr [r11-78h], xmm0
+  .text:000000014035AF07                 movups  xmmword ptr [r11-68h], xmm1
+  .text:000000014035AF0C                 movups  xmmword ptr [r11-58h], xmm1
+  .text:000000014035AF11                 test    rdx, rdx
+  .text:000000014035AF14                 jnz     loc_14035B37B
+  .text:000000014035AF1A                 shr     r9d, 1
+  .text:000000014035AF1D                 lea     rax, [rsp+0F8h+IRQL]
+  .text:000000014035AF25                 and     r9d, 1
+  .text:000000014035AF29                 mov     [rsp+0F8h+var_B0], rdi
+  .text:000000014035AF2E                 mov     r8d, 1
+  .text:000000014035AF34                 ; __int64
+  .text:000000014035AF34                 mov     [rsp+0F8h+BugCheckParameter4], rax; __int64
+  .text:000000014035AF39                 mov     rdx, rbx
+  .text:000000014035AF3C                 mov     r13, rdi
+  .text:000000014035AF3F                 call    MiCanFileBeTruncatedInternal
+  .text:000000014035AF44                 movzx   edi, byte ptr [rsp+0F8h+IRQL]
+  .text:000000014035AF4C                 mov     r14, rax
+  .text:000000014035AF4F                 cmp     dil, 11h
+  .text:000000014035AF53                 jz      loc_14035B466
+  .text:000000014035AF59                 test    rax, rax
+  .text:000000014035AF5C                 jnz     short loc_14035AF72
+  .text:000000014035AF5E                 mov     al, 1
+  .text:000000014035AF60                 add     rsp, 0C8h
+  .text:000000014035AF67                 pop     r15
+  .text:000000014035AF69                 pop     r14
+  .text:000000014035AF6B                 pop     r13
+  .text:000000014035AF6D                 pop     rdi
+  .text:000000014035AF6E                 pop     rsi
+  .text:000000014035AF6F                 pop     rbx
+  .text:000000014035AF70                 retn
+  .text:000000014035AF72                 test    r15b, 1
+  .text:000000014035AF76                 jnz     short loc_14035AF82
+  .text:000000014035AF78                 cmp     [rax+58h], r13d
+  .text:000000014035AF7C                 jnz     loc_140493216
+  .text:000000014035AF82                 cmp     [rax+40h], r13
+  .text:000000014035AF86                 jz      loc_140493216
+  .text:000000014035AF8C                 or      dword ptr [rax+38h], 8000h
+  .text:000000014035AF93                 mov     r9, rsi
+  .text:000000014035AF96                 lea     rax, [rsp+0F8h+BugCheckParameter2]
+  .text:000000014035AF9B                 mov     r8, rbx
+  .text:000000014035AF9E                 mov     [rsp+0F8h+var_D0], rax
+  .text:000000014035AFA3                 movzx   edx, dil
+  .text:000000014035AFA7                 mov     rcx, r14
+  .text:000000014035AFAA                 mov     dword ptr [rsp+0F8h+BugCheckParameter4], 1
+  .text:000000014035AFB2                 call    MiComputeDataFlushRange
+  .text:000000014035AFB7                 test    eax, eax
+  .text:000000014035AFB9                 jz      short loc_14035AF5E
+  .text:000000014035AFBB                 mov     rsi, [rsp+0F8h+BugCheckParameter2+8]
+  .text:000000014035AFC0                 mov     bl, 11h
+  .text:000000014035AFC2                 mov     dil, 1
+  .text:000000014035AFC5                 mov     [rsp+0F8h+var_38], r12
+  .text:000000014035AFCD                 mov     r12, [rsp+0F8h+var_88+8]
+  .text:000000014035AFD2                 mov     byte ptr [rsp+0F8h+IRQL], bl
+  .text:000000014035AFD9                 mov     [rsp+0F8h+var_C8], dil
+  .text:000000014035AFDE                 mov     [rsp+0F8h+var_B8], r12
+  .text:000000014035AFE3                 cmp     bl, 11h
+  .text:000000014035AFE6                 jnz     short loc_14035AFFB
+  .text:000000014035AFE8                 ; SpinLock
+  .text:000000014035AFE8                 lea     rcx, [r14+48h]; SpinLock
+  .text:000000014035AFEC                 call    ExAcquireSpinLockExclusive
+  .text:000000014035AFF1                 movzx   ebx, al
+  .text:000000014035AFF4                 mov     byte ptr [rsp+0F8h+IRQL], al
+  .text:000000014035AFFB                 mov     r8, [r12+8]
+  .text:000000014035B000                 cmp     qword ptr [rsp+0F8h+var_78], r12
+  .text:000000014035B008                 jnz     loc_14035B397
+  .text:000000014035B00E                 mov     r15, [rsp+0F8h+var_88]
+  .text:000000014035B013                 add     r15, 8
+  .text:000000014035B017                 mov     rcx, r14
+  .text:000000014035B01A                 call    MiControlAreaUsingExtents
+  .text:000000014035B01F                 mov     r12d, eax
+  .text:000000014035B022                 test    r8, r8
+  .text:000000014035B025                 jz      loc_14035B3F0
+  .text:000000014035B02B                 mov     rax, [rsp+0F8h+var_B8]
+  .text:000000014035B030                 cmp     dword ptr [rax+6Ch], 0
+  .text:000000014035B034                 jnz     loc_140493418
+  .text:000000014035B03A                 xor     edx, edx
+  .text:000000014035B03C                 ; BugCheckParameter2
+  .text:000000014035B03C                 mov     rcx, rax; BugCheckParameter2
+  .text:000000014035B03F                 mov     r13, rax
+  .text:000000014035B042                 call    MiIncrementSubsectionViewCount
+  .text:000000014035B047                 test    byte ptr [r13+22h], 8
+  .text:000000014035B04C                 jnz     loc_14035B433
+  .text:000000014035B052                 or      word ptr [r13+20h], 1
+  .text:000000014035B058                 ; SpinLock
+  .text:000000014035B058                 lea     rcx, [r14+48h]; SpinLock
+  .text:000000014035B05C                 call    ExReleaseSpinLockExclusiveFromDpcLevel
+  .text:000000014035B061                 mov     eax, cs:KiIrqlFlags
+  .text:000000014035B067                 test    eax, eax
+  .text:000000014035B069                 jnz     loc_14049328B
+  .text:000000014035B06F                 movzx   eax, bl
+  .text:000000014035B072                 mov     cr8, rax
+  .text:000000014035B076                 xor     eax, eax
+  .text:000000014035B078                 mov     [rsp+0F8h+arg_0], 11h
+  .text:000000014035B080                 mov     [rsp+0F8h+var_C0], rax
+  .text:000000014035B085                 test    r12d, r12d
+  .text:000000014035B088                 jnz     loc_1404932F9
+  .text:000000014035B08E                 xor     r13d, r13d
+  .text:000000014035B091                 cmp     rsi, r15
+  .text:000000014035B094                 jnb     loc_14035B212
+  .text:000000014035B09A                 nop     word ptr [rax+rax+00h]
+  .text:000000014035B0A0                 test    rsi, 0FFFh
+  .text:000000014035B0A7                 jz      loc_14035B340
+  .text:000000014035B0AD                 cmp     [rsp+0F8h+arg_0], 11h
+  .text:000000014035B0B5                 jz      loc_14035B34D
+  .text:000000014035B0BB                 mov     rbx, [rsi]
+  .text:000000014035B0BE                 mov     rax, rbx
+  .text:000000014035B0C1                 test    bl, 1
+  .text:000000014035B0C4                 jnz     short loc_14035B10A
+  .text:000000014035B0C6                 and     eax, 0C00h
+  .text:000000014035B0CB                 cmp     rax, 800h
+  .text:000000014035B0D1                 jnz     loc_14035B2C0
+  .text:000000014035B0D7                 test    rbx, rbx
+  .text:000000014035B0DA                 jz      short loc_14035B0ED
+  .text:000000014035B0DC                 mov     rax, cs:qword_140C4DDC0
+  .text:000000014035B0E3                 test    rax, rax
+  .text:000000014035B0E6                 jz      short loc_14035B0ED
+  .text:000000014035B0E8                 test    rax, rbx
+  .text:000000014035B0EB                 jz      short loc_14035B0BB
+  .text:000000014035B0ED                 mov     rcx, cs:qword_140C4DDC0
+  .text:000000014035B0F4                 mov     rax, rbx
+  .text:000000014035B0F7                 test    rcx, rcx
+  .text:000000014035B0FA                 jz      short loc_14035B10A
+  .text:000000014035B0FC                 test    bl, 10h
+  .text:000000014035B0FF                 jnz     short loc_14035B10A
+  .text:000000014035B101                 mov     rax, rcx
+  .text:000000014035B104                 not     rax
+  .text:000000014035B107                 and     rax, rbx
+  .text:000000014035B10A                 shr     rax, 0Ch
+  .text:000000014035B10E                 mov     rcx, 0FFFFFFFFFh
+  .text:000000014035B118                 and     rax, rcx
+  .text:000000014035B11B                 lea     rdx, [rax+rax*2]
+  .text:000000014035B11F                 mov     rax, 0FFFFFA8000000028h
+  .text:000000014035B129                 add     rdx, rdx
+  .text:000000014035B12C                 mov     rax, rax
+  .text:000000014035B12F                 mov     rcx, [rax+rdx*8]
+  .text:000000014035B133                 mov     rax, 4000000000000h
+  .text:000000014035B13D                 test    rax, rcx
+  .text:000000014035B140                 jz      loc_14035B0BB
+  .text:000000014035B146                 mov     rax, 0FFFFFA8000000000h
+  .text:000000014035B150                 mov     rax, rax
+  .text:000000014035B153                 lea     rdi, [rax+rdx*8]
+  .text:000000014035B157                 mov     [rsp+0F8h+var_A8], 0
+  .text:000000014035B15F                 lock bts qword ptr [rdi+18h], 3Fh ; '?'
+  .text:000000014035B166                 jb      loc_14035B411
+  .text:000000014035B16C                 cmp     [rsi], rbx
+  .text:000000014035B16F                 jnz     loc_140493318
+  .text:000000014035B175                 test    rdi, rdi
+  .text:000000014035B178                 jz      loc_14035B2C0
+  .text:000000014035B17E                 mov     rbx, [rsi]
+  .text:000000014035B181                 mov     rcx, rsi
+  .text:000000014035B184                 call    MiPteInShadowRange
+  .text:000000014035B189                 test    eax, eax
+  .text:000000014035B18B                 jnz     loc_14049332C
+  .text:000000014035B191                 test    bl, 1
+  .text:000000014035B194                 jnz     short loc_14035B1E4
+  .text:000000014035B196                 mov     eax, [rdi+10h]
+  .text:000000014035B199                 and     eax, 401h
+  .text:000000014035B19E                 cmp     rax, 400h
+  .text:000000014035B1A4                 jnz     loc_1404933FC
+  .text:000000014035B1AA                 mov     rax, [rdi+8]
+  .text:000000014035B1AE                 mov     rcx, 8000000000000000h
+  .text:000000014035B1B8                 or      rax, rcx
+  .text:000000014035B1BB                 cmp     rax, rsi
+  .text:000000014035B1BE                 jnz     loc_1404933FC
+  .text:000000014035B1C4                 movzx   edx, byte ptr [rdi+22h]
+  .text:000000014035B1C8                 movzx   ecx, dl
+  .text:000000014035B1CB                 shr     cl, 4
+  .text:000000014035B1CE                 test    byte ptr [rsp+0F8h+arg_18], 2
+  .text:000000014035B1D6                 setnz   al
+  .text:000000014035B1D9                 and     cl, al
+  .text:000000014035B1DB                 test    cl, 1
+  .text:000000014035B1DE                 jz      loc_14035B2C6
+  .text:000000014035B1E4                 mov     rax, 7FFFFFFFFFFFFFFFh
+  .text:000000014035B1EE                 lock and [rdi+18h], rax
+  .text:000000014035B1F3                 xor     dil, dil
+  .text:000000014035B1F6                 mov     [rsp+0F8h+var_C8], dil
+  .text:000000014035B1FB                 movzx   edx, [rsp+0F8h+arg_0]
+  .text:000000014035B203                 cmp     dl, 11h
+  .text:000000014035B206                 jz      short loc_14035B212
+  .text:000000014035B208                 mov     rcx, [rsp+0F8h+var_C0]
+  .text:000000014035B20D                 call    MiUnlockProtoPoolPage
+  .text:000000014035B212                 test    r12d, r12d
+  .text:000000014035B215                 mov     r12, [rsp+0F8h+var_B8]
+  .text:000000014035B21A                 jnz     loc_1404933E0
+  .text:000000014035B220                 ; SpinLock
+  .text:000000014035B220                 lea     rcx, [r14+48h]; SpinLock
+  .text:000000014035B224                 call    ExAcquireSpinLockExclusive
+  .text:000000014035B229                 xor     edx, edx
+  .text:000000014035B22B                 mov     byte ptr [rsp+0F8h+IRQL], al
+  .text:000000014035B232                 ; BugCheckParameter2
+  .text:000000014035B232                 mov     rcx, r12; BugCheckParameter2
+  .text:000000014035B235                 movzx   ebx, al
+  .text:000000014035B238                 call    MiDecrementSubsectionViewCount
+  .text:000000014035B23D                 cmp     qword ptr [r12+60h], 0
+  .text:000000014035B243                 jz      loc_14035B440
+  .text:000000014035B249                 mov     r13, [rsp+0F8h+var_B0]
+  .text:000000014035B24E                 cmp     r12, qword ptr [rsp+0F8h+var_78]
+  .text:000000014035B256                 jnz     loc_14035B3B2
+  .text:000000014035B25C                 movzx   esi, [rsp+0F8h+var_C8]
+  .text:000000014035B261                 ; BugCheckParameter2
+  .text:000000014035B261                 mov     rcx, [rsp+0F8h+var_88+8]; BugCheckParameter2
+  .text:000000014035B266                 xor     r8d, r8d
+  .text:000000014035B269                 mov     rdx, rcx
+  .text:000000014035B26C                 call    MiDecrementSubsections
+  .text:000000014035B271                 ; BugCheckParameter2
+  .text:000000014035B271                 mov     rcx, qword ptr [rsp+0F8h+var_78]; BugCheckParameter2
+  .text:000000014035B279                 xor     r8d, r8d
+  .text:000000014035B27C                 mov     rdx, rcx
+  .text:000000014035B27F                 add     r13, rax
+  .text:000000014035B282                 call    MiDecrementSubsections
+  .text:000000014035B287                 dec     qword ptr [r14+28h]
+  .text:000000014035B28B                 and     dword ptr [r14+38h], 0FFFFFFFBh
+  .text:000000014035B290                 add     r13, rax
+  .text:000000014035B293                 jnz     loc_140493420
+  .text:000000014035B299                 xor     edi, edi
+  .text:000000014035B29B                 ; a2
+  .text:000000014035B29B                 movzx   edx, bl; a2
+  .text:000000014035B29E                 ; a1
+  .text:000000014035B29E                 mov     rcx, r14; a1
+  .text:000000014035B2A1                 call    MiCheckControlArea ; target function
+  .text:000000014035B2A6                 test    r13, r13
+  .text:000000014035B2A9                 jnz     loc_14049343B
+  .text:000000014035B2AF                 mov     r12, [rsp+0F8h+var_38]
+  .text:000000014035B2B7                 movzx   eax, sil
+  .text:000000014035B2BB                 jmp     loc_14035AF60
+  .text:000000014035B2C0                 add     rsi, 8
+  .text:000000014035B2C4                 jmp     short loc_14035B303
+  .text:000000014035B2C6                 test    dl, 8
+  .text:000000014035B2C9                 jnz     loc_14035B3CA
+  .text:000000014035B2CF                 test    r12d, r12d
+  .text:000000014035B2D2                 jnz     loc_1404933C5
+  .text:000000014035B2D8                 mov     r9d, 1
+  .text:000000014035B2DE                 mov     r8b, 11h
+  .text:000000014035B2E1                 ; ULONG_PTR
+  .text:000000014035B2E1                 mov     rdx, rdi; ULONG_PTR
+  .text:000000014035B2E4                 ; BugCheckParameter2
+  .text:000000014035B2E4                 mov     rcx, rsi; BugCheckParameter2
+  .text:000000014035B2E7                 call    MiDeleteTransitionPte
+  .text:000000014035B2EC                 cmp     qword ptr [r14+20h], 0
+  .text:000000014035B2F1                 mov     r13d, 1
+  .text:000000014035B2F7                 jz      short loc_14035B311
+  .text:000000014035B2F9                 add     rsi, 8
+  .text:000000014035B2FD                 test    sil, 78h
+  .text:000000014035B301                 jz      short loc_14035B31B
+  .text:000000014035B303                 mov     rax, [rsp+0F8h+var_C0]
+  .text:000000014035B308                 cmp     rsi, r15
+  .text:000000014035B30B                 jb      loc_14035B0A0
+  .text:000000014035B311                 movzx   edi, [rsp+0F8h+var_C8]
+  .text:000000014035B316                 jmp     loc_14035B1FB
+  .text:000000014035B31B                 call    KeShouldYieldProcessor
+  .text:000000014035B320                 test    eax, eax
+  .text:000000014035B322                 jz      short loc_14035B303
+  .text:000000014035B324                 movzx   edx, [rsp+0F8h+arg_0]
+  .text:000000014035B32C                 mov     rcx, [rsp+0F8h+var_C0]
+  .text:000000014035B331                 call    MiUnlockProtoPoolPage
+  .text:000000014035B336                 mov     [rsp+0F8h+arg_0], 11h
+  .text:000000014035B33E                 jmp     short loc_14035B303
+  .text:000000014035B340                 movzx   edx, [rsp+0F8h+arg_0]
+  .text:000000014035B348                 cmp     dl, 11h
+  .text:000000014035B34B                 jnz     short loc_14035B38D
+  .text:000000014035B34D                 lea     rdx, [rsp+0F8h+arg_0]
+  .text:000000014035B355                 ; BugCheckParameter1
+  .text:000000014035B355                 mov     rcx, rsi; BugCheckParameter1
+  .text:000000014035B358                 call    MiCheckProtoPtePageState
+  .text:000000014035B35D                 mov     [rsp+0F8h+var_C0], rax
+  .text:000000014035B362                 test    rax, rax
+  .text:000000014035B365                 jnz     loc_14035B0BB
+  .text:000000014035B36B                 and     rsi, 0FFFFFFFFFFFFF000h
+  .text:000000014035B372                 add     rsi, 1000h
+  .text:000000014035B379                 jmp     short loc_14035B308
+  .text:000000014035B37B                 mov     rax, [rdx]
+  .text:000000014035B37E                 lea     rbx, [rsp+0F8h+var_A0]
+  .text:000000014035B383                 mov     [rsp+0F8h+var_A0], rax
+  .text:000000014035B388                 jmp     loc_14035AF1A
+  .text:000000014035B38D                 mov     rcx, rax
+  .text:000000014035B390                 call    MiUnlockProtoPoolPage
+  .text:000000014035B395                 jmp     short loc_14035B34D
+  .text:000000014035B397                 mov     ecx, [r12+2Ch]
+  .text:000000014035B39C                 mov     edx, [r12+34h]
+  .text:000000014035B3A1                 and     edx, 3FFFFFFFh
+  .text:000000014035B3A7                 sub     ecx, edx
+  .text:000000014035B3A9                 lea     r15, [r8+rcx*8]
+  .text:000000014035B3AD                 jmp     loc_14035B017
+  .text:000000014035B3B2                 test    dil, dil
+  .text:000000014035B3B5                 jz      loc_14035B25C
+  .text:000000014035B3BB                 mov     r12, [r12+10h]
+  .text:000000014035B3C0                 mov     rsi, [r12+8]
+  .text:000000014035B3C5                 jmp     loc_14035AFDE
+  .text:000000014035B3CA                 movzx   r9d, [rsp+0F8h+arg_0]
+  .text:000000014035B3D3                 mov     rdx, r14
+  .text:000000014035B3D6                 mov     r8, [rsp+0F8h+var_C0]
+  .text:000000014035B3DB                 mov     rcx, rdi
+  .text:000000014035B3DE                 call    MiWaitForPageWriteCompletion
+  .text:000000014035B3E3                 mov     [rsp+0F8h+arg_0], 11h
+  .text:000000014035B3EB                 jmp     loc_14035B303
+  .text:000000014035B3F0                 mov     r12, [rsp+0F8h+var_B8]
+  .text:000000014035B3F5                 cmp     r12, qword ptr [rsp+0F8h+var_78]
+  .text:000000014035B3FD                 jz      loc_14035B25C
+  .text:000000014035B403                 test    dil, dil
+  .text:000000014035B406                 jnz     loc_14035B24E
+  .text:000000014035B40C                 jmp     loc_14035B25C
+  .text:000000014035B411                 lea     rcx, [rsp+0F8h+var_A8]
+  .text:000000014035B416                 call    KeYieldProcessorEx
+  .text:000000014035B41B                 mov     rax, [rdi+18h]
+  .text:000000014035B41F                 test    rax, rax
+  .text:000000014035B422                 js      short loc_14035B411
+  .text:000000014035B424                 lock bts qword ptr [rdi+18h], 3Fh ; '?'
+  .text:000000014035B42B                 jnb     loc_14035B16C
+  .text:000000014035B431                 jmp     short loc_14035B411
+  .text:000000014035B433                 mov     rcx, r13
+  .text:000000014035B436                 call    MiRemoveUnusedSubsection
+  .text:000000014035B43B                 jmp     loc_14035B052
+  .text:000000014035B440                 test    byte ptr [r12+22h], 1
+  .text:000000014035B446                 jnz     loc_14035B249
+  .text:000000014035B44C                 mov     rcx, r12
+  .text:000000014035B44F                 call    MiInsertUnusedSubsection
+  .text:000000014035B454                 mov     r13, [rsp+0F8h+var_B0]
+  .text:000000014035B459                 add     r13, rax
+  .text:000000014035B45C                 mov     [rsp+0F8h+var_B0], r13
+  .text:000000014035B461                 jmp     loc_14035B24E
+  .text:000000014035B466                 xor     al, al
+  .text:000000014035B468                 add     rsp, 0C8h
+  .text:000000014035B46F                 pop     r15
+  .text:000000014035B471                 pop     r14
+  .text:000000014035B473                 pop     r13
+  .text:000000014035B475                 pop     rdi
+  .text:000000014035B476                 pop     rsi
+  .text:000000014035B477                 pop     rbx
+  .text:000000014035B478                 retn
+  .text:0000000140493216                 ; SpinLock
+  .text:0000000140493216                 lea     rcx, [rax+48h]; SpinLock
+  .text:000000014049321A                 call    ExReleaseSpinLockExclusiveFromDpcLevel
+  .text:000000014049321F                 mov     eax, cs:KiIrqlFlags
+  .text:0000000140493225                 test    eax, eax
+  .text:0000000140493227                 jz      short loc_14049327E
+  .text:0000000140493229                 test    al, 1
+  .text:000000014049322B                 jz      short loc_14049327E
+  .text:000000014049322D                 mov     rax, cr8
+  .text:0000000140493231                 cmp     al, 0Fh
+  .text:0000000140493233                 ja      short loc_14049327E
+  .text:0000000140493235                 cmp     dil, 0Fh
+  .text:0000000140493239                 ja      short loc_14049327E
+  .text:000000014049323B                 cmp     al, 2
+  .text:000000014049323D                 jb      short loc_14049327E
+  .text:000000014049323F                 mov     r9, gs:20h
+  .text:0000000140493248                 mov     r10, 0FFFFFFFFFFFFFFFFh
+  .text:000000014049324F                 mov     r8, [r9+84B8h]
+  .text:0000000140493256                 mov     edx, [r8+14h]
+  .text:000000014049325A                 movzx   edi, byte ptr [rsp+0F8h+IRQL]
+  .text:0000000140493262                 lea     ecx, [rdi+1]
+  .text:0000000140493265                 shl     r10, cl
+  .text:0000000140493268                 movzx   eax, r10w
+  .text:000000014049326C                 not     eax
+  .text:000000014049326E                 and     edx, eax
+  .text:0000000140493270                 mov     [r8+14h], edx
+  .text:0000000140493274                 jnz     short loc_14049327E
+  .text:0000000140493276                 mov     rcx, r9
+  .text:0000000140493279                 call    KiRemoveSystemWorkPriorityKick
+  .text:000000014049327E                 movzx   eax, dil
+  .text:0000000140493282                 mov     cr8, rax
+  .text:0000000140493286                 jmp     loc_14035B466
+  .text:000000014049328B                 test    al, 1
+  .text:000000014049328D                 jz      loc_14035B06F
+  .text:0000000140493293                 mov     rax, cr8
+  .text:0000000140493297                 cmp     al, 0Fh
+  .text:0000000140493299                 ja      loc_14035B06F
+  .text:000000014049329F                 cmp     bl, 0Fh
+  .text:00000001404932A2                 ja      loc_14035B06F
+  .text:00000001404932A8                 cmp     al, 2
+  .text:00000001404932AA                 jb      loc_14035B06F
+  .text:00000001404932B0                 mov     r10, gs:20h
+  .text:00000001404932B9                 mov     rdx, 0FFFFFFFFFFFFFFFFh
+  .text:00000001404932C0                 mov     r9, [r10+84B8h]
+  .text:00000001404932C7                 mov     r8d, [r9+14h]
+  .text:00000001404932CB                 movzx   ebx, byte ptr [rsp+0F8h+IRQL]
+  .text:00000001404932D3                 lea     ecx, [rbx+1]
+  .text:00000001404932D6                 shl     rdx, cl
+  .text:00000001404932D9                 movzx   eax, dx
+  .text:00000001404932DC                 not     eax
+  .text:00000001404932DE                 and     r8d, eax
+  .text:00000001404932E1                 mov     [r9+14h], r8d
+  .text:00000001404932E5                 jnz     loc_14035B06F
+  .text:00000001404932EB                 mov     rcx, r10
+  .text:00000001404932EE                 call    KiRemoveSystemWorkPriorityKick
+  .text:00000001404932F3                 nop
+  .text:00000001404932F4                 jmp     loc_14035B06F
+  .text:00000001404932F9                 lea     r8, [rsp+0F8h+var_68]
+  .text:0000000140493301                 mov     edx, 20h ; ' '
+  .text:0000000140493306                 ; BugCheckParameter2
+  .text:0000000140493306                 mov     rcx, r13; BugCheckParameter2
+  .text:0000000140493309                 call    MiChangingSubsectionProtos
+  .text:000000014049330E                 mov     rax, [rsp+0F8h+var_C0]
+  .text:0000000140493313                 jmp     loc_14035B08E
+  .text:0000000140493318                 mov     rax, 7FFFFFFFFFFFFFFFh
+  .text:0000000140493322                 lock and [rdi+18h], rax
+  .text:0000000140493327                 jmp     loc_14035B0BB
+  .text:000000014049332C                 test    cs:MiFlags, 0C00000h
+  .text:0000000140493336                 jz      loc_14035B191
+  .text:000000014049333C                 mov     rax, gs:188h
+  .text:0000000140493345                 mov     rcx, [rax+0B8h]
+  .text:000000014049334C                 cmp     byte ptr [rcx+390h], 1
+  .text:0000000140493353                 jz      loc_14035B191
+  .text:0000000140493359                 test    bl, 1
+  .text:000000014049335C                 jz      loc_14035B196
+  .text:0000000140493362                 test    bl, 20h
+  .text:0000000140493365                 jz      short loc_140493370
+  .text:0000000140493367                 test    bl, 42h
+  .text:000000014049336A                 jnz     loc_14035B191
+  .text:0000000140493370                 mov     rax, gs:188h
+  .text:0000000140493379                 mov     rcx, [rax+0B8h]
+  .text:0000000140493380                 mov     rdx, [rcx+788h]
+  .text:0000000140493387                 test    rdx, rdx
+  .text:000000014049338A                 jz      loc_14035B191
+  .text:0000000140493390                 mov     rax, rsi
+  .text:0000000140493393                 shr     rax, 3
+  .text:0000000140493397                 and     eax, 1FFh
+  .text:000000014049339C                 mov     rax, [rdx+rax*8]
+  .text:00000001404933A0                 mov     rdx, rbx
+  .text:00000001404933A3                 or      rdx, 20h
+  .text:00000001404933A7                 movzx   ecx, al
+  .text:00000001404933AA                 and     cl, 20h
+  .text:00000001404933AD                 cmovz   rdx, rbx
+  .text:00000001404933B1                 mov     rbx, rdx
+  .text:00000001404933B4                 test    al, 42h
+  .text:00000001404933B6                 jz      loc_14035B191
+  .text:00000001404933BC                 or      rbx, 42h
+  .text:00000001404933C0                 jmp     loc_14035B191
+  .text:00000001404933C5                 cmp     word ptr [rdi+20h], 0
+  .text:00000001404933CA                 jz      loc_14035B2D8
+  .text:00000001404933D0                 mov     rax, [rsp+0F8h+arg_20]
+  .text:00000001404933D8                 mov     byte ptr [rax], 1
+  .text:00000001404933DB                 jmp     loc_14035B2D8
+  .text:00000001404933E0                 mov     r9d, r13d
+  .text:00000001404933E3                 lea     rdx, [rsp+0F8h+var_68]
+  .text:00000001404933EB                 xor     r8d, r8d
+  .text:00000001404933EE                 mov     rcx, r12
+  .text:00000001404933F1                 call    MiSubsectionProtosCreated
+  .text:00000001404933F6                 nop
+  .text:00000001404933F7                 jmp     loc_14035B220
+  .text:00000001404933FC                 ; BugCheckParameter3
+  .text:00000001404933FC                 mov     r9, [rdi+8]; BugCheckParameter3
+  .text:0000000140493400                 ; BugCheckParameter2
+  .text:0000000140493400                 mov     r8, rsi; BugCheckParameter2
+  .text:0000000140493403                 ; BugCheckParameter1
+  .text:0000000140493403                 mov     edx, 2; BugCheckParameter1
+  .text:0000000140493408                 ; BugCheckParameter4
+  .text:0000000140493408                 mov     [rsp+0F8h+BugCheckParameter4], rbx; BugCheckParameter4
+  .text:000000014049340D                 ; BugCheckCode
+  .text:000000014049340D                 mov     ecx, 0DEh; BugCheckCode
+  .text:0000000140493412                 call    KeBugCheckEx
+  .text:0000000140493418                 xor     sil, sil
+  .text:000000014049341B                 jmp     loc_14035B261
+  .text:0000000140493420                 movzx   ecx, word ptr [r14+3Ch]
+  .text:0000000140493425                 mov     rax, cs:qword_140C4E4C8
+  .text:000000014049342C                 and     ecx, 3FFh
+  .text:0000000140493432                 mov     rdi, [rax+rcx*8]
+  .text:0000000140493436                 jmp     loc_14035B29B
+  .text:000000014049343B                 mov     r8, r13
+  .text:000000014049343E                 mov     edx, 1
+  .text:0000000140493443                 mov     rcx, rdi
+  .text:0000000140493446                 call    MiReturnCrossPartitionSectionCharges
+  .text:000000014049344B                 nop
+  .text:000000014049344C                 jmp     loc_14035B2AF
+procedure: |-
+  char __fastcall MmPurgeSection(SECTION_OBJECT_POINTERS *a1, unsigned __int64 *a2, int a3, unsigned int a4, _BYTE *a5)
+  {
+    char v5; // r15
+    unsigned __int64 *v7; // rbx
+    __int64 v8; // r13
+    _CONTROL_AREA *v9; // rax
+    unsigned __int8 v10; // di
+    _CONTROL_AREA *ControlArea; // r14
+    ULONG_PTR v13; // rsi
+    unsigned __int8 Irql; // bl
+    char v15; // di
+    ULONG_PTR v16; // r12
+    unsigned __int64 v17; // r15
+    BOOL v18; // r12d
+    __int64 v19; // r8
+    unsigned int v20; // r13d
+    unsigned __int64 v21; // rbx
+    unsigned __int64 v22; // rax
+    __int64 v23; // rdx
+    ULONG_PTR v24; // rdi
+    ULONG_PTR BugCheckParameter4; // rbx
+    __int64 v26; // r8
+    unsigned __int8 v27; // dl
+    bool v28; // zf
+    ULONG_PTR v29; // r12
+    char v30; // si
+    __int64 v31; // r13
+    __int64 v32; // rax
+    unsigned __int64 v33; // r13
+    _MI_PARTITION *v34; // rdi
+    __int64 v35; // r8
+    __int64 v36; // r8
+    __int64 v37; // r9
+    unsigned __int8 CurrentIrql; // al
+    struct _KPRCB *CurrentPrcb; // r9
+    _DWORD *SchedulerAssist; // r8
+    int v41; // eax
+    unsigned __int8 v42; // al
+    struct _KPRCB *v43; // r10
+    _DWORD *v44; // r9
+    int v45; // eax
+    struct _LIST_ENTRY *Flink; // rdx
+    __int64 v47; // rax
+    __int64 v48; // rdx
+    char v49; // [rsp+30h] [rbp-C8h]
+    __int64 v50; // [rsp+38h] [rbp-C0h]
+    ULONG_PTR v51; // [rsp+40h] [rbp-B8h]
+    __int64 v52; // [rsp+48h] [rbp-B0h]
+    int v53; // [rsp+50h] [rbp-A8h] BYREF
+    unsigned __int64 v54; // [rsp+58h] [rbp-A0h] BYREF
+    ULONG_PTR BugCheckParameter2[2]; // [rsp+60h] [rbp-98h] BYREF
+    ULONG_PTR v56[2]; // [rsp+70h] [rbp-88h]
+    __int128 v57; // [rsp+80h] [rbp-78h]
+    _BYTE v58[32]; // [rsp+90h] [rbp-68h] BYREF
+    __int64 v59; // [rsp+B0h] [rbp-48h]
+    __int64 IRQL; // [rsp+108h] [rbp+10h] BYREF
+    unsigned int v61; // [rsp+118h] [rbp+20h]
+
+    v61 = a4;
+    LOBYTE(IRQL) = 0;
+    v59 = 0;
+    v54 = 0;
+    v5 = a4;
+    v7 = a2;
+    *a5 = 0;
+    *(_OWORD *)BugCheckParameter2 = 0;
+    *(_OWORD *)v56 = 0;
+    v57 = 0;
+    memset(v58, 0, sizeof(v58));
+    if ( a2 )
+    {
+      v7 = &v54;
+      v54 = *a2;
+    }
+    v52 = 0;
+    v8 = 0;
+    v9 = (_CONTROL_AREA *)MiCanFileBeTruncatedInternal(a1, v7, 1, (a4 >> 1) & 1, &IRQL);
+    v10 = IRQL;
+    ControlArea = v9;
+    if ( (_BYTE)IRQL == 17 )
+      return 0;
+    if ( !v9 )
+      return 1;
+    if ( (v5 & 1) == 0 && v9->u2.e2.NumberOfSystemCacheViews || !v9->FilePointer.Value )
+    {
+      ExReleaseSpinLockExclusiveFromDpcLevel(&v9->ControlAreaLock);
+      if ( KiIrqlFlags )
+      {
+        if ( (KiIrqlFlags & 1) != 0 )
+        {
+          CurrentIrql = KeGetCurrentIrql();
+          if ( CurrentIrql <= 0xFu && v10 <= 0xFu && CurrentIrql >= 2u )
+          {
+            CurrentPrcb = KeGetCurrentPrcb();
+            SchedulerAssist = CurrentPrcb->SchedulerAssist;
+            v10 = IRQL;
+            v41 = ~(unsigned __int16)(-1LL << ((unsigned __int8)IRQL + 1));
+            v28 = (v41 & SchedulerAssist[5]) == 0;
+            SchedulerAssist[5] &= v41;
+            if ( v28 )
+              KiRemoveSystemWorkPriorityKick(CurrentPrcb);
+          }
+        }
+      }
+      __writecr8(v10);
+      return 0;
+    }
+    v9->u.LongFlags |= 0x8000u;
+    if ( !(unsigned int)MiComputeDataFlushRange((_DWORD)v9, v10, (_DWORD)v7, a3, 1, (__int64)BugCheckParameter2) )
+      return 1;
+    v13 = BugCheckParameter2[1];
+    Irql = 17;
+    v15 = 1;
+    v16 = v56[1];
+    LOBYTE(IRQL) = 17;
+    v49 = 1;
+    while ( 1 )
+    {
+      v51 = v16;
+      if ( Irql == 17 )
+      {
+        Irql = ExAcquireSpinLockExclusive(&ControlArea->ControlAreaLock);
+        LOBYTE(IRQL) = Irql;
+      }
+      if ( (_QWORD)v57 == v16 )
+        v17 = v56[0] + 8;
+      else
+        v17 = *(_QWORD *)(v16 + 8) + 8LL * (*(_DWORD *)(v16 + 44) - (*(_DWORD *)(v16 + 52) & 0x3FFFFFFFu));
+      v18 = MiControlAreaUsingExtents(ControlArea);
+      if ( !v19 )
+      {
+        v29 = v51;
+        if ( v51 == (_QWORD)v57 )
+          goto LABEL_47;
+        goto LABEL_46;
+      }
+      if ( *(_DWORD *)(v51 + 108) )
+        break;
+      MiIncrementSubsectionViewCount(v51);
+      if ( (*(_BYTE *)(v51 + 34) & 8) != 0 )
+        MiRemoveUnusedSubsection(v51);
+      *(_WORD *)(v51 + 32) |= 1u;
+      ExReleaseSpinLockExclusiveFromDpcLevel(&ControlArea->ControlAreaLock);
+      if ( KiIrqlFlags )
+      {
+        if ( (KiIrqlFlags & 1) != 0 )
+        {
+          v42 = KeGetCurrentIrql();
+          if ( v42 <= 0xFu && Irql <= 0xFu && v42 >= 2u )
+          {
+            v43 = KeGetCurrentPrcb();
+            v44 = v43->SchedulerAssist;
+            Irql = IRQL;
+            v45 = ~(unsigned __int16)(-1LL << ((unsigned __int8)IRQL + 1));
+            v28 = (v45 & v44[5]) == 0;
+            v44[5] &= v45;
+            if ( v28 )
+              KiRemoveSystemWorkPriorityKick(v43);
+          }
+        }
+      }
+      __writecr8(Irql);
+      if ( v18 )
+        MiChangingSubsectionProtos(v51);
+      v20 = 0;
+      if ( v13 < v17 )
+      {
+        while ( 1 )
+        {
+          v50 = MiCheckProtoPtePageState(v13);
+          if ( !v50 )
+          {
+            v13 = (v13 & 0xFFFFFFFFFFFFF000uLL) + 4096;
+            goto LABEL_58;
+          }
+          while ( 1 )
+          {
+            while ( 1 )
+            {
+              v21 = *(_QWORD *)v13;
+              v22 = *(_QWORD *)v13;
+              if ( (*(_QWORD *)v13 & 1) != 0 )
+                goto LABEL_32;
+              if ( (*(_QWORD *)v13 & 0xC00LL) != 0x800 )
+                goto LABEL_53;
+              if ( !v21 || !qword_140C4DDC0 || (v21 & qword_140C4DDC0) != 0 )
+              {
+                v22 = *(_QWORD *)v13;
+                if ( qword_140C4DDC0 && (v21 & 0x10) == 0 )
+                  v22 = v21 & ~qword_140C4DDC0;
+  LABEL_32:
+                v23 = 6 * ((v22 >> 12) & 0xFFFFFFFFFLL);
+                if ( (*(_QWORD *)(48 * ((v22 >> 12) & 0xFFFFFFFFFLL) - 0x57FFFFFFFD8LL) & 0x4000000000000LL) != 0 )
+                  break;
+              }
+            }
+            v24 = 48 * ((v22 >> 12) & 0xFFFFFFFFFLL) - 0x58000000000LL;
+            v53 = 0;
+            while ( _interlockedbittestandset64((volatile signed __int32 *)(v24 + 24), 0x3Fu) )
+            {
+              do
+                KeYieldProcessorEx(&v53, v23, v36, v37);
+              while ( *(__int64 *)(v24 + 24) < 0 );
+            }
+            if ( *(_QWORD *)v13 == v21 )
+              break;
+            _InterlockedAnd64((volatile signed __int64 *)(v24 + 24), 0x7FFFFFFFFFFFFFFFuLL);
+          }
+          if ( !v24 )
+          {
+  LABEL_53:
+            v13 += 8LL;
+            goto LABEL_58;
+          }
+          BugCheckParameter4 = *(_QWORD *)v13;
+          if ( !(unsigned int)MiPteInShadowRange(v13)
+            || (MiFlags & 0xC00000) == 0
+            || KeGetCurrentThread()->ApcState.Process->AddressPolicy == 1 )
+          {
+            goto LABEL_37;
+          }
+          if ( (BugCheckParameter4 & 1) != 0 )
+          {
+            if ( (BugCheckParameter4 & 0x20) == 0 || (BugCheckParameter4 & 0x42) == 0 )
+            {
+              Flink = KeGetCurrentThread()->ApcState.Process[1].ProcessListEntry.Flink;
+              if ( Flink )
+              {
+                v47 = *((_QWORD *)&Flink->Flink + ((v13 >> 3) & 0x1FF));
+                v48 = BugCheckParameter4 | 0x20;
+                if ( (v47 & 0x20) == 0 )
+                  v48 = BugCheckParameter4;
+                BugCheckParameter4 = v48;
+                if ( (v47 & 0x42) != 0 )
+                  BugCheckParameter4 = v48 | 0x42;
+              }
+            }
+  LABEL_37:
+            if ( (BugCheckParameter4 & 1) != 0 )
+              goto LABEL_41;
+          }
+          if ( (*(_DWORD *)(v24 + 16) & 0x401) != 0x400 || (*(_QWORD *)(v24 + 8) | 0x8000000000000000uLL) != v13 )
+            KeBugCheckEx(0xDEu, 2u, v13, *(_QWORD *)(v24 + 8), BugCheckParameter4);
+          v27 = *(_BYTE *)(v24 + 34);
+          if ( (((v61 & 2) != 0) & (v27 >> 4)) != 0 )
+          {
+  LABEL_41:
+            _InterlockedAnd64((volatile signed __int64 *)(v24 + 24), 0x7FFFFFFFFFFFFFFFuLL);
+            v15 = 0;
+            v49 = 0;
+            break;
+          }
+          if ( (v27 & 8) != 0 )
+          {
+            MiWaitForPageWriteCompletion(v24, ControlArea, v50, 17);
+            goto LABEL_58;
+          }
+          if ( v18 && *(_WORD *)(v24 + 32) )
+            *a5 = 1;
+          LOBYTE(v26) = 17;
+          MiDeleteTransitionPte(v13, v24, v26, 1);
+          v20 = 1;
+          if ( ControlArea->NumberOfPfnReferences )
+          {
+            v13 += 8LL;
+            if ( (v13 & 0x78) == 0 && KeShouldYieldProcessor() )
+              MiUnlockProtoPoolPage(v50, 17, v35);
+  LABEL_58:
+            if ( v13 < v17 )
+              continue;
+          }
+          v15 = v49;
+          break;
+        }
+      }
+      v28 = !v18;
+      v29 = v51;
+      if ( !v28 )
+        MiSubsectionProtosCreated(v51, v58, 0, v20);
+      LOBYTE(IRQL) = ExAcquireSpinLockExclusive(&ControlArea->ControlAreaLock);
+      Irql = IRQL;
+      MiDecrementSubsectionViewCount(v51);
+      if ( *(_QWORD *)(v51 + 96) || (*(_BYTE *)(v51 + 34) & 1) != 0 )
+      {
+        v8 = v52;
+      }
+      else
+      {
+        v8 = MiInsertUnusedSubsection(v51) + v52;
+        v52 = v8;
+      }
+  LABEL_46:
+      if ( v29 == (_QWORD)v57 || !v15 )
+      {
+  LABEL_47:
+        v30 = v49;
+        goto LABEL_48;
+      }
+      v16 = *(_QWORD *)(v29 + 16);
+      v13 = *(_QWORD *)(v16 + 8);
+    }
+    v30 = 0;
+  LABEL_48:
+    v31 = MiDecrementSubsections(v56[1]) + v8;
+    v32 = MiDecrementSubsections(v57);
+    --ControlArea->NumberOfMappedViews;
+    ControlArea->u.LongFlags &= ~4u;
+    v33 = v32 + v31;
+    if ( v33 )
+      v34 = *(_MI_PARTITION **)(qword_140C4E4C8 + 8LL * (ControlArea->u1.LongFlags & 0x3FF));
+    else
+      v34 = nullptr;
+    MiCheckControlArea(ControlArea, Irql); // target function call
+    if ( v33 )
+      MiReturnCrossPartitionSectionCharges(v34, 1u, v33);
+    return v30;
+  }

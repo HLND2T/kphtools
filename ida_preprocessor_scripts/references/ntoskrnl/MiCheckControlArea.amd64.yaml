@@ -109,7 +109,7 @@ disasm_code: |-
   .text:00000001402D732F                 test    ebx, ebx
   .text:00000001402D7331                 jnz     loc_1402D71ED
   .text:00000001402D7337                 mov     rcx, rdi
-  .text:00000001402D733A                 call    MiInsertUnusedSegment
+  .text:00000001402D733A                 call    MiInsertUnusedSegment ; target function call
   .text:00000001402D733F                 mov     rsi, rax
   .text:00000001402D7342                 or      ebx, 4
   .text:00000001402D7345                 jmp     loc_1402D71ED
@@ -342,7 +342,7 @@ procedure: |-
     {
       if ( (v14 & 0x20020) != 0x20020 )
       {
-        inserted = MiInsertUnusedSegment(a1);
+        inserted = MiInsertUnusedSegment(a1); // target function call
         v14 = a1->u.LongFlags;
         v8 = inserted;
       }

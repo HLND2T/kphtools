@@ -338,17 +338,21 @@ modules:
         expected_output:
           - KiSetTimerEx.yaml
 
-      - name: find-MiInsertUnusedSegment
-        expected_input:
-          - KiSetTimerEx.yaml
+      - name: find-MmPurgeSection
         expected_output:
-          - MiInsertUnusedSegment.yaml
+          - MmPurgeSection.yaml
 
       - name: find-MiCheckControlArea
         expected_input:
-          - MiInsertUnusedSegment.yaml
+          - MmPurgeSection.yaml
         expected_output:
           - MiCheckControlArea.yaml
+
+      - name: find-MiInsertUnusedSegment
+        expected_input:
+          - MiCheckControlArea.yaml
+        expected_output:
+          - MiInsertUnusedSegment.yaml
 
     symbols:
       - name: EgeGuid
