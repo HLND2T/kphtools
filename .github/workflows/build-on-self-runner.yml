@@ -58,33 +58,28 @@ jobs:
       - name: Download latest kphdyn.xml from upstream
         shell: cmd
         run: |
-          @echo off
           powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml' -OutFile kphdyn.official.xml"
           copy kphdyn.official.xml kphdyn.xml /y
 
       - name: Sync unmanaged ntoskrnl to kphdyn.xml
         shell: cmd
         run: |
-          @echo off
           uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -syncfile
 
       - name: Download ntoskrnl exe and pdb
         shell: cmd
         run: |
-          @echo off
           uv sync
           uv run python download_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -fast
 
       - name: Analyze symbols and dump YAML artifacts
         shell: cmd
         run: |
-          @echo off
           uv run python dump_symbols.py -symboldir="%WORKSPACE%\symbols" -configyaml="%WORKSPACE%\config.yaml"
 
       - name: Update kphdyn.xml with offsets from YAML artifacts
         shell: cmd
         run: |
-          @echo off
           uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -configyaml="%WORKSPACE%\config.yaml"
 
       - name: Create release
