@@ -25,6 +25,8 @@ import argparse
 import os
 import sys
 import xml.etree.ElementTree as ET
+from enum import Enum
+from http import HTTPStatus
 from pathlib import Path
 
 try:
@@ -42,6 +44,15 @@ DEFAULT_SYMBOL_DIR = "symbols"
 
 # Global variable for symbol server URL (set by parse_args)
 SYMBOL_SERVER_URL = DEFAULT_SYMBOL_SERVER_URL
+
+
+class DownloadStatus(Enum):
+    """Result of a symbol-server download or per-entry processing step."""
+
+    SUCCESS = "success"
+    SKIPPED = "skipped"
+    NOT_FOUND = "not_found"
+    FAILED = "failed"
 
 
 def parse_args(argv=None):
@@ -204,7 +215,9 @@ def download_file(url, target_path):
         target_path: Local path to save the file
 
     Returns:
-        True if successful, False otherwise
+        DownloadStatus.SUCCESS if successful,
+        DownloadStatus.NOT_FOUND for HTTP 404,
+        DownloadStatus.FAILED otherwise
     """
     try:
         print(f"  Downloading: {url}")
@@ -222,11 +235,20 @@ def download_file(url, target_path):
             f.write(content)
 
         print(f"  Saved to: {target_path}")
-        return True
+        return DownloadStatus.SUCCESS
+
+    except requests.exceptions.HTTPError as e:
+        status_code = getattr(e.response, "status_code", None)
+        if status_code == HTTPStatus.NOT_FOUND:
+            print(f"  Download not found (404): {url}")
+            return DownloadStatus.NOT_FOUND
+
+        print(f"  Download failed: {e}")
+        return DownloadStatus.FAILED
 
     except requests.exceptions.RequestException as e:
         print(f"  Download failed: {e}")
-        return False
+        return DownloadStatus.FAILED
 
 
 def download_pe(entry, symbol_dir):
@@ -238,7 +260,8 @@ def download_pe(entry, symbol_dir):
         symbol_dir: Base directory to save symbols
 
     Returns:
-        Path to the downloaded PE file, or None if failed
+        Tuple of (DownloadStatus, PE path or None).
+        SKIPPED means the PE already exists locally.
     """
     file_name = entry["file"]
     version = entry["version"]
@@ -252,14 +275,15 @@ def download_pe(entry, symbol_dir):
     # Skip if already exists
     if os.path.exists(target_path):
         print(f"  PE file already exists: {target_path}")
-        return target_path
+        return DownloadStatus.SKIPPED, target_path
 
     url = build_pe_url(entry)
+    status = download_file(url, target_path)
 
-    if download_file(url, target_path):
-        return target_path
+    if status == DownloadStatus.SUCCESS:
+        return status, target_path
 
-    return None
+    return status, None
 
 
 def parse_pdb_info(pe_path):
@@ -338,7 +362,10 @@ def download_pdb(pdb_info, target_dir):
         target_dir: Directory to save the PDB file
         
     Returns:
-        True if successful, False otherwise
+        DownloadStatus.SUCCESS if successful,
+        DownloadStatus.SKIPPED if the PDB already exists locally,
+        DownloadStatus.NOT_FOUND for HTTP 404,
+        DownloadStatus.FAILED otherwise
     """
     pdb_name = pdb_info["pdb_name"]
     target_path = os.path.join(target_dir, pdb_name)
@@ -346,7 +373,7 @@ def download_pdb(pdb_info, target_dir):
     # Skip if already exists
     if os.path.exists(target_path):
         print(f"  PDB file already exists: {target_path}")
-        return True
+        return DownloadStatus.SKIPPED
     
     url = build_pdb_url(pdb_info)
     return download_file(url, target_path)
@@ -394,7 +421,10 @@ def process_entry(entry, symbol_dir, fast_mode=False):
         fast_mode: If True, skip entries where known PDB files already exist
 
     Returns:
-        True if successful, False otherwise
+        DownloadStatus.SUCCESS if successful,
+        DownloadStatus.SKIPPED if no download was needed,
+        DownloadStatus.NOT_FOUND if the PE or PDB is missing on the server,
+        DownloadStatus.FAILED otherwise
     """
     file_name = entry["file"]
     version = entry["version"]
@@ -406,30 +436,41 @@ def process_entry(entry, symbol_dir, fast_mode=False):
     # Fast mode: skip if known PDB files already exist
     if fast_mode and check_fast_skip(entry, symbol_dir):
         print(f"  [Fast mode] PDB already exists, skipping")
-        return True
+        return DownloadStatus.SKIPPED
 
     # Step 1: Download PE file
-    pe_path = download_pe(entry, symbol_dir)
-    if not pe_path:
+    pe_status, pe_path = download_pe(entry, symbol_dir)
+    if pe_status == DownloadStatus.NOT_FOUND:
+        print(f"  PE file not found on symbol server")
+        return DownloadStatus.NOT_FOUND
+    if pe_status not in (DownloadStatus.SUCCESS, DownloadStatus.SKIPPED):
         print(f"  Failed to download PE file")
-        return False
+        return DownloadStatus.FAILED
 
     # Step 2: Parse PDB info from PE
     pdb_info = parse_pdb_info(pe_path)
     if not pdb_info:
         print(f"  Failed to parse PDB info from PE")
-        return False
+        return DownloadStatus.FAILED
 
     print(f"  PDB: {pdb_info['pdb_name']} (Signature: {pdb_info['signature']})")
 
     # Step 3: Download PDB file to same directory as PE
     target_dir = os.path.dirname(pe_path)
-    if not download_pdb(pdb_info, target_dir):
+    pdb_status = download_pdb(pdb_info, target_dir)
+    if pdb_status == DownloadStatus.NOT_FOUND:
+        print(f"  PDB file not found on symbol server")
+        return DownloadStatus.NOT_FOUND
+    if pdb_status not in (DownloadStatus.SUCCESS, DownloadStatus.SKIPPED):
         print(f"  Failed to download PDB file")
-        return False
+        return DownloadStatus.FAILED
+
+    if pe_status == DownloadStatus.SKIPPED and pdb_status == DownloadStatus.SKIPPED:
+        print(f"  Skipped; PE and PDB already exist")
+        return DownloadStatus.SKIPPED
 
     print(f"  Success!")
-    return True
+    return DownloadStatus.SUCCESS
 
 
 def main():
@@ -470,17 +511,28 @@ def main():
 
     # Process each entry
     success_count = 0
+    skipped_count = 0
+    not_found_count = 0
     fail_count = 0
 
     for entry in entries:
-        if process_entry(entry, symbol_dir, fast_mode):
+        status = process_entry(entry, symbol_dir, fast_mode)
+        if status == DownloadStatus.SUCCESS:
             success_count += 1
+        elif status == DownloadStatus.SKIPPED:
+            skipped_count += 1
+        elif status == DownloadStatus.NOT_FOUND:
+            not_found_count += 1
         else:
             fail_count += 1
     
     # Summary
     print(f"\n{'='*50}")
-    print(f"Completed: {success_count} successful, {fail_count} failed")
+    print(
+        f"Completed: {success_count} successful, "
+        f"{skipped_count} skipped, "
+        f"{not_found_count} not found, {fail_count} failed"
+    )
     
     if fail_count > 0:
         sys.exit(1)
