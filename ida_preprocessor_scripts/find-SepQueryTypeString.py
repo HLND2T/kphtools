@@ -10,7 +10,7 @@ FUNC_XREFS = [
         "xref_strings": [],
         "xref_unicode_strings": [],
         "xref_gvs": [],
-        "xref_signatures": ["41 B8 53 65 54 6E", "9A 00 00 C0", "04 00 00 C0"],
+        "xref_signatures": ["41 B8 53 65 54 6E"],
         "xref_funcs": [],
         "exclude_funcs": [],
         "exclude_strings": [],

@@ -16,7 +16,7 @@ FUNC_XREFS = [
         "exclude_strings": [],
         "exclude_unicode_strings": [],
         "exclude_gvs": [],
-        "exclude_signatures": [],
+        "exclude_signatures": ["B9 01 01 00 C0 0F 30"],
     },
 ]
 

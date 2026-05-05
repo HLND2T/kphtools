@@ -305,6 +305,54 @@ found_struct_offset:
         )
         self.assertEqual(["PrimaryA", "PrimaryB"], request["required_target_func_names"])
 
+    async def test_load_llm_decompile_target_details_uses_code_artifact(
+        self,
+    ) -> None:
+        session = AsyncMock()
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            (binary_dir / "PgInitContext.yaml").write_text(
+                "code_name: PgInitContext\n"
+                "code_rva: '0xa20b1a'\n"
+                "code_size: '0x647'\n"
+                "category: code\n",
+                encoding="utf-8",
+            )
+            target_detail = {
+                "func_name": "PgInitContext",
+                "func_va": "0x140a20b1a",
+                "disasm_code": "INIT:0000000140A20B1A sti",
+                "procedure": "",
+            }
+
+            with (
+                patch.object(
+                    ida_mcp_resolver,
+                    "_export_code_region_detail_via_mcp",
+                    AsyncMock(return_value=target_detail),
+                ) as mock_export_code,
+                patch.object(
+                    ida_mcp_resolver,
+                    "_find_function_addr_by_name_via_mcp",
+                    AsyncMock(),
+                ) as mock_find_function,
+            ):
+                target_items = await ida_mcp_resolver._load_llm_decompile_target_details_via_mcp(
+                    session,
+                    ["PgInitContext"],
+                    binary_dir=binary_dir,
+                    image_base=0x140000000,
+                )
+
+        self.assertEqual([target_detail], target_items)
+        mock_export_code.assert_awaited_once_with(
+            session,
+            "PgInitContext",
+            0x140A20B1A,
+            0x647,
+        )
+        mock_find_function.assert_not_awaited()
+
     async def test_call_llm_decompile_uses_cs2_prompt_template(self) -> None:
         prompt_template = (
             ida_mcp_resolver._get_preprocessor_scripts_dir()

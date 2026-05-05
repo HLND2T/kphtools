@@ -164,10 +164,10 @@ modules:
           - MiSectionOpen.yaml
 
       - name: find-MiSectionControlArea
-        expected_input:
-          - MiSectionOpen.yaml
         expected_output:
           - MiSectionControlArea.yaml
+        prerequisite:
+          - find-MiSectionOpen
 
       - name: find-MmSectionControlArea
         expected_output:
