@@ -111,10 +111,10 @@ async def call_llm_text(
         )
 
     client = create_openai_client(base_url, api_key)
-    request: dict[str, Any] = {"model": model, "input": prompt}
+    request: dict[str, Any] = {"model": model, "prompt": prompt}
     if temperature is not None:
         request["temperature"] = temperature
-    if effort:
-        request["reasoning"] = {"effort": str(effort).strip().lower()}
-    response = await client.responses.create(**request)
-    return response.output_text
+    response = await client.completions.create(**request)
+    if not response.choices:
+        return ""
+    return str(response.choices[0].text or "")
