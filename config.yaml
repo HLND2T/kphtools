@@ -92,8 +92,8 @@ modules:
           - ObAttributesShift.yaml
           - ObDecodeShift.yaml
           - HtHandleContentionEvent.yaml
-        expected_input:
-          - ObpEnumFindHandleProcedure.yaml
+        prerequisite:
+          - find-ObReferenceProcessHandleTable-AND-ObpEnumFindHandleProcedure
 
       - name: find-AlpcHandleTable-AND-AlpcPortContext-AND-AlpcPortObjectLock
         expected_output:
@@ -251,6 +251,7 @@ modules:
           - ObFindHandleForObject.yaml
         expected_output:
           - ObReferenceProcessHandleTable.yaml
+        optional_output:
           - ObpEnumFindHandleProcedure.yaml
 
       - name: find-IoGetStackLimits
