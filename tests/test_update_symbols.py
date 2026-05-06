@@ -13,14 +13,18 @@ import update_symbols
 XML_TEXT = """
 <kphdyn>
   <data id="1" arch="amd64" file="ntoskrnl.exe" version="10.0.1" timestamp="0" size="0" sha256="abc">0</data>
-  <fields id="1" EpObjectTable="0x570" />
+  <fields id="1">
+    <field value="0x0570" name="EpObjectTable" />
+  </fields>
 </kphdyn>
 """
 
 HASH_XML_TEXT = """
 <kphdyn>
   <data id="1" arch="amd64" file="ntoskrnl.exe" version="10.0.1" timestamp="0x10" size="0x20" hash="abc">0</data>
-  <fields id="1" EpObjectTable="0x570" />
+  <fields id="1">
+    <field value="0x0570" name="EpObjectTable" />
+  </fields>
 </kphdyn>
 """
 
@@ -623,6 +627,73 @@ class TestUpdateSymbols(unittest.TestCase):
         self.assertEqual("1", data_elem.text)
         self.assertIsNone(data_elem.get("fields"))
 
+    def test_export_xml_creates_fields_as_field_children(self) -> None:
+        tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring("<kphdyn />"))
+        config = SimpleNamespace(
+            modules=[
+                SimpleNamespace(
+                    name="ntoskrnl",
+                    path=["ntoskrnl.exe"],
+                    symbols=[
+                        SimpleNamespace(
+                            name="EgeGuid",
+                            category="struct_offset",
+                            data_type="uint16",
+                        ),
+                        SimpleNamespace(
+                            name="EpObjectTable",
+                            category="struct_offset",
+                            data_type="uint16",
+                        ),
+                        SimpleNamespace(
+                            name="CmpEnumerateCallback",
+                            category="gv",
+                            data_type="uint32",
+                        ),
+                    ],
+                )
+            ]
+        )
+
+        with TemporaryDirectory() as temp_dir:
+            sha_dir = Path(temp_dir) / "amd64" / "ntoskrnl.exe.10.0.1" / "abc"
+            sha_dir.mkdir(parents=True, exist_ok=True)
+            (sha_dir / "EgeGuid.yaml").write_text(
+                "category: struct_offset\noffset: 0x28\n",
+                encoding="utf-8",
+            )
+            (sha_dir / "EpObjectTable.yaml").write_text(
+                "category: struct_offset\noffset: 0x300\n",
+                encoding="utf-8",
+            )
+            (sha_dir / "CmpEnumerateCallback.yaml").write_text(
+                "category: gv\ngv_rva: 0x7d07f0\n",
+                encoding="utf-8",
+            )
+            with patch.object(
+                update_symbols,
+                "_load_binary_metadata",
+                return_value={"timestamp": "0x0", "size": "0x0"},
+            ):
+                update_symbols.export_xml(tree, config, Path(temp_dir))
+
+        fields_elem = tree.getroot().find("fields")
+        self.assertEqual({"id": "1"}, fields_elem.attrib)
+        self.assertEqual("\n        ", fields_elem.text)
+        self.assertEqual("\n", fields_elem.tail)
+        self.assertEqual(
+            [
+                [("value", "0x0028"), ("name", "EgeGuid")],
+                [("value", "0x0300"), ("name", "EpObjectTable")],
+                [("value", "0x7d07f0"), ("name", "CmpEnumerateCallback")],
+            ],
+            [list(field.attrib.items()) for field in fields_elem.findall("field")],
+        )
+        self.assertEqual(
+            ["\n        ", "\n        ", "\n    "],
+            [field.tail for field in fields_elem.findall("field")],
+        )
+
     def test_export_xml_ignores_yaml_without_symbol_spec(self) -> None:
         tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring(XML_TEXT))
         config = self._build_config()
@@ -648,8 +719,11 @@ class TestUpdateSymbols(unittest.TestCase):
                 update_symbols.export_xml(tree, config, Path(temp_dir))
 
         fields_elem = tree.getroot().find("fields")
-        self.assertEqual("0x570", fields_elem.get("EpObjectTable"))
-        self.assertIsNone(fields_elem.get("NtSecureConnectPort"))
+        self.assertIsNone(fields_elem.get("EpObjectTable"))
+        self.assertEqual(
+            [[("value", "0x0570"), ("name", "EpObjectTable")]],
+            [list(field.attrib.items()) for field in fields_elem.findall("field")],
+        )
 
     def test_export_xml_reuses_existing_data_entry_with_hash_attribute(self) -> None:
         tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring(HASH_XML_TEXT))

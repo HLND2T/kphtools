@@ -313,12 +313,35 @@ def _collect_existing_fields(root: ET.Element) -> dict[tuple[tuple[str, int], ..
     existing: dict[tuple[tuple[str, int], ...], str] = {}
     for fields_elem in root.findall("fields"):
         values = []
-        for key, value in fields_elem.attrib.items():
-            if key == "id":
-                continue
-            values.append((key, int(value, 16)))
+        field_children = fields_elem.findall("field")
+        if field_children:
+            for field_elem in field_children:
+                name = field_elem.get("name")
+                value = field_elem.get("value")
+                if name is None or value is None:
+                    continue
+                values.append((name, int(value, 16)))
+        else:
+            for key, value in fields_elem.attrib.items():
+                if key == "id":
+                    continue
+                values.append((key, int(value, 16)))
         existing[tuple(sorted(values))] = fields_elem.get("id", "0")
     return existing
+
+
+def _format_field_value(value: int) -> str:
+    return f"0x{value:04x}"
+
+
+def _append_fields_element(root: ET.Element, fields_id: int) -> ET.Element:
+    if len(root):
+        root[-1].tail = "\n    "
+    fields_elem = ET.SubElement(root, "fields")
+    fields_elem.set("id", str(fields_id))
+    fields_elem.text = "\n        "
+    fields_elem.tail = "\n"
+    return fields_elem
 
 
 def _find_or_create_fields_id(root: ET.Element, values: dict[str, int]) -> str:
@@ -329,10 +352,14 @@ def _find_or_create_fields_id(root: ET.Element, values: dict[str, int]) -> str:
         return matched
 
     next_id = max([0] + [int(elem.get("id", "0")) for elem in root.findall("fields")]) + 1
-    fields_elem = ET.SubElement(root, "fields")
-    fields_elem.set("id", str(next_id))
-    for name, value in sorted(values.items()):
-        fields_elem.set(name, hex(value))
+    fields_elem = _append_fields_element(root, next_id)
+    for name, value in values.items():
+        field_elem = ET.SubElement(fields_elem, "field")
+        field_elem.set("value", _format_field_value(value))
+        field_elem.set("name", name)
+        field_elem.tail = "\n        "
+    if len(fields_elem):
+        fields_elem[-1].tail = "\n    "
     return str(next_id)
 
 
