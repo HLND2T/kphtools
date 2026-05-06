@@ -12,14 +12,14 @@ import update_symbols
 
 XML_TEXT = """
 <kphdyn>
-  <data id="1" arch="amd64" file="ntoskrnl.exe" version="10.0.1" timestamp="0" size="0" sha256="abc" fields="0" />
+  <data id="1" arch="amd64" file="ntoskrnl.exe" version="10.0.1" timestamp="0" size="0" sha256="abc">0</data>
   <fields id="1" EpObjectTable="0x570" />
 </kphdyn>
 """
 
 HASH_XML_TEXT = """
 <kphdyn>
-  <data id="1" arch="amd64" file="ntoskrnl.exe" version="10.0.1" timestamp="0x10" size="0x20" hash="abc" fields="0" />
+  <data id="1" arch="amd64" file="ntoskrnl.exe" version="10.0.1" timestamp="0x10" size="0x20" hash="abc">0</data>
   <fields id="1" EpObjectTable="0x570" />
 </kphdyn>
 """
@@ -620,7 +620,8 @@ class TestUpdateSymbols(unittest.TestCase):
                 update_symbols.export_xml(tree, config, Path(temp_dir))
 
         data_elem = tree.getroot().find("data")
-        self.assertEqual("1", data_elem.get("fields"))
+        self.assertEqual("1", data_elem.text)
+        self.assertIsNone(data_elem.get("fields"))
 
     def test_export_xml_ignores_yaml_without_symbol_spec(self) -> None:
         tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring(XML_TEXT))
@@ -672,7 +673,8 @@ class TestUpdateSymbols(unittest.TestCase):
         data_elems = tree.getroot().findall("data")
         self.assertEqual(1, len(data_elems))
         self.assertEqual("abc", data_elems[0].get("hash"))
-        self.assertEqual("1", data_elems[0].get("fields"))
+        self.assertEqual("1", data_elems[0].text)
+        self.assertIsNone(data_elems[0].get("fields"))
 
     def test_export_xml_creates_data_entry_with_required_metadata(self) -> None:
         tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring("<kphdyn />"))
@@ -698,4 +700,37 @@ class TestUpdateSymbols(unittest.TestCase):
         self.assertEqual("abc", data_elem.get("hash"))
         self.assertEqual("0x123", data_elem.get("timestamp"))
         self.assertEqual("0x456", data_elem.get("size"))
-        self.assertEqual("1", data_elem.get("fields"))
+        self.assertEqual("1", data_elem.text)
+        self.assertIsNone(data_elem.get("fields"))
+
+    def test_export_xml_removes_stale_fields_attribute(self) -> None:
+        tree = update_symbols.ET.ElementTree(
+            update_symbols.ET.fromstring(
+                """
+<kphdyn>
+  <data arch="amd64" file="ntoskrnl.exe" version="10.0.1" hash="abc" fields="0">0</data>
+  <fields id="1" EpObjectTable="0x570" />
+</kphdyn>
+"""
+            )
+        )
+        config = self._build_config()
+
+        with TemporaryDirectory() as temp_dir:
+            sha_dir = Path(temp_dir) / "amd64" / "ntoskrnl.exe.10.0.1" / "abc"
+            sha_dir.mkdir(parents=True, exist_ok=True)
+            (sha_dir / "EpObjectTable.yaml").write_text(
+                "category: struct_offset\noffset: 0x570\n",
+                encoding="utf-8",
+            )
+            with patch.object(
+                update_symbols,
+                "_load_binary_metadata",
+                return_value={"timestamp": "0x123", "size": "0x456"},
+                create=True,
+            ):
+                update_symbols.export_xml(tree, config, Path(temp_dir))
+
+        data_elem = tree.getroot().find("data")
+        self.assertEqual("1", data_elem.text)
+        self.assertIsNone(data_elem.get("fields"))

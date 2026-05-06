@@ -381,7 +381,7 @@ def _ensure_data_entry(
     data_elem.set("sha256", sha256)
     data_elem.set("timestamp", metadata["timestamp"])
     data_elem.set("size", metadata["size"])
-    data_elem.set("fields", "0")
+    data_elem.text = "0"
     return data_elem
 
 
@@ -404,7 +404,8 @@ def export_xml(tree: ET.ElementTree, config: Any, symboldir: Path) -> ET.Element
                         data_elem = _ensure_data_entry(
                             root, arch, module_path, version, sha_dir.name, metadata
                         )
-                        data_elem.set("fields", fields_id)
+                        data_elem.text = fields_id
+                        data_elem.attrib.pop("fields", None)
     return tree
 
 
