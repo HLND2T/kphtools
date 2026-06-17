@@ -355,6 +355,23 @@ modules:
         expected_output:
           - MiInsertUnusedSegment.yaml
 
+      - name: find-ObCompleteObjectDuplication
+        expected_output:
+          - ObCompleteObjectDuplication.yaml
+        expected_input:
+          - ObReferenceProcessHandleTable.yaml
+
+      - name: find-ObpCallPreOperationCallbacks
+        expected_output:
+          - ObpCallPreOperationCallbacks.yaml
+
+      - name: find-OtTypeLock-AND-OtCallbackList
+        expected_output:
+          - OtTypeLock.yaml
+          - OtCallbackList.yaml
+        expected_input:
+          - ObpCallPreOperationCallbacks.yaml
+
     symbols:
       - name: EgeGuid
         category: struct_offset
@@ -368,10 +385,16 @@ modules:
       - name: HtHandleContentionEvent
         category: struct_offset
         data_type: uint16
-      - name: OtName
+      - name: OtName #Ot reference to ObjectType, aka "struct _OBJECT_TYPE"
         category: struct_offset
         data_type: uint16
       - name: OtIndex
+        category: struct_offset
+        data_type: uint16
+      - name: OtTypeLock
+        category: struct_offset
+        data_type: uint16
+      - name: OtCallbackList
         category: struct_offset
         data_type: uint16
       - name: ObDecodeShift
