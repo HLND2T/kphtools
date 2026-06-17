@@ -1,0 +1,304 @@
+func_name: ObpCallPreOperationCallbacks
+func_va: '0x14078b440'
+disasm_code: |-
+  PAGE:000000014078B440                 mov     [rsp+arg_0], rbx
+  PAGE:000000014078B445                 mov     [rsp+arg_8], rbp
+  PAGE:000000014078B44A                 mov     [rsp+arg_10], rsi
+  PAGE:000000014078B44F                 push    rdi
+  PAGE:000000014078B450                 push    r12
+  PAGE:000000014078B452                 push    r13
+  PAGE:000000014078B454                 push    r14
+  PAGE:000000014078B456                 push    r15
+  PAGE:000000014078B458                 sub     rsp, 50h
+  PAGE:000000014078B45C                 xorps   xmm0, xmm0
+  PAGE:000000014078B45F                 lea     rbp, [rcx+0B8h] ; 0xB8 = 184 = _OBJECT_TYPE->TypeLock
+  PAGE:000000014078B466                 movups  [rsp+78h+var_58], xmm0
+  PAGE:000000014078B46B                 mov     rsi, rdx
+  PAGE:000000014078B46E                 lea     r12, [rcx+0C8h] ; 0xC8 = 200 = _OBJECT_TYPE->CallbackList
+  PAGE:000000014078B475                 movups  [rsp+78h+var_48], xmm0
+  PAGE:000000014078B47A                 ; Tag
+  PAGE:000000014078B47A                 mov     edx, 6243624Fh; Tag
+  PAGE:000000014078B47F                 mov     r14, r8
+  PAGE:000000014078B482                 movups  [rsp+78h+var_38], xmm0
+  PAGE:000000014078B487                 mov     rax, gs:188h
+  PAGE:000000014078B490                 xor     r13d, r13d
+  PAGE:000000014078B493                 xor     edi, edi
+  PAGE:000000014078B495                 dec     word ptr [rax+1E4h]
+  PAGE:000000014078B49C                 nop
+  PAGE:000000014078B49D                 ; Object
+  PAGE:000000014078B49D                 mov     rcx, [rsi+8]; Object
+  PAGE:000000014078B4A1                 call    ObfReferenceObjectWithTag
+  PAGE:000000014078B4A6                 mov     rax, gs:188h
+  PAGE:000000014078B4AF                 ; BugCheckParameter1
+  PAGE:000000014078B4AF                 xor     edx, edx; BugCheckParameter1
+  PAGE:000000014078B4B1                 ; BugCheckParameter2
+  PAGE:000000014078B4B1                 mov     rcx, rbp; BugCheckParameter2
+  PAGE:000000014078B4B4                 dec     word ptr [rax+1E6h]
+  PAGE:000000014078B4BB                 nop
+  PAGE:000000014078B4BC                 call    ExAcquirePushLockSharedEx
+  PAGE:000000014078B4C1                 mov     rbx, [r12]
+  PAGE:000000014078B4C5                 cmp     rbx, r12
+  PAGE:000000014078B4C8                 jz      loc_14078B58E
+  PAGE:000000014078B4CE                 mov     eax, [rbx+14h]
+  PAGE:000000014078B4D1                 test    al, 1
+  PAGE:000000014078B4D3                 jz      loc_14078B582
+  PAGE:000000014078B4D9                 mov     eax, [rbx+10h]
+  PAGE:000000014078B4DC                 test    [rsi], eax
+  PAGE:000000014078B4DE                 jz      loc_14078B582
+  PAGE:000000014078B4E4                 ; RunRef
+  PAGE:000000014078B4E4                 lea     rcx, [rbx+38h]; RunRef
+  PAGE:000000014078B4E8                 call    ExAcquireRundownProtection_0
+  PAGE:000000014078B4ED                 test    al, al
+  PAGE:000000014078B4EF                 jz      loc_14078B582
+  PAGE:000000014078B4F5                 ; BugCheckParameter1
+  PAGE:000000014078B4F5                 xor     edx, edx; BugCheckParameter1
+  PAGE:000000014078B4F7                 ; BugCheckParameter2
+  PAGE:000000014078B4F7                 mov     rcx, rbp; BugCheckParameter2
+  PAGE:000000014078B4FA                 call    ExReleasePushLockEx
+  PAGE:000000014078B4FF                 mov     rax, gs:188h
+  PAGE:000000014078B508                 nop
+  PAGE:000000014078B509                 add     word ptr [rax+1E6h], 1
+  PAGE:000000014078B511                 jnz     short loc_14078B523
+  PAGE:000000014078B513                 add     rax, 98h
+  PAGE:000000014078B519                 nop
+  PAGE:000000014078B51A                 cmp     [rax], rax
+  PAGE:000000014078B51D                 jnz     loc_14078B5FE
+  PAGE:000000014078B523                 test    rdi, rdi
+  PAGE:000000014078B526                 jnz     loc_1408988B8
+  PAGE:000000014078B52C                 cmp     qword ptr [rbx+30h], 0
+  PAGE:000000014078B531                 jnz     loc_1408988C7
+  PAGE:000000014078B537                 mov     rax, [rbx+28h]
+  PAGE:000000014078B53B                 test    rax, rax
+  PAGE:000000014078B53E                 jz      short loc_14078B567
+  PAGE:000000014078B540                 mov     rcx, [rbx+18h]
+  PAGE:000000014078B544                 mov     rdx, rsi
+  PAGE:000000014078B547                 mov     rcx, [rcx+8]
+  PAGE:000000014078B54B                 call    _guard_dispatch_icall
+  PAGE:000000014078B550                 cmp     qword ptr [rbx+30h], 0
+  PAGE:000000014078B555                 jnz     loc_14089890C
+  PAGE:000000014078B55B                 lea     rdi, [rbx+38h]
+  PAGE:000000014078B55F                 mov     qword ptr [rsi+18h], 0
+  PAGE:000000014078B567                 mov     rax, gs:188h
+  PAGE:000000014078B570                 ; BugCheckParameter1
+  PAGE:000000014078B570                 xor     edx, edx; BugCheckParameter1
+  PAGE:000000014078B572                 ; BugCheckParameter2
+  PAGE:000000014078B572                 mov     rcx, rbp; BugCheckParameter2
+  PAGE:000000014078B575                 dec     word ptr [rax+1E6h]
+  PAGE:000000014078B57C                 nop
+  PAGE:000000014078B57D                 call    ExAcquirePushLockSharedEx
+  PAGE:000000014078B582                 mov     rbx, [rbx]
+  PAGE:000000014078B585                 cmp     rbx, r12
+  PAGE:000000014078B588                 jnz     loc_14078B4CE
+  PAGE:000000014078B58E                 ; BugCheckParameter1
+  PAGE:000000014078B58E                 xor     edx, edx; BugCheckParameter1
+  PAGE:000000014078B590                 ; BugCheckParameter2
+  PAGE:000000014078B590                 mov     rcx, rbp; BugCheckParameter2
+  PAGE:000000014078B593                 call    ExReleasePushLockEx
+  PAGE:000000014078B598                 mov     rax, gs:188h
+  PAGE:000000014078B5A1                 nop
+  PAGE:000000014078B5A2                 add     word ptr [rax+1E6h], 1
+  PAGE:000000014078B5AA                 jnz     short loc_14078B5B8
+  PAGE:000000014078B5AC                 add     rax, 98h
+  PAGE:000000014078B5B2                 nop
+  PAGE:000000014078B5B3                 cmp     [rax], rax
+  PAGE:000000014078B5B6                 jnz     short loc_14078B608
+  PAGE:000000014078B5B8                 test    rdi, rdi
+  PAGE:000000014078B5BB                 jz      short loc_14078B5C5
+  PAGE:000000014078B5BD                 ; RunRef
+  PAGE:000000014078B5BD                 mov     rcx, rdi; RunRef
+  PAGE:000000014078B5C0                 call    ExReleaseRundownProtection_0
+  PAGE:000000014078B5C5                 cmp     [r14], r14
+  PAGE:000000014078B5C8                 jnz     short loc_14078B5DD
+  PAGE:000000014078B5CA                 ; Object
+  PAGE:000000014078B5CA                 mov     rcx, [rsi+8]; Object
+  PAGE:000000014078B5CE                 ; Tag
+  PAGE:000000014078B5CE                 mov     edx, 6243624Fh; Tag
+  PAGE:000000014078B5D3                 call    ObfDereferenceObjectWithTag
+  PAGE:000000014078B5D8                 call    KeLeaveCriticalRegion
+  PAGE:000000014078B5DD                 xor     eax, eax
+  PAGE:000000014078B5DF                 lea     r11, [rsp+78h+var_28]
+  PAGE:000000014078B5E4                 mov     rbx, [r11+30h]
+  PAGE:000000014078B5E8                 mov     rbp, [r11+38h]
+  PAGE:000000014078B5EC                 mov     rsi, [r11+40h]
+  PAGE:000000014078B5F0                 mov     rsp, r11
+  PAGE:000000014078B5F3                 pop     r15
+  PAGE:000000014078B5F5                 pop     r14
+  PAGE:000000014078B5F7                 pop     r13
+  PAGE:000000014078B5F9                 pop     r12
+  PAGE:000000014078B5FB                 pop     rdi
+  PAGE:000000014078B5FC                 retn
+  PAGE:000000014078B5FE                 call    KiCheckForKernelApcDelivery
+  PAGE:000000014078B603                 jmp     loc_14078B523
+  PAGE:000000014078B608                 call    KiCheckForKernelApcDelivery
+  PAGE:000000014078B60D                 jmp     short loc_14078B5B8
+  PAGE:00000001408988B8                 ; RunRef
+  PAGE:00000001408988B8                 mov     rcx, rdi; RunRef
+  PAGE:00000001408988BB                 call    ExReleaseRundownProtection_0
+  PAGE:00000001408988C0                 xor     edi, edi
+  PAGE:00000001408988C2                 jmp     loc_14078B52C
+  PAGE:00000001408988C7                 mov     edx, 20h ; ' '
+  PAGE:00000001408988CC                 mov     ecx, 100h
+  PAGE:00000001408988D1                 mov     r8d, 6C46624Fh
+  PAGE:00000001408988D7                 call    ExAllocatePool2
+  PAGE:00000001408988DC                 mov     r13, rax
+  PAGE:00000001408988DF                 test    rax, rax
+  PAGE:00000001408988E2                 jz      short loc_140898920
+  PAGE:00000001408988E4                 mov     [rax+10h], rbx
+  PAGE:00000001408988E8                 mov     qword ptr [rax+18h], 0
+  PAGE:00000001408988F0                 mov     rcx, [r14+8]
+  PAGE:00000001408988F4                 cmp     [rcx], r14
+  PAGE:00000001408988F7                 jnz     short loc_140898919
+  PAGE:00000001408988F9                 mov     [rax], r14
+  PAGE:00000001408988FC                 mov     [rax+8], rcx
+  PAGE:0000000140898900                 mov     [rcx], rax
+  PAGE:0000000140898903                 mov     [r14+8], rax
+  PAGE:0000000140898907                 jmp     loc_14078B537
+  PAGE:000000014089890C                 mov     rax, [rsi+18h]
+  PAGE:0000000140898910                 mov     [r13+18h], rax
+  PAGE:0000000140898914                 jmp     loc_14078B55F
+  PAGE:0000000140898919                 mov     ecx, 3
+  PAGE:000000014089891E                 ; Win8: RtlFailFast(ecx)
+  PAGE:000000014089891E                 int     29h; Win8: RtlFailFast(ecx)
+  PAGE:0000000140898920                 ; RunRef
+  PAGE:0000000140898920                 lea     rcx, [rbx+38h]; RunRef
+  PAGE:0000000140898924                 call    ExReleaseRundownProtection_0
+  PAGE:0000000140898929                 cmp     [r14], r14
+  PAGE:000000014089892C                 jnz     short loc_140898943
+  PAGE:000000014089892E                 call    KeLeaveCriticalRegion
+  PAGE:0000000140898933                 ; Object
+  PAGE:0000000140898933                 mov     rcx, [rsi+8]; Object
+  PAGE:0000000140898937                 ; Tag
+  PAGE:0000000140898937                 mov     edx, 6243624Fh; Tag
+  PAGE:000000014089893C                 call    ObfDereferenceObjectWithTag
+  PAGE:0000000140898941                 jmp     short loc_140898987
+  PAGE:0000000140898943                 mov     ecx, [rsi]
+  PAGE:0000000140898945                 xor     eax, eax
+  PAGE:0000000140898947                 mov     dword ptr [rsp+78h+var_58], ecx
+  PAGE:000000014089894B                 mov     rdx, r14
+  PAGE:000000014089894E                 mov     ecx, [rsi+4]
+  PAGE:0000000140898951                 mov     dword ptr [rsp+78h+var_58+4], ecx
+  PAGE:0000000140898955                 mov     rcx, [rsi+10h]
+  PAGE:0000000140898959                 mov     qword ptr [rsp+78h+var_48], rcx
+  PAGE:000000014089895E                 mov     rcx, [rsi+8]
+  PAGE:0000000140898962                 mov     qword ptr [rsp+78h+var_58+8], rcx
+  PAGE:0000000140898967                 lea     rcx, [rsp+78h+var_58]
+  PAGE:000000014089896C                 mov     qword ptr [rsp+78h+var_48+8], rax
+  PAGE:0000000140898971                 mov     qword ptr [rsp+78h+var_38+4], rax
+  PAGE:0000000140898976                 mov     dword ptr [rsp+78h+var_38+0Ch], eax
+  PAGE:000000014089897A                 mov     dword ptr [rsp+78h+var_38], 0C000009Ah
+  PAGE:0000000140898982                 call    ObpCallPostOperationCallbacks
+  PAGE:0000000140898987                 mov     eax, 0C000009Ah
+  PAGE:000000014089898C                 jmp     loc_14078B5DF
+procedure: |-
+  __int64 __fastcall ObpCallPreOperationCallbacks(_OBJECT_TYPE *a1, __int64 a2, _QWORD *a3)
+  {
+    _EX_PUSH_LOCK *p_TypeLock; // rbp
+    _LIST_ENTRY *p_CallbackList; // r12
+    struct _KTHREAD *CurrentThread; // rax
+    _QWORD *v8; // r13
+    struct _EX_RUNDOWN_REF *p_RundownProtection; // rdi
+    struct _KTHREAD *v10; // rax
+    POB_CALLBACK i; // rbx
+    __int64 v12; // rcx
+    struct _KTHREAD *v13; // rax
+    bool v14; // zf
+    void (__fastcall *PreCall)(_QWORD, __int64); // rax
+    struct _KTHREAD *v16; // rax
+    __int64 v17; // rcx
+    struct _KTHREAD *v18; // rax
+    _QWORD *Pool2; // rax
+    _QWORD **v21; // rcx
+    __int128 v22; // [rsp+20h] [rbp-58h] BYREF
+    __int128 v23; // [rsp+30h] [rbp-48h]
+    __int128 v24; // [rsp+40h] [rbp-38h]
+
+    p_TypeLock = &a1->TypeLock; // 0xB8 = 184 = _OBJECT_TYPE->TypeLock
+    v22 = 0;
+    p_CallbackList = &a1->CallbackList; // 0xC8 = 200 = _OBJECT_TYPE->CallbackList
+    v23 = 0;
+    v24 = 0;
+    CurrentThread = KeGetCurrentThread();
+    v8 = nullptr;
+    p_RundownProtection = nullptr;
+    --CurrentThread->KernelApcDisable;
+    ObfReferenceObjectWithTag(*(PVOID *)(a2 + 8), 'bCbO');
+    v10 = KeGetCurrentThread();
+    --v10->SpecialApcDisable;
+    ExAcquirePushLockSharedEx((ULONG_PTR)p_TypeLock, 0);
+    for ( i = (POB_CALLBACK)p_CallbackList->Flink; i != (POB_CALLBACK)p_CallbackList; i = (POB_CALLBACK)i->ListEntry.Flink )
+    {
+      if ( (i->Active & 1) != 0
+        && (i->Operations & *(_DWORD *)a2) != 0
+        && ExAcquireRundownProtection_0(&i->RundownProtection) )
+      {
+        ExReleasePushLockEx((ULONG_PTR)p_TypeLock, 0);
+        v13 = KeGetCurrentThread();
+        v14 = v13->SpecialApcDisable++ == -1;
+        if ( v14 && ($91F63CE9BDEF55C916692E2874E01B6A *)v13->ApcState.ApcListHead[0].Flink != &v13->___u24 )
+          KiCheckForKernelApcDelivery(v12);
+        if ( p_RundownProtection )
+        {
+          ExReleaseRundownProtection_0(p_RundownProtection);
+          p_RundownProtection = nullptr;
+        }
+        if ( i->PostCall )
+        {
+          Pool2 = (_QWORD *)ExAllocatePool2(0x100, 32, 'lFbO');
+          v8 = Pool2;
+          if ( !Pool2 )
+          {
+            ExReleaseRundownProtection_0(&i->RundownProtection);
+            if ( (_QWORD *)*a3 == a3 )
+            {
+              KeLeaveCriticalRegion();
+              ObfDereferenceObjectWithTag(*(PVOID *)(a2 + 8), 'bCbO');
+            }
+            else
+            {
+              *(_QWORD *)&v22 = *(_QWORD *)a2;
+              v23 = *(unsigned __int64 *)(a2 + 16);
+              *((_QWORD *)&v22 + 1) = *(_QWORD *)(a2 + 8);
+              v24 = 0xC000009A;
+              ObpCallPostOperationCallbacks(&v22, a3);
+            }
+            return 3221225626LL;
+          }
+          Pool2[2] = i;
+          Pool2[3] = 0;
+          v21 = (_QWORD **)a3[1];
+          if ( *v21 != a3 )
+            __fastfail(3u);
+          *Pool2 = a3;
+          Pool2[1] = v21;
+          *v21 = Pool2;
+          a3[1] = Pool2;
+        }
+        PreCall = (void (__fastcall *)(_QWORD, __int64))i->PreCall;
+        if ( PreCall )
+        {
+          PreCall(*((_QWORD *)i->ObHandle + 1), a2);
+          if ( i->PostCall )
+            v8[3] = *(_QWORD *)(a2 + 24);
+          else
+            p_RundownProtection = &i->RundownProtection;
+          *(_QWORD *)(a2 + 24) = 0;
+        }
+        v16 = KeGetCurrentThread();
+        --v16->SpecialApcDisable;
+        ExAcquirePushLockSharedEx((ULONG_PTR)p_TypeLock, 0);
+      }
+    }
+    ExReleasePushLockEx((ULONG_PTR)p_TypeLock, 0);
+    v18 = KeGetCurrentThread();
+    v14 = v18->SpecialApcDisable++ == -1;
+    if ( v14 && ($91F63CE9BDEF55C916692E2874E01B6A *)v18->ApcState.ApcListHead[0].Flink != &v18->___u24 )
+      KiCheckForKernelApcDelivery(v17);
+    if ( p_RundownProtection )
+      ExReleaseRundownProtection_0(p_RundownProtection);
+    if ( (_QWORD *)*a3 == a3 )
+    {
+      ObfDereferenceObjectWithTag(*(PVOID *)(a2 + 8), 0x6243624Fu);
+      KeLeaveCriticalRegion();
+    }
+    return 0;
+  }
