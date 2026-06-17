@@ -267,7 +267,7 @@ Check the current branch:
 git branch --show-current
 ```
 
-- If on `main`: commit to a dev branch (e.g., `dev-idalib` or a new `dev-<feature>` branch).
+- If on `main`: commit to a dev branch (e.g., `dev` or a new `dev-<feature>` branch).
 - If on any other branch: commit directly to the current branch.
 
 Stage only relevant files (finder scripts, reference YAMLs, `config.yaml`). Do not stage `.claude/` tooling directories.
