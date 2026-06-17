@@ -361,6 +361,10 @@ modules:
         expected_input:
           - ObReferenceProcessHandleTable.yaml
 
+      - name: find-ObpCallPreOperationCallbacks
+        expected_output:
+          - ObpCallPreOperationCallbacks.yaml
+
     symbols:
       - name: EgeGuid
         category: struct_offset
