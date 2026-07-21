@@ -72,9 +72,10 @@ LLM_DECOMPILE 相关参数：
 
 ## 生成 LLM_DECOMPILE reference YAML
 
-连接现有 IDA MCP session，按默认文件名 `<func_name>.<arch>.yaml` 输出：
+连接现有 IDA MCP session，按默认文件名 `<func_name>.<arch>.yaml` 输出。客户端会自动兼容旧版 worker 与新版 supervisor 协议；新版服务存在多个活跃 IDB 时，使用服务端 session id 显式选择：
 
 - `uv run python generate_reference_yaml.py -func_name="ExReferenceCallBackBlock"`
+- `uv run python generate_reference_yaml.py -func_name="ExReferenceCallBackBlock" -mcp_database="<session_id>"`
 
 手动指定输出 YAML 文件名，文件仍写到 `ida_preprocessor_scripts/references/<module>/` 下：
 
@@ -84,7 +85,7 @@ LLM_DECOMPILE 相关参数：
 
 - `uv run python generate_reference_yaml.py -func_name="PgInitContext" -outyaml="PgInitContext.yaml"`
 
-自动启动 `idalib-mcp`：
+自动启动 `idalib-mcp`；新版 supervisor 中匹配 IDB 尚未 active 时，会在 MCP 启动超时内等待长时间 IDA auto-analysis 完成：
 
 - `uv run python generate_reference_yaml.py -func_name="ExReferenceCallBackBlock" -auto_start_mcp -binary="symbols/amd64/ntoskrnl.exe.10.0.26100.1/{sha256}/ntoskrnl.exe"`
 
@@ -95,6 +96,7 @@ LLM_DECOMPILE 相关参数：
 - `-outyaml=<name>.yaml`
 - `-mcp_host=127.0.0.1`
 - `-mcp_port=13337`
+- `-mcp_database=<session_id>`（新版 supervisor 存在多个活跃 IDB 时使用）
 - `-debug`
 
 ## 启动上传服务

@@ -30,6 +30,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from ida_mcp_session import open_ida_mcp_session
 from ida_skill_preprocessor import (
     PREPROCESS_STATUS_ABSENT_OK as _PREPROCESS_STATUS_ABSENT_OK,
     PREPROCESS_STATUS_FAILED as _PREPROCESS_STATUS_FAILED,
@@ -799,73 +800,6 @@ def start_idalib_mcp(
     return process
 
 
-async def _open_session(base_url: str, debug: bool = False):
-    _debug_log(debug, f"opening MCP session at {base_url}")
-    from mcp import ClientSession
-    from mcp.client.streamable_http import streamable_http_client
-
-    streams = None
-    session = None
-    streams_entered = False
-    session_entered = False
-    try:
-        streams = streamable_http_client(base_url)
-        read_stream, write_stream, _ = await streams.__aenter__()
-        streams_entered = True
-
-        session = ClientSession(read_stream, write_stream)
-        await session.__aenter__()
-        session_entered = True
-
-        await session.initialize()
-        return streams, session
-    except BaseException:
-        if session is not None and session_entered:
-            try:
-                await session.__aexit__(None, None, None)
-            except BaseException:
-                pass
-        if streams is not None and streams_entered:
-            try:
-                await streams.__aexit__(None, None, None)
-            except BaseException:
-                pass
-        raise
-
-
-async def _session_matches_binary(session, binary_path: Path) -> bool:
-    try:
-        result = await session.call_tool(
-            name="py_eval",
-            arguments={"code": SURVEY_CURRENT_IDB_PATH_PY_EVAL},
-        )
-    except Exception:
-        return False
-
-    payload = _parse_py_eval_result_json(result)
-    if not isinstance(payload, dict):
-        return False
-
-    metadata = payload.get("metadata")
-    if not isinstance(metadata, dict):
-        return False
-
-    current_path = metadata.get("path")
-    if not isinstance(current_path, str) or not current_path:
-        return False
-
-    try:
-        current_idb_path = Path(current_path).resolve(strict=False)
-        target_binary_path = Path(binary_path).resolve(strict=False)
-    except OSError:
-        return False
-
-    return (
-        current_idb_path.name.lower().startswith(target_binary_path.name.lower())
-        and current_idb_path.parent == target_binary_path.parent
-    )
-
-
 class LazyIdalibSession:
     def __init__(
         self,
@@ -878,8 +812,8 @@ class LazyIdalibSession:
         self.debug = debug
         self.port: int | None = None
         self.process = None
-        self.streams = None
         self.session = None
+        self.session_context = None
 
     async def ensure_started(self):
         if self.session is not None:
@@ -896,33 +830,29 @@ class LazyIdalibSession:
                     port=self.port,
                     debug=self.debug,
                 )
-            if self.streams is None or self.session is None:
-                self.streams, self.session = await _open_session(
-                    f"http://{self.host}:{self.port}/mcp",
-                    debug=self.debug,
+            if self.session_context is None:
+                self.session_context = open_ida_mcp_session(
+                    self.host,
+                    self.port,
+                    expected_binary=self.binary_path,
+                    auto_started=True,
+                    database_ready_timeout=MCP_STARTUP_TIMEOUT,
                 )
-            if not await _session_matches_binary(self.session, self.binary_path):
-                _debug_log(self.debug, f"binary mismatch for {self.binary_path}, cleaning up startup state")
-                raise RuntimeError(f"MCP session target mismatch for {self.binary_path}")
+            if self.session is None:
+                self.session = await self.session_context.__aenter__()
             return self.session
         except BaseException:
             _debug_log(self.debug, f"startup cleanup for {self.binary_path}")
-            session = self.session
-            streams = self.streams
+            session_context = self.session_context
             process = self.process
 
             self.process = None
-            self.streams = None
             self.session = None
+            self.session_context = None
 
-            if session is not None:
+            if session_context is not None:
                 try:
-                    await session.__aexit__(None, None, None)
-                except BaseException:
-                    pass
-            if streams is not None:
-                try:
-                    await streams.__aexit__(None, None, None)
+                    await session_context.__aexit__(None, None, None)
                 except BaseException:
                     pass
 
@@ -942,15 +872,14 @@ class LazyIdalibSession:
         return await session.call_tool(name=name, arguments=arguments)
 
     async def _close_handles(self) -> None:
-        session = self.session
-        streams = self.streams
+        session_context = self.session_context
         self.session = None
-        self.streams = None
+        self.session_context = None
         cancel_error = None
 
-        if session is not None:
+        if session_context is not None:
             try:
-                await session.__aexit__(None, None, None)
+                await session_context.__aexit__(None, None, None)
             except asyncio.CancelledError as exc:
                 if _is_mcp_cancel_scope_cancelled(exc):
                     _debug_log(
@@ -961,24 +890,11 @@ class LazyIdalibSession:
                     cancel_error = exc
             except Exception:
                 pass
-        if streams is not None:
-            try:
-                await streams.__aexit__(None, None, None)
-            except asyncio.CancelledError as exc:
-                if _is_mcp_cancel_scope_cancelled(exc):
-                    _debug_log(
-                        self.debug,
-                        _format_close_cancelled_message("stream exit", exc),
-                    )
-                elif cancel_error is None:
-                    cancel_error = exc
-            except Exception:
-                pass
         if cancel_error is not None:
             raise cancel_error
 
     async def close(self) -> None:
-        if self.process is not None or self.streams is not None or self.session is not None:
+        if self.process is not None or self.session_context is not None or self.session is not None:
             _debug_log(self.debug, f"closing lazy MCP session for {self.binary_path}")
         process = self.process
         self.process = None
@@ -991,7 +907,8 @@ class LazyIdalibSession:
                 await self._close_handles()
                 return
 
-            if self.session is not None:
+            binding = getattr(self.session, "binding", None)
+            if self.session is not None and getattr(binding, "should_auto_quit", False):
                 try:
                     await asyncio.wait_for(
                         self.session.call_tool(

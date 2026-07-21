@@ -27,6 +27,7 @@ Parameters:
     -arch            Optional arch override; supported values: amd64, arm64
     -mcp_host        MCP host, default: 127.0.0.1
     -mcp_port        MCP port, default: 13337
+    -mcp_database    Explicit active MCP database session id for multi-IDB servers
     -debug           Enable debug mode
     -binary          Binary path used only with -auto_start_mcp
     -auto_start_mcp  Launch idalib-mcp automatically for -binary instead of attaching
@@ -44,6 +45,14 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from ida_mcp_session import (
+    McpConnectionError,
+    McpContractError,
+    McpDatabaseSelectionError,
+    McpToolCallError,
+    open_ida_mcp_session,
+)
 
 SUPPORTED_ARCHES = ("amd64", "arm64")
 _INVALID_FILENAME_CHARS = frozenset(':?*<>|"')
@@ -213,6 +222,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("-arch", choices=SUPPORTED_ARCHES)
     parser.add_argument("-mcp_host", default="127.0.0.1")
     parser.add_argument("-mcp_port", type=int, default=13337)
+    parser.add_argument("-mcp_database")
     parser.add_argument("-debug", action="store_true")
     parser.add_argument("-binary")
     parser.add_argument("-auto_start_mcp", action="store_true")
@@ -469,26 +479,44 @@ async def survey_current_binary_path(session: Any) -> Path:
 
 
 @asynccontextmanager
-async def attach_existing_mcp_session(host: str, port: int, debug: bool):
-    streams = None
-    session = None
+async def attach_existing_mcp_session(
+    host: str,
+    port: int,
+    debug: bool,
+    *,
+    explicit_database: str | None = None,
+):
+    del debug
+    session_kwargs = {}
+    if explicit_database is not None:
+        session_kwargs["explicit_database"] = explicit_database
     try:
-        dump_symbols = _load_dump_symbols_module()
-        streams, session = await dump_symbols._open_session(
-            f"http://{host}:{port}/mcp",
-            debug=debug,
+        async with open_ida_mcp_session(host, port, **session_kwargs) as session:
+            yield session
+    except (
+        McpConnectionError,
+        McpContractError,
+        McpDatabaseSelectionError,
+        McpToolCallError,
+    ) as exc:
+        raise _reference_generation_error(str(exc)) from exc
+
+
+async def _quit_auto_started_mcp_session(session: Any, timeout: float) -> None:
+    binding = getattr(session, "binding", None)
+    if not getattr(binding, "should_auto_quit", False):
+        return
+    try:
+        await asyncio.wait_for(
+            session.call_tool(
+                name="py_eval",
+                arguments={"code": "import idc; idc.qexit(0)"},
+            ),
+            timeout=timeout,
         )
-    except Exception as exc:
-        raise _reference_generation_error(
-            f"unable to open MCP session at {host}:{port}"
-        ) from exc
-    try:
-        yield session
-    finally:
-        if session is not None:
-            await session.__aexit__(None, None, None)
-        if streams is not None:
-            await streams.__aexit__(None, None, None)
+    except BaseException as exc:
+        if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+            raise
 
 
 @asynccontextmanager
@@ -497,14 +525,10 @@ async def autostart_mcp_session(
     host: str,
     port: int,
     debug: bool,
+    *,
+    explicit_database: str | None = None,
 ):
-    def _suppress_cleanup_error(exc: BaseException) -> None:
-        if isinstance(exc, (KeyboardInterrupt, SystemExit)):
-            raise exc
-
     process = None
-    streams = None
-    session = None
     try:
         dump_symbols = _load_dump_symbols_module()
         process = dump_symbols.start_idalib_mcp(
@@ -518,45 +542,30 @@ async def autostart_mcp_session(
             f"failed to start idalib-mcp for {binary_path}"
         ) from exc
     try:
-        streams, session = await dump_symbols._open_session(
-            f"http://{host}:{port}/mcp",
-            debug=debug,
-        )
-    except Exception as exc:
-        raise _reference_generation_error(
-            f"unable to open MCP session at {host}:{port}"
-        ) from exc
-    try:
-        matches_target_binary = await dump_symbols._session_matches_binary(
-            session,
-            binary_path,
-        )
-        if not matches_target_binary:
-            raise _reference_generation_error(
-                f"MCP session target mismatch for {binary_path}"
-            )
-        yield session
+        session_kwargs = {
+            "expected_binary": binary_path,
+            "auto_started": True,
+            "database_ready_timeout": dump_symbols.MCP_STARTUP_TIMEOUT,
+        }
+        if explicit_database is not None:
+            session_kwargs["explicit_database"] = explicit_database
+        try:
+            async with open_ida_mcp_session(host, port, **session_kwargs) as session:
+                try:
+                    yield session
+                finally:
+                    await _quit_auto_started_mcp_session(
+                        session,
+                        dump_symbols.IDALIB_QEXIT_TIMEOUT_SECONDS,
+                    )
+        except (
+            McpConnectionError,
+            McpContractError,
+            McpDatabaseSelectionError,
+            McpToolCallError,
+        ) as exc:
+            raise _reference_generation_error(str(exc)) from exc
     finally:
-        if session is not None:
-            try:
-                await asyncio.wait_for(
-                    session.call_tool(
-                        name="py_eval",
-                        arguments={"code": "import idc; idc.qexit(0)"},
-                    ),
-                    timeout=dump_symbols.IDALIB_QEXIT_TIMEOUT_SECONDS,
-                )
-            except BaseException as exc:
-                _suppress_cleanup_error(exc)
-            try:
-                await session.__aexit__(None, None, None)
-            except BaseException as exc:
-                _suppress_cleanup_error(exc)
-        if streams is not None:
-            try:
-                await streams.__aexit__(None, None, None)
-            except BaseException as exc:
-                _suppress_cleanup_error(exc)
         if process is not None and process.poll() is None:
             try:
                 await asyncio.to_thread(process.wait, timeout=10)
@@ -578,16 +587,25 @@ async def run_reference_generation(
         if repo_root is not None
         else Path(__file__).resolve().parent
     )
-    session_cm = (
-        autostart_mcp_session(
-            Path(args.binary).resolve(strict=False),
-            args.mcp_host,
-            args.mcp_port,
-            args.debug,
-        )
-        if args.auto_start_mcp
-        else attach_existing_mcp_session(args.mcp_host, args.mcp_port, args.debug)
-    )
+    if args.auto_start_mcp:
+        session_kwargs = {
+            "binary_path": Path(args.binary).resolve(strict=False),
+            "host": args.mcp_host,
+            "port": args.mcp_port,
+            "debug": args.debug,
+        }
+        if args.mcp_database is not None:
+            session_kwargs["explicit_database"] = args.mcp_database
+        session_cm = autostart_mcp_session(**session_kwargs)
+    else:
+        session_kwargs = {
+            "host": args.mcp_host,
+            "port": args.mcp_port,
+            "debug": args.debug,
+        }
+        if args.mcp_database is not None:
+            session_kwargs["explicit_database"] = args.mcp_database
+        session_cm = attach_existing_mcp_session(**session_kwargs)
     async with session_cm as session:
         binary_hint_path = (
             Path(args.binary).resolve(strict=False)

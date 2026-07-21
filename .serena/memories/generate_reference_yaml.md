@@ -4,8 +4,8 @@
 `generate_reference_yaml.py` is a CLI orchestration script for producing one LLM decompile reference YAML from an IDA database through an MCP session. It resolves the current module, architecture, binary directory, and either a function target or a code-region target, then delegates YAML extraction and validation to `ida_reference_export.export_reference_yaml_via_mcp` or `ida_reference_export.export_code_region_yaml_via_mcp`.
 
 ## Responsibilities
-- Parse CLI options for the target name, optional module/architecture overrides, MCP endpoint, debug mode, auto-start binary mode, and optional `-outyaml` output filename override.
-- Attach to an existing IDA MCP session or auto-start `idalib-mcp` for a provided binary, including target-binary verification and cleanup.
+- Parse CLI options for the target name, optional module/architecture overrides, MCP endpoint, optional `-mcp_database` session id, debug mode, auto-start binary mode, and optional `-outyaml` output filename override.
+- Attach to an existing legacy worker or newer supervisor MCP service through `ida_mcp_session`, or auto-start `idalib-mcp` for a provided binary, including target-IDB selection and cleanup.
 - Infer `module`, `arch`, `binary_dir`, and concrete `binary_path` from the current IDB/binary path and `config.yaml` module specs.
 - Resolve the reference target from a local artifact: `func_va`/`func_rva` for functions, `code_va`/`code_rva` plus `code_size` for `category: code` regions, or exact-name lookup inside IDA for function names when no artifact is available.
 - Build the output path under `ida_preprocessor_scripts/references/<module>/`, using `<func_name>.<arch>.yaml` by default or the manual `-outyaml=<name>.yaml` filename when provided, and trigger the appropriate reference YAML export.
@@ -15,7 +15,8 @@
 - `generate_reference_yaml.py` - helpers `_match_module_spec`, `_find_arch_from_path`, `_normalize_component`, `_lookup_function_start_addresses_by_exact_name`, `_query_image_base_via_ida`, `_parse_py_eval_result_json`, `_resolve_code_region_target`
 - `ida_reference_export.py` - `export_reference_yaml_via_mcp`, `export_code_region_yaml_via_mcp`, `build_reference_yaml_export_py_eval`, `build_code_region_yaml_export_py_eval`, `validate_reference_yaml_payload`, `ReferenceGenerationError`
 - `ida_code_region_export_template.py` - `CODE_REGION_EXPORT_TEMPLATE`, `get_code_region_disasm`
-- `dump_symbols.py` - `_open_session`, `_session_matches_binary`, `start_idalib_mcp`, `SURVEY_CURRENT_IDB_PATH_PY_EVAL`, `IDALIB_QEXIT_TIMEOUT_SECONDS`, `_resolve_binary_path`
+- `ida_mcp_session.py` - `open_ida_mcp_session` and typed MCP connection/contract/database/tool errors
+- `dump_symbols.py` - `start_idalib_mcp`, `SURVEY_CURRENT_IDB_PATH_PY_EVAL`, `IDALIB_QEXIT_TIMEOUT_SECONDS`, `_resolve_binary_path`
 - `symbol_config.py` - `load_config`, `ConfigSpec`, `ModuleSpec`
 - `symbol_artifacts.py` - `load_artifact`
 - `tests/test_generate_reference_yaml.py` - coverage for argument validation, path construction, context inference, function VA resolution, attach-mode workflow, and `main`
@@ -64,7 +65,7 @@ Reference target resolution is staged. `resolve_reference_target()` first reads 
 
 ## Dependencies
 - Standard library: `argparse`, `asyncio`, `json`, `subprocess`, `sys`, `contextlib.asynccontextmanager`, `pathlib.Path`, and `typing.Any`.
-- Internal modules: `ida_reference_export` for errors, remote YAML export, function export, code-region export, and payload validation; `ida_code_region_export_template` for address-range disassembly generation; `dump_symbols` for MCP startup/session helpers and binary survey code; `symbol_config` for `config.yaml` parsing; `symbol_artifacts` for existing YAML artifact loading.
+- Internal modules: `ida_mcp_session` for legacy/supervisor session binding and database routing; `ida_reference_export` for errors, remote YAML export, function export, code-region export, and payload validation; `ida_code_region_export_template` for address-range disassembly generation; `dump_symbols` for MCP process startup, binary survey code, and shared binary helpers; `symbol_config` for `config.yaml` parsing; `symbol_artifacts` for existing YAML artifact loading.
 - Runtime tools and services: `idalib-mcp`, IDA Python APIs exposed through MCP `py_eval`, and an HTTP MCP endpoint at `http://<host>:<port>/mcp`.
 - Repository resources: `config.yaml`, symbol binary directories, optional per-function artifacts named `<func_name>.yaml`, and output directory `ida_preprocessor_scripts/references/`.
 
@@ -74,7 +75,8 @@ Reference target resolution is staged. `resolve_reference_target()` first reads 
 - `-outyaml=<name>.yaml` overrides only the final reference YAML filename under `ida_preprocessor_scripts/references/<module>/`; it does not change artifact lookup, module inference, or allow subdirectories/absolute paths.
 - Module override is a consistency check, not a manual routing mechanism; a mismatch with the inferred binary directory raises `ReferenceGenerationError`.
 - Exact-name IDA lookup is strict: zero matches fail with `unable to resolve function address`, and multiple unique function starts fail with `multiple function addresses`.
-- Auto-start cleanup tries `idc.qexit(0)`, closes MCP session/streams, waits up to 10 seconds for the subprocess, and kills it if it does not exit.
+- The MCP adapter automatically detects legacy worker versus supervisor contracts. With multiple active supervisor databases, attach mode requires `-mcp_database=<session_id>` and fails closed instead of guessing. Auto-start mode retries a matching but inactive supervisor IDB until `dump_symbols.MCP_STARTUP_TIMEOUT`, covering long IDA auto-analysis after the HTTP port is already available.
+- Auto-start cleanup tries `idc.qexit(0)` only for an owned auto-started worker binding, closes the shared MCP context, waits up to 10 seconds for the subprocess, and kills it if it does not exit.
 - All expected user-facing workflow failures are normalized to `ida_reference_export.ReferenceGenerationError`; `main()` prints those messages to stderr and returns exit code `1`, while unexpected exceptions are re-raised.
 
 ## Callers

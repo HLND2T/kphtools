@@ -86,6 +86,8 @@ uv run dump_symbols.py [-symboldir="path/to/symbols"] [-configyaml="config.yaml"
 
 The script scans `<symboldir>/<arch>/<file>.<version>/<sha256>/`, resolves symbols into `{symbol}.yaml`, and writes them next to the corresponding PE/PDB files.
 
+When auto-starting a newer supervisor-based `idalib-mcp`, the client waits for the matching IDB to become active after the HTTP port opens. Long IDA auto-analysis therefore gets an additional IDB-ready wait using the 20-minute MCP startup timeout instead of failing immediately on an inactive worker.
+
 LLM fallback options are shared by preprocessor scripts that declare `LLM_DECOMPILE`:
 
 ```bash
@@ -127,6 +129,16 @@ Attach to an existing MCP session:
 uv run generate_reference_yaml.py -func_name="ExReferenceCallBackBlock"
 ```
 
+The MCP client automatically supports both legacy worker sessions and the newer
+supervisor protocol. When the supervisor exposes multiple active IDA databases,
+select one explicitly with its session id:
+
+```bash
+uv run generate_reference_yaml.py \
+  -func_name="ExReferenceCallBackBlock" \
+  -mcp_database="<session_id>"
+```
+
 Auto-start `idalib-mcp` for a specific binary:
 
 ```bash
@@ -135,6 +147,8 @@ uv run generate_reference_yaml.py \
   -auto_start_mcp \
   -binary="symbols/amd64/ntoskrnl.exe.10.0.26100.1/{sha256}/ntoskrnl.exe"
 ```
+
+Auto-start mode also waits up to the MCP startup timeout for the matching supervisor IDB to finish startup and become active.
 
 Check the generated YAML:
 
