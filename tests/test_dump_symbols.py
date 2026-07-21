@@ -3,9 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import asyncio
 import subprocess
-import sys
 from types import SimpleNamespace
-import types
 import unittest
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -13,102 +11,6 @@ import dump_symbols
 
 
 class TestDumpSymbols(unittest.TestCase):
-    def test_open_session_cleans_up_streams_when_session_enter_fails(self) -> None:
-        fake_streams = AsyncMock()
-        read_stream = object()
-        write_stream = object()
-        fake_streams.__aenter__ = AsyncMock(return_value=(read_stream, write_stream, object()))
-        fake_streams.__aexit__ = AsyncMock()
-
-        fake_session = AsyncMock()
-        fake_session.__aenter__ = AsyncMock(side_effect=RuntimeError("session enter failed"))
-        fake_session.__aexit__ = AsyncMock()
-        fake_session.initialize = AsyncMock()
-
-        fake_mcp_module = types.ModuleType("mcp")
-        fake_mcp_module.ClientSession = MagicMock(return_value=fake_session)
-        fake_mcp_client_module = types.ModuleType("mcp.client")
-        fake_streamable_http_module = types.ModuleType("mcp.client.streamable_http")
-        fake_streamable_http_module.streamable_http_client = MagicMock(return_value=fake_streams)
-
-        with patch.dict(
-            sys.modules,
-            {
-                "mcp": fake_mcp_module,
-                "mcp.client": fake_mcp_client_module,
-                "mcp.client.streamable_http": fake_streamable_http_module,
-            },
-        ):
-            with self.assertRaisesRegex(RuntimeError, "session enter failed"):
-                asyncio.run(dump_symbols._open_session("http://127.0.0.1:13337/mcp"))
-
-        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_session.__aexit__.assert_not_awaited()
-
-    def test_open_session_cleans_up_session_and_streams_when_initialize_fails(self) -> None:
-        fake_streams = AsyncMock()
-        read_stream = object()
-        write_stream = object()
-        fake_streams.__aenter__ = AsyncMock(return_value=(read_stream, write_stream, object()))
-        fake_streams.__aexit__ = AsyncMock()
-
-        fake_session = AsyncMock()
-        fake_session.__aenter__ = AsyncMock(return_value=fake_session)
-        fake_session.__aexit__ = AsyncMock()
-        fake_session.initialize = AsyncMock(side_effect=RuntimeError("initialize failed"))
-
-        fake_mcp_module = types.ModuleType("mcp")
-        fake_mcp_module.ClientSession = MagicMock(return_value=fake_session)
-        fake_mcp_client_module = types.ModuleType("mcp.client")
-        fake_streamable_http_module = types.ModuleType("mcp.client.streamable_http")
-        fake_streamable_http_module.streamable_http_client = MagicMock(return_value=fake_streams)
-
-        with patch.dict(
-            sys.modules,
-            {
-                "mcp": fake_mcp_module,
-                "mcp.client": fake_mcp_client_module,
-                "mcp.client.streamable_http": fake_streamable_http_module,
-            },
-        ):
-            with self.assertRaisesRegex(RuntimeError, "initialize failed"):
-                asyncio.run(dump_symbols._open_session("http://127.0.0.1:13337/mcp"))
-
-        fake_session.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
-
-    def test_open_session_cleans_up_session_and_streams_when_initialize_cancelled(self) -> None:
-        fake_streams = AsyncMock()
-        read_stream = object()
-        write_stream = object()
-        fake_streams.__aenter__ = AsyncMock(return_value=(read_stream, write_stream, object()))
-        fake_streams.__aexit__ = AsyncMock()
-
-        fake_session = AsyncMock()
-        fake_session.__aenter__ = AsyncMock(return_value=fake_session)
-        fake_session.__aexit__ = AsyncMock()
-        fake_session.initialize = AsyncMock(side_effect=asyncio.CancelledError())
-
-        fake_mcp_module = types.ModuleType("mcp")
-        fake_mcp_module.ClientSession = MagicMock(return_value=fake_session)
-        fake_mcp_client_module = types.ModuleType("mcp.client")
-        fake_streamable_http_module = types.ModuleType("mcp.client.streamable_http")
-        fake_streamable_http_module.streamable_http_client = MagicMock(return_value=fake_streams)
-
-        with patch.dict(
-            sys.modules,
-            {
-                "mcp": fake_mcp_module,
-                "mcp.client": fake_mcp_client_module,
-                "mcp.client.streamable_http": fake_streamable_http_module,
-            },
-        ):
-            with self.assertRaises(asyncio.CancelledError):
-                asyncio.run(dump_symbols._open_session("http://127.0.0.1:13337/mcp"))
-
-        fake_session.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
-
     def test_topological_sort_uses_expected_input_output(self) -> None:
         skills = [
             {"name": "find-B", "expected_output": ["B.yaml"], "expected_input": ["A.yaml"]},
@@ -1458,13 +1360,6 @@ class TestDumpSymbols(unittest.TestCase):
                     dump_symbols,
                     "start_idalib_mcp",
                 ) as mock_start,
-                patch.object(dump_symbols, "_open_session", new=AsyncMock()) as mock_open_session,
-                patch.object(
-                    dump_symbols,
-                    "_session_matches_binary",
-                    new=AsyncMock(),
-                    create=True,
-                ) as mock_session_matches_binary,
                 patch.object(
                     dump_symbols,
                     "process_binary_dir",
@@ -1485,8 +1380,6 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertIs(mock_process_binary.await_args.kwargs["session"], fake_lazy_session)
         self.assertEqual("find-EpObjectTable", mock_process_binary.await_args.kwargs["skill"])
         mock_start.assert_not_called()
-        mock_open_session.assert_not_awaited()
-        mock_session_matches_binary.assert_not_awaited()
         mock_process_binary.assert_awaited_once()
         fake_lazy_session.close.assert_awaited_once()
 
@@ -1503,13 +1396,7 @@ class TestDumpSymbols(unittest.TestCase):
 
             with (
                 patch.object(dump_symbols, "start_idalib_mcp") as mock_start,
-                patch.object(dump_symbols, "_open_session", new=AsyncMock()) as mock_open_session,
-                patch.object(
-                    dump_symbols,
-                    "_session_matches_binary",
-                    new=AsyncMock(),
-                    create=True,
-                ) as mock_session_matches_binary,
+                patch.object(dump_symbols, "open_ida_mcp_session") as mock_open_session,
             ):
                 ok, did_work = asyncio.run(
                     dump_symbols._process_module_binary(module, binary_dir, pdb_path, args)
@@ -1518,8 +1405,7 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertTrue(ok)
         self.assertFalse(did_work)
         mock_start.assert_not_called()
-        mock_open_session.assert_not_awaited()
-        mock_session_matches_binary.assert_not_awaited()
+        mock_open_session.assert_not_called()
 
     def test_process_binary_dir_marks_activity_when_work_is_required(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -1634,13 +1520,7 @@ class TestDumpSymbols(unittest.TestCase):
 
             with (
                 patch.object(dump_symbols, "start_idalib_mcp") as mock_start,
-                patch.object(dump_symbols, "_open_session", new=AsyncMock()) as mock_open_session,
-                patch.object(
-                    dump_symbols,
-                    "_session_matches_binary",
-                    new=AsyncMock(),
-                    create=True,
-                ) as mock_session_matches_binary,
+                patch.object(dump_symbols, "open_ida_mcp_session") as mock_open_session,
                 patch.object(
                     dump_symbols,
                     "preprocess_single_skill_via_mcp",
@@ -1657,8 +1537,7 @@ class TestDumpSymbols(unittest.TestCase):
         mock_preprocess.assert_awaited_once()
         mock_run_skill.assert_not_called()
         mock_start.assert_not_called()
-        mock_open_session.assert_not_awaited()
-        mock_session_matches_binary.assert_not_awaited()
+        mock_open_session.assert_not_called()
 
     def test_lazy_idalib_session_starts_on_first_call_and_reuses_session(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -1667,11 +1546,14 @@ class TestDumpSymbols(unittest.TestCase):
             binary_path.write_text("", encoding="utf-8")
             fake_process = MagicMock()
             fake_process.poll.return_value = None
-            fake_streams = AsyncMock()
             fake_session = AsyncMock()
+            fake_session.binding = SimpleNamespace(should_auto_quit=True)
             first_result = object()
             second_result = object()
             fake_session.call_tool = AsyncMock(side_effect=[first_result, second_result])
+            fake_context = MagicMock()
+            fake_context.__aenter__ = AsyncMock(return_value=fake_session)
+            fake_context.__aexit__ = AsyncMock()
 
             with (
                 patch.object(
@@ -1685,21 +1567,14 @@ class TestDumpSymbols(unittest.TestCase):
                 ) as mock_start,
                 patch.object(
                     dump_symbols,
-                    "_open_session",
-                    new=AsyncMock(return_value=(fake_streams, fake_session)),
+                    "open_ida_mcp_session",
+                    return_value=fake_context,
                 ) as mock_open_session,
-                patch.object(
-                    dump_symbols,
-                    "_session_matches_binary",
-                    new=AsyncMock(return_value=True),
-                    create=True,
-                ) as mock_session_matches_binary,
             ):
                 session = dump_symbols.LazyIdalibSession(binary_path=binary_path)
                 self.assertIsNone(session.session)
                 mock_start.assert_not_called()
-                mock_open_session.assert_not_awaited()
-                mock_session_matches_binary.assert_not_awaited()
+                mock_open_session.assert_not_called()
 
                 async def run_sequence():
                     call_one = await session.call_tool("py_eval", {"code": "1"})
@@ -1717,11 +1592,13 @@ class TestDumpSymbols(unittest.TestCase):
             port=24567,
             debug=False,
         )
-        mock_open_session.assert_awaited_once_with(
-            "http://127.0.0.1:24567/mcp",
-            debug=False,
+        mock_open_session.assert_called_once_with(
+            "127.0.0.1",
+            24567,
+            expected_binary=binary_path,
+            auto_started=True,
+            database_ready_timeout=dump_symbols.MCP_STARTUP_TIMEOUT,
         )
-        mock_session_matches_binary.assert_awaited_once_with(fake_session, binary_path)
         fake_session.call_tool.assert_has_awaits(
             [
                 call(name="py_eval", arguments={"code": "1"}),
@@ -1732,8 +1609,7 @@ class TestDumpSymbols(unittest.TestCase):
                 ),
             ]
         )
-        fake_session.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_context.__aexit__.assert_awaited_once_with(None, None, None)
         fake_process.kill.assert_not_called()
         fake_process.wait.assert_called_once_with(timeout=10)
 
@@ -1744,9 +1620,12 @@ class TestDumpSymbols(unittest.TestCase):
             binary_path.write_text("", encoding="utf-8")
             fake_process = MagicMock()
             fake_process.poll.return_value = None
-            fake_streams = AsyncMock()
             fake_session = AsyncMock()
+            fake_session.binding = SimpleNamespace(should_auto_quit=True)
             fake_session.call_tool = AsyncMock()
+            fake_context = MagicMock()
+            fake_context.__aenter__ = AsyncMock(return_value=fake_session)
+            fake_context.__aexit__ = AsyncMock()
 
             with (
                 patch.object(
@@ -1762,15 +1641,9 @@ class TestDumpSymbols(unittest.TestCase):
                 ),
                 patch.object(
                     dump_symbols,
-                    "_open_session",
-                    new=AsyncMock(return_value=(fake_streams, fake_session)),
+                    "open_ida_mcp_session",
+                    return_value=fake_context,
                 ) as mock_open_session,
-                patch.object(
-                    dump_symbols,
-                    "_session_matches_binary",
-                    new=AsyncMock(return_value=True),
-                    create=True,
-                ),
                 patch("builtins.print") as mock_print,
             ):
                 lazy_session = dump_symbols.LazyIdalibSession(
@@ -1784,9 +1657,12 @@ class TestDumpSymbols(unittest.TestCase):
 
                 asyncio.run(run_sequence())
 
-        mock_open_session.assert_awaited_once_with(
-            "http://127.0.0.1:24567/mcp",
-            debug=True,
+        mock_open_session.assert_called_once_with(
+            "127.0.0.1",
+            24567,
+            expected_binary=binary_path,
+            auto_started=True,
+            database_ready_timeout=dump_symbols.MCP_STARTUP_TIMEOUT,
         )
         printed_messages = [
             c.args[0]
@@ -1821,7 +1697,7 @@ class TestDumpSymbols(unittest.TestCase):
             printed_messages,
         )
 
-    def test_lazy_idalib_session_cleans_up_after_binary_mismatch(self) -> None:
+    def test_lazy_idalib_session_cleans_up_after_session_selection_failure(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             binary_path = binary_dir / "ntoskrnl.exe"
@@ -1829,8 +1705,11 @@ class TestDumpSymbols(unittest.TestCase):
 
             fake_process = MagicMock()
             fake_process.poll.return_value = None
-            fake_streams = AsyncMock()
-            fake_session = AsyncMock()
+            fake_context = MagicMock()
+            fake_context.__aenter__ = AsyncMock(
+                side_effect=RuntimeError("MCP session target mismatch")
+            )
+            fake_context.__aexit__ = AsyncMock()
 
             with (
                 patch.object(
@@ -1846,15 +1725,9 @@ class TestDumpSymbols(unittest.TestCase):
                 ) as mock_start,
                 patch.object(
                     dump_symbols,
-                    "_open_session",
-                    new=AsyncMock(return_value=(fake_streams, fake_session)),
+                    "open_ida_mcp_session",
+                    return_value=fake_context,
                 ) as mock_open_session,
-                patch.object(
-                    dump_symbols,
-                    "_session_matches_binary",
-                    new=AsyncMock(return_value=False),
-                    create=True,
-                ) as mock_session_matches_binary,
             ):
                 lazy_session = dump_symbols.LazyIdalibSession(binary_path=binary_path)
 
@@ -1867,20 +1740,21 @@ class TestDumpSymbols(unittest.TestCase):
             port=24567,
             debug=False,
         )
-        mock_open_session.assert_awaited_once_with(
-            "http://127.0.0.1:24567/mcp",
-            debug=False,
+        mock_open_session.assert_called_once_with(
+            "127.0.0.1",
+            24567,
+            expected_binary=binary_path,
+            auto_started=True,
+            database_ready_timeout=dump_symbols.MCP_STARTUP_TIMEOUT,
         )
-        mock_session_matches_binary.assert_awaited_once_with(fake_session, binary_path)
-        fake_session.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_context.__aexit__.assert_awaited_once_with(None, None, None)
         fake_process.kill.assert_called_once_with()
         fake_process.wait.assert_called_once_with(timeout=1)
         self.assertIsNone(lazy_session.process)
-        self.assertIsNone(lazy_session.streams)
         self.assertIsNone(lazy_session.session)
+        self.assertIsNone(lazy_session.session_context)
 
-    def test_lazy_idalib_session_startup_cleanup_wait_failure_keeps_mismatch_error(self) -> None:
+    def test_lazy_idalib_session_startup_cleanup_wait_failure_keeps_selection_error(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             binary_path = binary_dir / "ntoskrnl.exe"
@@ -1889,8 +1763,11 @@ class TestDumpSymbols(unittest.TestCase):
             fake_process = MagicMock()
             fake_process.poll.return_value = None
             fake_process.wait.side_effect = subprocess.TimeoutExpired(cmd="wait", timeout=1)
-            fake_streams = AsyncMock()
-            fake_session = AsyncMock()
+            fake_context = MagicMock()
+            fake_context.__aenter__ = AsyncMock(
+                side_effect=RuntimeError("MCP session target mismatch")
+            )
+            fake_context.__aexit__ = AsyncMock()
 
             with (
                 patch.object(
@@ -1906,27 +1783,20 @@ class TestDumpSymbols(unittest.TestCase):
                 ),
                 patch.object(
                     dump_symbols,
-                    "_open_session",
-                    new=AsyncMock(return_value=(fake_streams, fake_session)),
-                ),
-                patch.object(
-                    dump_symbols,
-                    "_session_matches_binary",
-                    new=AsyncMock(return_value=False),
-                    create=True,
+                    "open_ida_mcp_session",
+                    return_value=fake_context,
                 ),
             ):
                 lazy_session = dump_symbols.LazyIdalibSession(binary_path=binary_path)
                 with self.assertRaisesRegex(RuntimeError, "MCP session target mismatch"):
                     asyncio.run(lazy_session.call_tool("py_eval", {"code": "1"}))
 
-        fake_session.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_context.__aexit__.assert_awaited_once_with(None, None, None)
         fake_process.kill.assert_called_once_with()
         fake_process.wait.assert_called_once_with(timeout=1)
         self.assertIsNone(lazy_session.process)
-        self.assertIsNone(lazy_session.streams)
         self.assertIsNone(lazy_session.session)
+        self.assertIsNone(lazy_session.session_context)
 
     def test_lazy_idalib_session_startup_failure_after_process_start_cleans_up_process(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -1936,6 +1806,9 @@ class TestDumpSymbols(unittest.TestCase):
 
             fake_process = MagicMock()
             fake_process.poll.return_value = None
+            fake_context = MagicMock()
+            fake_context.__aenter__ = AsyncMock(side_effect=RuntimeError("open session failed"))
+            fake_context.__aexit__ = AsyncMock()
 
             with (
                 patch.object(
@@ -1951,8 +1824,8 @@ class TestDumpSymbols(unittest.TestCase):
                 ) as mock_start,
                 patch.object(
                     dump_symbols,
-                    "_open_session",
-                    new=AsyncMock(side_effect=RuntimeError("open session failed")),
+                    "open_ida_mcp_session",
+                    return_value=fake_context,
                 ) as mock_open_session,
             ):
                 lazy_session = dump_symbols.LazyIdalibSession(binary_path=binary_path)
@@ -1966,15 +1839,19 @@ class TestDumpSymbols(unittest.TestCase):
             port=24567,
             debug=False,
         )
-        mock_open_session.assert_awaited_once_with(
-            "http://127.0.0.1:24567/mcp",
-            debug=False,
+        mock_open_session.assert_called_once_with(
+            "127.0.0.1",
+            24567,
+            expected_binary=binary_path,
+            auto_started=True,
+            database_ready_timeout=dump_symbols.MCP_STARTUP_TIMEOUT,
         )
+        fake_context.__aexit__.assert_awaited_once_with(None, None, None)
         fake_process.kill.assert_called_once_with()
         fake_process.wait.assert_called_once_with(timeout=1)
         self.assertIsNone(lazy_session.process)
-        self.assertIsNone(lazy_session.streams)
         self.assertIsNone(lazy_session.session)
+        self.assertIsNone(lazy_session.session_context)
 
     def test_lazy_idalib_session_close_uses_qexit_before_wait(self) -> None:
         session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
@@ -1986,17 +1863,16 @@ class TestDumpSymbols(unittest.TestCase):
         fake_process.kill.side_effect = lambda: events.append("kill")
 
         fake_session = AsyncMock()
+        fake_session.binding = SimpleNamespace(should_auto_quit=True)
         fake_session.call_tool = AsyncMock(
             side_effect=lambda **kwargs: events.append("qexit")
         )
-        fake_session.__aexit__ = AsyncMock(side_effect=lambda *_: events.append("session_exit"))
-
-        fake_streams = AsyncMock()
-        fake_streams.__aexit__ = AsyncMock(side_effect=lambda *_: events.append("streams_exit"))
+        fake_context = MagicMock()
+        fake_context.__aexit__ = AsyncMock(side_effect=lambda *_: events.append("session_exit"))
 
         session.process = fake_process
         session.session = fake_session
-        session.streams = fake_streams
+        session.session_context = fake_context
 
         asyncio.run(session.close())
 
@@ -2004,8 +1880,26 @@ class TestDumpSymbols(unittest.TestCase):
             name="py_eval",
             arguments={"code": "import idc; idc.qexit(0)"},
         )
-        self.assertEqual(["qexit", "session_exit", "streams_exit", "wait:10"], events)
+        self.assertEqual(["qexit", "session_exit", "wait:10"], events)
         fake_process.kill.assert_not_called()
+
+    def test_lazy_idalib_session_close_skips_qexit_for_unowned_binding(self) -> None:
+        session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
+        fake_process = MagicMock()
+        fake_process.poll.return_value = None
+        fake_session = AsyncMock()
+        fake_session.binding = SimpleNamespace(should_auto_quit=False)
+        fake_context = MagicMock()
+        fake_context.__aexit__ = AsyncMock()
+        session.process = fake_process
+        session.session = fake_session
+        session.session_context = fake_context
+
+        asyncio.run(session.close())
+
+        fake_session.call_tool.assert_not_awaited()
+        fake_context.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_process.wait.assert_called_once_with(timeout=10)
 
     def test_lazy_idalib_session_close_kills_after_wait_timeout(self) -> None:
         session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
@@ -2018,10 +1912,12 @@ class TestDumpSymbols(unittest.TestCase):
         ]
 
         fake_session = AsyncMock()
-        fake_streams = AsyncMock()
+        fake_session.binding = SimpleNamespace(should_auto_quit=True)
+        fake_context = MagicMock()
+        fake_context.__aexit__ = AsyncMock()
         session.process = fake_process
         session.session = fake_session
-        session.streams = fake_streams
+        session.session_context = fake_context
 
         asyncio.run(session.close())
 
@@ -2037,15 +1933,16 @@ class TestDumpSymbols(unittest.TestCase):
 
         fake_process = MagicMock()
         fake_process.poll.return_value = None
-        fake_streams = AsyncMock()
+        fake_context = MagicMock()
+        fake_context.__aexit__ = AsyncMock()
 
         session.process = fake_process
         session.session = None
-        session.streams = fake_streams
+        session.session_context = fake_context
 
         asyncio.run(session.close())
 
-        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_context.__aexit__.assert_awaited_once_with(None, None, None)
         fake_process.wait.assert_called_once_with(timeout=10)
         fake_process.kill.assert_not_called()
 
@@ -2060,10 +1957,12 @@ class TestDumpSymbols(unittest.TestCase):
         ]
 
         fake_session = AsyncMock()
-        fake_streams = AsyncMock()
+        fake_session.binding = SimpleNamespace(should_auto_quit=True)
+        fake_context = MagicMock()
+        fake_context.__aexit__ = AsyncMock()
         session.process = fake_process
         session.session = fake_session
-        session.streams = fake_streams
+        session.session_context = fake_context
 
         async def fake_wait_for(awaitable, timeout):
             awaitable.close()
@@ -2073,8 +1972,7 @@ class TestDumpSymbols(unittest.TestCase):
             asyncio.run(session.close())
 
         self.assertEqual(1, mock_wait_for.await_count)
-        fake_session.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_context.__aexit__.assert_awaited_once_with(None, None, None)
         fake_process.wait.assert_has_calls([call(timeout=10), call(timeout=1)])
         fake_process.kill.assert_called_once_with()
 
@@ -2085,24 +1983,25 @@ class TestDumpSymbols(unittest.TestCase):
         fake_process.poll.return_value = None
 
         fake_session = AsyncMock()
+        fake_session.binding = SimpleNamespace(should_auto_quit=True)
         fake_session.call_tool = AsyncMock(
             side_effect=asyncio.CancelledError("Cancelled via cancel scope abc")
         )
-        fake_streams = AsyncMock()
+        fake_context = MagicMock()
+        fake_context.__aexit__ = AsyncMock()
 
         session.process = fake_process
         session.session = fake_session
-        session.streams = fake_streams
+        session.session_context = fake_context
 
         asyncio.run(session.close())
 
-        fake_session.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_context.__aexit__.assert_awaited_once_with(None, None, None)
         fake_process.kill.assert_not_called()
         fake_process.wait.assert_called_once_with(timeout=10)
         self.assertIsNone(session.process)
         self.assertIsNone(session.session)
-        self.assertIsNone(session.streams)
+        self.assertIsNone(session.session_context)
 
     def test_lazy_idalib_session_close_re_raises_cancel_after_cleanup(self) -> None:
         session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
@@ -2111,23 +2010,24 @@ class TestDumpSymbols(unittest.TestCase):
         fake_process.poll.return_value = None
 
         fake_session = AsyncMock()
+        fake_session.binding = SimpleNamespace(should_auto_quit=True)
         fake_session.call_tool = AsyncMock(side_effect=asyncio.CancelledError())
-        fake_streams = AsyncMock()
+        fake_context = MagicMock()
+        fake_context.__aexit__ = AsyncMock()
 
         session.process = fake_process
         session.session = fake_session
-        session.streams = fake_streams
+        session.session_context = fake_context
 
         with self.assertRaises(asyncio.CancelledError):
             asyncio.run(session.close())
 
-        fake_session.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_context.__aexit__.assert_awaited_once_with(None, None, None)
         fake_process.kill.assert_called_once_with()
         fake_process.wait.assert_called_once_with(timeout=1)
         self.assertIsNone(session.process)
         self.assertIsNone(session.session)
-        self.assertIsNone(session.streams)
+        self.assertIsNone(session.session_context)
 
     def test_start_idalib_mcp_uses_devnull_streams(self) -> None:
         fake_process = MagicMock()

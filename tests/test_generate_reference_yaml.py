@@ -6,9 +6,10 @@ from pathlib import Path
 import tempfile
 import textwrap
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import generate_reference_yaml
+from ida_mcp_session import McpDatabaseSelectionError
 from ida_reference_export import ReferenceGenerationError
 
 
@@ -61,6 +62,18 @@ class TestGenerateReferenceYaml(unittest.TestCase):
         )
 
         self.assertEqual("PgInitContext.yaml", args.outyaml)
+
+    def test_parse_args_accepts_explicit_mcp_database(self) -> None:
+        args = generate_reference_yaml.parse_args(
+            [
+                "-func_name",
+                "PgInitContext",
+                "-mcp_database",
+                "server-db",
+            ]
+        )
+
+        self.assertEqual("server-db", args.mcp_database)
 
     def test_parse_args_accepts_code_name_alias(self) -> None:
         args = generate_reference_yaml.parse_args(
@@ -416,18 +429,57 @@ class TestGenerateReferenceYamlResolution(unittest.IsolatedAsyncioTestCase):
 
 
 class TestGenerateReferenceYamlWorkflow(unittest.IsolatedAsyncioTestCase):
+    async def test_attach_selection_error_becomes_reference_generation_error(self) -> None:
+        session_context = MagicMock()
+        session_context.__aenter__ = AsyncMock(
+            side_effect=McpDatabaseSelectionError("multiple active MCP databases")
+        )
+        session_context.__aexit__ = AsyncMock(return_value=False)
+
+        with patch.object(
+            generate_reference_yaml,
+            "open_ida_mcp_session",
+            return_value=session_context,
+        ) as mock_open_session:
+            with self.assertRaisesRegex(ReferenceGenerationError, "multiple active MCP databases"):
+                async with generate_reference_yaml.attach_existing_mcp_session(
+                    "127.0.0.1",
+                    13337,
+                    False,
+                    explicit_database="server-db",
+                ):
+                    self.fail("selection error must fail before yielding a session")
+
+        mock_open_session.assert_called_once_with(
+            "127.0.0.1",
+            13337,
+            explicit_database="server-db",
+        )
+
     async def test_run_reference_generation_attach_mode_exports_yaml(self) -> None:
         fake_session = AsyncMock()
 
         @asynccontextmanager
-        async def fake_attach_existing_mcp_session(host: str, port: int, debug: bool):
+        async def fake_attach_existing_mcp_session(
+            host: str,
+            port: int,
+            debug: bool,
+            *,
+            explicit_database: str | None = None,
+        ):
             self.assertEqual("127.0.0.1", host)
             self.assertEqual(13337, port)
             self.assertFalse(debug)
+            self.assertEqual("server-db", explicit_database)
             yield fake_session
 
         args = generate_reference_yaml.parse_args(
-            ["-func_name", "ExReferenceCallBackBlock"]
+            [
+                "-func_name",
+                "ExReferenceCallBackBlock",
+                "-mcp_database",
+                "server-db",
+            ]
         )
 
         with (
@@ -597,12 +649,10 @@ class TestGenerateReferenceYamlWorkflow(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         fake_session = AsyncMock()
+        fake_session.binding = type("Binding", (), {"should_auto_quit": True})()
         fake_session.call_tool = AsyncMock(
             side_effect=asyncio.CancelledError("Cancelled via cancel scope abc")
         )
-        fake_session.__aexit__ = AsyncMock()
-        fake_streams = AsyncMock()
-        fake_streams.__aexit__ = AsyncMock()
 
         class FakeProcess:
             def poll(self) -> int:
@@ -613,16 +663,25 @@ class TestGenerateReferenceYamlWorkflow(unittest.IsolatedAsyncioTestCase):
             (),
             {
                 "IDALIB_QEXIT_TIMEOUT_SECONDS": 1,
+                "MCP_STARTUP_TIMEOUT": 1200,
                 "start_idalib_mcp": staticmethod(lambda *args, **kwargs: FakeProcess()),
-                "_open_session": AsyncMock(return_value=(fake_streams, fake_session)),
-                "_session_matches_binary": AsyncMock(return_value=True),
             },
         )
+        session_context = MagicMock()
+        session_context.__aenter__ = AsyncMock(return_value=fake_session)
+        session_context.__aexit__ = AsyncMock(return_value=False)
 
-        with patch.object(
-            generate_reference_yaml,
-            "_load_dump_symbols_module",
-            return_value=fake_dump_symbols,
+        with (
+            patch.object(
+                generate_reference_yaml,
+                "_load_dump_symbols_module",
+                return_value=fake_dump_symbols,
+            ),
+            patch.object(
+                generate_reference_yaml,
+                "open_ida_mcp_session",
+                return_value=session_context,
+            ) as mock_open_session,
         ):
             with self.assertRaisesRegex(ReferenceGenerationError, "primary failure"):
                 async with generate_reference_yaml.autostart_mcp_session(
@@ -633,12 +692,22 @@ class TestGenerateReferenceYamlWorkflow(unittest.IsolatedAsyncioTestCase):
                 ):
                     raise ReferenceGenerationError("primary failure")
 
+        mock_open_session.assert_called_once_with(
+            "127.0.0.1",
+            13337,
+            expected_binary=Path("/repo/ntoskrnl.exe"),
+            auto_started=True,
+            database_ready_timeout=fake_dump_symbols.MCP_STARTUP_TIMEOUT,
+        )
         fake_session.call_tool.assert_awaited_once_with(
             name="py_eval",
             arguments={"code": "import idc; idc.qexit(0)"},
         )
-        fake_session.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_streams.__aexit__.assert_awaited_once_with(None, None, None)
+        session_context.__aexit__.assert_awaited_once_with(
+            ReferenceGenerationError,
+            ANY,
+            ANY,
+        )
 
     def test_main_prints_generated_path(self) -> None:
         stdout = StringIO()

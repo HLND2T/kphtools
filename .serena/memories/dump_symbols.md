@@ -14,10 +14,11 @@
 - Track per-binary work activity and report succeeded, failed, skipped, and no-candidate summaries.
 
 ## Involved Files & Symbols
-- `dump_symbols.py` - `main`, `parse_args`, `_iter_binary_dirs`, `_resolve_binary_path`, `_process_module_binary`, `process_binary_dir`, `_select_skills_by_name`, `_process_one_skill`, `_preprocess_skill_outputs`, `topological_sort_skills`, `run_skill`, `LazyIdalibSession`, `start_idalib_mcp`, `_open_session`, `_session_matches_binary`
+- `dump_symbols.py` - `main`, `parse_args`, `_iter_binary_dirs`, `_resolve_binary_path`, `_process_module_binary`, `process_binary_dir`, `_select_skills_by_name`, `_process_one_skill`, `_preprocess_skill_outputs`, `topological_sort_skills`, `run_skill`, `LazyIdalibSession`, `start_idalib_mcp`
+- `ida_mcp_session.py` - `open_ida_mcp_session`, `DatabaseBoundSession`, `McpDatabaseBinding`, `detect_database_requirement`, `select_database_session`
 - `symbol_config.py` - `load_config`, `SkillSpec`, `SymbolSpec`, `ModuleSpec`, `ConfigSpec`, `symbol_name_from_artifact_name`
 - `ida_skill_preprocessor.py` - `preprocess_single_skill_via_mcp`, `PREPROCESS_STATUS_SUCCESS`, `PREPROCESS_STATUS_FAILED`, `PREPROCESS_STATUS_ABSENT_OK`
-- `generate_reference_yaml.py` - reuses `SURVEY_CURRENT_IDB_PATH_PY_EVAL`, `_parse_py_eval_result_json`, `_open_session`, `_session_matches_binary`, `start_idalib_mcp`, and `IDALIB_QEXIT_TIMEOUT_SECONDS`
+- `generate_reference_yaml.py` - reuses `SURVEY_CURRENT_IDB_PATH_PY_EVAL`, `_parse_py_eval_result_json`, `start_idalib_mcp`, and `IDALIB_QEXIT_TIMEOUT_SECONDS`, while opening sessions through `ida_mcp_session`
 - `tests/test_dump_symbols.py` - covers CLI parsing, skill ordering, preprocessing/fallback behavior, lazy MCP startup/cleanup, binary directory enumeration, and `main` summaries
 - `README.md` - documents the `dump_symbols.py` usage and symbol directory layout
 
@@ -59,12 +60,12 @@ flowchart TD
 
 `_preprocess_skill_outputs()` derives output symbol names from expected, optional, and preprocessor-only artifacts, then calls `preprocess_single_skill_via_mcp()` for each one. Required outputs must succeed unless they are internal outputs with `PREPROCESS_STATUS_ABSENT_OK`; internal required failures return `False` without Agent fallback. Regular required failures fall back to `run_skill()`.
 
-`LazyIdalibSession.ensure_started()` allocates a local TCP port, starts `uv run idalib-mcp --unsafe --host <host> --port <port> <binary>`, opens a streamable HTTP MCP client session, initializes it, and validates that the current IDB path belongs to the target binary. Startup failures clean up sessions, streams, and subprocesses. `close()` tries `idc.qexit(0)` through `py_eval`, closes MCP handles, waits for the subprocess, and kills it after timeout.
+`LazyIdalibSession.ensure_started()` allocates a local TCP port, starts `uv run idalib-mcp --unsafe --host <host> --port <port> <binary>`, and opens the shared `ida_mcp_session.open_ida_mcp_session()` adapter with the expected binary and auto-start ownership metadata. The adapter detects legacy worker versus supervisor contracts, selects the matching active IDB when `database` routing is required, and injects the bound database into worker tool calls. If the matching supervisor IDB exists but is still inactive during long IDA auto-analysis, auto-start mode reconnects until `MCP_STARTUP_TIMEOUT`; other selection failures still fail closed. Startup failures close the adapter context and subprocess. `close()` sends `idc.qexit(0)` only when the binding is an owned auto-started worker, then closes the MCP context, waits for the subprocess, and kills it after timeout.
 
 ## Dependencies
 - Internal modules: `symbol_config` for config schema loading and artifact-to-symbol name mapping; `ida_skill_preprocessor` for skill-specific MCP preprocessors and status constants.
 - Standard library: `argparse`, `asyncio`, `json`, `os`, `socket`, `subprocess`, `time`, `pathlib.Path`, and `typing.Any`.
-- Runtime MCP dependency: `mcp.ClientSession` and `mcp.client.streamable_http.streamable_http_client`, imported inside `_open_session`.
+- Internal MCP adapter: `ida_mcp_session` owns `httpx`, `mcp.ClientSession`, streamable HTTP setup, legacy/new contract detection, IDB selection, and `database` injection.
 - External tools: `uv`, `idalib-mcp`, IDA APIs reachable through MCP `py_eval`, and an external Agent CLI executable named by `-agent` (`codex` by default).
 - Repository resources: `config.yaml`, `.env`, `.claude/skills/<skill>/SKILL.md`, `.claude/agents/sig-finder.md`, and symbol directories under `symbols/` by default.
 - Optional LLM configuration: `KPHTOOLS_LLM_MODEL`, `KPHTOOLS_LLM_APIKEY`, `KPHTOOLS_LLM_BASEURL`, `KPHTOOLS_LLM_TEMPERATURE`, `KPHTOOLS_LLM_EFFORT`, and `KPHTOOLS_LLM_FAKE_AS`, or matching CLI arguments.
@@ -73,13 +74,13 @@ flowchart TD
 - Supported architectures are currently `amd64` and `arm64`; the default scans both.
 - `-version` is an exact directory suffix match, so `10.0.26100.8246` matches `module_path.10.0.26100.8246` but not nearby prefixes.
 - `-skill` is an exact skill-name filter. It skips every non-matching skill, still applies arch/output/force behavior to the selected skill, and fails the binary when the requested skill name is not present.
-- `MCP_STARTUP_TIMEOUT` is long (`1200` seconds), so a stalled `idalib-mcp` startup may wait for a substantial time before failing.
+- `MCP_STARTUP_TIMEOUT` is long (`1200` seconds) and is applied separately to waiting for the TCP port and waiting for a discovered supervisor IDB to become active, so stalled startup or auto-analysis may wait for a substantial time before failing.
 - `run_skill()` accepts `max_retries`, but the implementation calls the external Agent CLI once and then verifies that all expected YAML paths exist.
 - `run_skill()` requires both `.claude/skills/<skill>/SKILL.md` and non-empty `.claude/agents/sig-finder.md`; missing files cause a `False` result instead of raising.
 - Optional-only skills are skipped when preprocessing does not generate optional outputs; required output failures can fail the binary or trigger Agent fallback depending on whether the failed symbol is considered internal.
 - `LazyIdalibSession` deliberately avoids eager MCP startup, which is important for fast no-op runs where artifacts already exist.
-- `_session_matches_binary()` compares the current IDB path name prefix and parent directory to the target binary; mismatch causes startup cleanup and a runtime error.
-- `close()` suppresses known MCP cancel-scope cancellation noise during normal session/stream shutdown but re-raises unrelated cancellation errors after cleanup.
+- New supervisor sessions are selected by normalized binary identity from `idb_list`; `.i64`/`.idb` suffixes, Windows case, and WSL mount paths are normalized before matching. Multiple or missing matches fail closed.
+- `close()` suppresses known MCP cancel-scope cancellation noise during normal MCP context shutdown but re-raises unrelated cancellation errors after cleanup.
 
 ## Callers
 - `dump_symbols.py` CLI entry point invokes `main()` through `if __name__ == "__main__"`.
