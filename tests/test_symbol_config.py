@@ -98,6 +98,9 @@ class TestSymbolConfig(unittest.TestCase):
                             prerequisite: [find-Prereq]
                             expected_input_amd64: [InputAmd64.yaml]
                             expected_input_arm64: [InputArm64.yaml]
+                            optional_input: [OptionalInput.yaml]
+                            optional_input_amd64: [OptionalInputAmd64.yaml]
+                            optional_input_arm64: [OptionalInputArm64.yaml]
                         symbols:
                           - name: Required
                             category: func
@@ -126,6 +129,9 @@ class TestSymbolConfig(unittest.TestCase):
         self.assertEqual(["find-Prereq"], skill.prerequisite)
         self.assertEqual(["InputAmd64.yaml"], skill.expected_input_amd64)
         self.assertEqual(["InputArm64.yaml"], skill.expected_input_arm64)
+        self.assertEqual(["OptionalInput.yaml"], skill.optional_input)
+        self.assertEqual(["OptionalInputAmd64.yaml"], skill.optional_input_amd64)
+        self.assertEqual(["OptionalInputArm64.yaml"], skill.optional_input_arm64)
         self.assertEqual(["Required", "Optional"], skill.produced_symbols)
 
     def test_load_config_accepts_optional_only_skill(self) -> None:

@@ -5,18 +5,28 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_FUNCTION_NAMES = ["ObReferenceProcessHandleTable", "ObpEnumFindHandleProcedure"]
 
 LLM_DECOMPILE = [
-    (
-        "ObReferenceProcessHandleTable",
-        "ObReferenceProcessHandleTable",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/ObFindHandleForObject.{arch}.yaml",
-    ),
-    (
-        "ObpEnumFindHandleProcedure",
-        "ObpEnumFindHandleProcedure",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/ObFindHandleForObject.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "ObReferenceProcessHandleTable",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/ObFindHandleForObject.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "ObFindHandleForObject.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "ObpEnumFindHandleProcedure",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/ObFindHandleForObject.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "ObFindHandleForObject.yaml": "required",
+        },
+    },
 ]
 
 FUNC_METADATA = {

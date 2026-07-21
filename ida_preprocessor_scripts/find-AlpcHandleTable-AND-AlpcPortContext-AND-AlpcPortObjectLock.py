@@ -5,24 +5,39 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_STRUCT_MEMBER_NAMES = ["AlpcHandleTable", "AlpcPortContext", "AlpcPortObjectLock"]
 
 LLM_DECOMPILE = [
-    (
-        "AlpcHandleTable",
-        "_ALPC_COMMUNICATION_INFO->HandleTable",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/AlpcpCreateClientPort.{arch}.yaml",
-    ),
-    (
-        "AlpcPortContext",
-        "_ALPC_PORT->PortContext",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/AlpcpCreateClientPort.{arch}.yaml",
-    ),
-    (
-        "AlpcPortObjectLock",
-        "_ALPC_PORT->PortObjectLock",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/AlpcpCreateClientPort.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "AlpcHandleTable",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/AlpcpCreateClientPort.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "AlpcpCreateClientPort.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "AlpcPortContext",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/AlpcpCreateClientPort.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "AlpcpCreateClientPort.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "AlpcPortObjectLock",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/AlpcpCreateClientPort.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "AlpcpCreateClientPort.yaml": "required",
+        },
+    },
 ]
 
 STRUCT_METADATA = {

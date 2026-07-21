@@ -5,18 +5,28 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_FUNCTION_NAMES = ["AlpcpDeletePort", "ObCreateObjectTypeEx"]
 
 LLM_DECOMPILE = [
-    (
-        "AlpcpDeletePort",
-        "AlpcpDeletePort",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/AlpcpInitSystem.{arch}.yaml",
-    ),
-    (
-        "ObCreateObjectTypeEx",
-        "ObCreateObjectTypeEx",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/AlpcpInitSystem.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "AlpcpDeletePort",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/AlpcpInitSystem.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "AlpcpInitSystem.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "ObCreateObjectTypeEx",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/AlpcpInitSystem.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "AlpcpInitSystem.yaml": "required",
+        },
+    },
 ]
 
 FUNC_METADATA = {

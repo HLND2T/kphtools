@@ -9,6 +9,11 @@ from ida_preprocessor_scripts.generic_func import preprocess_func_symbol
 from ida_preprocessor_scripts.generic_gv import preprocess_gv_symbol
 from ida_preprocessor_scripts.generic_struct_offset import preprocess_struct_symbol
 from ida_mcp_resolver import resolve_symbol_via_llm_decompile
+from ida_llm_specs import (
+    build_llm_decompile_specs_map,
+    build_semantic_query_names,
+    validate_llm_decompile_specs,
+)
 from symbol_artifacts import artifact_path, write_func_yaml, write_gv_yaml, write_struct_yaml
 
 
@@ -205,6 +210,137 @@ def _normalize_func_xrefs(
     return normalized
 
 
+def _prepare_llm_decompile_context(
+    *,
+    llm_decompile_specs: Any,
+    llm_config: Any,
+    desired_fields_by_symbol: dict[str, list[str]],
+    struct_metadata: dict[str, dict[str, Any]] | None,
+    binary_dir: str | Path,
+    debug: bool,
+) -> tuple[Any, Any] | None:
+    specs_map = build_llm_decompile_specs_map(llm_decompile_specs, debug=debug)
+    if specs_map is None:
+        return None
+    if not specs_map:
+        return llm_decompile_specs, llm_config
+    category_by_symbol = {
+        name: category
+        for name, raw_fields in desired_fields_by_symbol.items()
+        if (
+            category := _infer_symbol_category(
+                symbol={"category": None},
+                desired_fields=raw_fields,
+            )
+        )
+        is not None
+    }
+    config = dict(llm_config) if isinstance(llm_config, dict) else {}
+    if not validate_llm_decompile_specs(
+        specs_map,
+        expected_inputs=config.get("_expected_inputs"),
+        optional_inputs=config.get("_optional_inputs"),
+        category_by_symbol=category_by_symbol,
+        arch=arch_from_binary_dir(binary_dir),
+        debug=debug,
+    ):
+        return None
+    semantic_query_names = build_semantic_query_names(
+        specs_map,
+        category_by_symbol=category_by_symbol,
+        struct_metadata=struct_metadata,
+        debug=debug,
+    )
+    if semantic_query_names is None:
+        return None
+    config["_semantic_query_names"] = semantic_query_names
+    return list(specs_map.values()), config
+
+
+async def _preprocess_category_fast_path(
+    *,
+    session: Any,
+    target_symbol_name: str,
+    symbol_category: str,
+    binary_dir: str | Path,
+    pdb_path: str | Path | None,
+    debug: bool,
+    llm_config: Any,
+    llm_decompile_specs: Any,
+    struct_member_names: list[str] | None,
+    struct_metadata: dict[str, dict[str, Any]] | None,
+    gv_names: list[str] | None,
+    gv_metadata: dict[str, dict[str, Any]] | None,
+    func_names: list[str] | None,
+    func_metadata: dict[str, dict[str, Any]] | None,
+    func_xrefs_map: dict[str, Any],
+) -> tuple[dict[str, Any] | None, dict[str, Any], Any] | None:
+    has_pdb = pdb_path is not None
+    if symbol_category == "struct_offset":
+        if struct_member_names is not None and target_symbol_name not in struct_member_names:
+            return None
+        metadata = (struct_metadata or {}).get(target_symbol_name)
+        if not isinstance(metadata, dict):
+            return None
+        payload = None
+        if has_pdb:
+            payload = await preprocess_struct_symbol(
+                session=session,
+                symbol_name=target_symbol_name,
+                metadata=metadata,
+                binary_dir=binary_dir,
+                pdb_path=pdb_path,
+                debug=debug,
+                llm_config=llm_config,
+                llm_decompile_specs=llm_decompile_specs,
+            )
+        return payload, metadata, write_struct_yaml
+    if symbol_category == "gv":
+        if gv_names is not None and target_symbol_name not in gv_names:
+            return None
+        metadata = (gv_metadata or {}).get(target_symbol_name, {})
+        if not isinstance(metadata, dict):
+            return None
+        payload = None
+        if has_pdb:
+            payload = await preprocess_gv_symbol(
+                session=session,
+                symbol_name=target_symbol_name,
+                metadata=metadata,
+                pdb_path=pdb_path,
+                debug=debug,
+                llm_config=llm_config,
+            )
+        return payload, metadata, write_gv_yaml
+    if symbol_category != "func":
+        return None
+    allowed_func_names = set(func_names or []) | set(func_xrefs_map)
+    if func_names is not None and target_symbol_name not in allowed_func_names:
+        return None
+    metadata = (func_metadata or {}).get(target_symbol_name, {})
+    if not isinstance(metadata, dict):
+        return None
+    func_xref = func_xrefs_map.get(target_symbol_name)
+    aliases = metadata.get("alias")
+    should_resolve = has_pdb or func_xref is not None or (
+        not has_pdb and isinstance(aliases, (list, tuple)) and bool(aliases)
+    )
+    payload = None
+    if should_resolve:
+        payload = await preprocess_func_symbol(
+            session=session,
+            symbol_name=target_symbol_name,
+            metadata=metadata,
+            pdb_path=pdb_path,
+            debug=debug,
+            llm_config=llm_config,
+            binary_dir=Path(binary_dir),
+            image_base=0x140000000,
+            func_xref=func_xref,
+        )
+    return payload, metadata, write_func_yaml
+
+
 async def preprocess_common_skill(
     *,
     session,
@@ -227,14 +363,24 @@ async def preprocess_common_skill(
     target_symbol_name = _field(symbol, "name")
     if not isinstance(target_symbol_name, str) or not target_symbol_name:
         return PREPROCESS_STATUS_FAILED
-    has_pdb = pdb_path is not None
-
     desired_fields_by_symbol = _normalize_desired_fields(generate_yaml_desired_fields)
     if desired_fields_by_symbol is None:
         return PREPROCESS_STATUS_FAILED
     func_xrefs_map = _normalize_func_xrefs(func_xrefs, debug=debug)
     if func_xrefs_map is None:
         return PREPROCESS_STATUS_FAILED
+
+    llm_context = _prepare_llm_decompile_context(
+        llm_decompile_specs=llm_decompile_specs,
+        llm_config=llm_config,
+        desired_fields_by_symbol=desired_fields_by_symbol,
+        struct_metadata=struct_metadata,
+        binary_dir=binary_dir,
+        debug=debug,
+    )
+    if llm_context is None:
+        return PREPROCESS_STATUS_FAILED
+    llm_decompile_specs, llm_config = llm_context
 
     desired_fields = desired_fields_by_symbol.get(target_symbol_name)
     if not desired_fields:
@@ -247,71 +393,26 @@ async def preprocess_common_skill(
     if symbol_category is None:
         return PREPROCESS_STATUS_FAILED
 
-    metadata: dict[str, Any] | None = None
-    payload: dict[str, Any] | None = None
-    if symbol_category == "struct_offset":
-        if struct_member_names is not None and target_symbol_name not in struct_member_names:
-            return PREPROCESS_STATUS_FAILED
-        metadata = (struct_metadata or {}).get(target_symbol_name)
-        if not isinstance(metadata, dict):
-            return PREPROCESS_STATUS_FAILED
-        if has_pdb:
-            payload = await preprocess_struct_symbol(
-                session=session,
-                symbol_name=target_symbol_name,
-                metadata=metadata,
-                binary_dir=binary_dir,
-                pdb_path=pdb_path,
-                debug=debug,
-                llm_config=llm_config,
-                llm_decompile_specs=llm_decompile_specs,
-            )
-        writer = write_struct_yaml
-    elif symbol_category == "gv":
-        if gv_names is not None and target_symbol_name not in gv_names:
-            return PREPROCESS_STATUS_FAILED
-        metadata = (gv_metadata or {}).get(target_symbol_name, {})
-        if not isinstance(metadata, dict):
-            return PREPROCESS_STATUS_FAILED
-        if has_pdb:
-            payload = await preprocess_gv_symbol(
-                session=session,
-                symbol_name=target_symbol_name,
-                metadata=metadata,
-                pdb_path=pdb_path,
-                debug=debug,
-                llm_config=llm_config,
-            )
-        writer = write_gv_yaml
-    elif symbol_category == "func":
-        allowed_func_names = set(func_names or []) | set(func_xrefs_map)
-        if func_names is not None and target_symbol_name not in allowed_func_names:
-            return PREPROCESS_STATUS_FAILED
-        metadata = (func_metadata or {}).get(target_symbol_name, {})
-        if not isinstance(metadata, dict):
-            return PREPROCESS_STATUS_FAILED
-        func_xref = func_xrefs_map.get(target_symbol_name)
-        aliases = metadata.get("alias")
-        has_export_alias = (
-            not has_pdb
-            and isinstance(aliases, (list, tuple))
-            and bool(aliases)
-        )
-        if has_pdb or func_xref is not None or has_export_alias:
-            payload = await preprocess_func_symbol(
-                session=session,
-                symbol_name=target_symbol_name,
-                metadata=metadata,
-                pdb_path=pdb_path,
-                debug=debug,
-                llm_config=llm_config,
-                binary_dir=Path(binary_dir),
-                image_base=0x140000000,
-                func_xref=func_xref,
-            )
-        writer = write_func_yaml
-    else:
+    fast_path = await _preprocess_category_fast_path(
+        session=session,
+        target_symbol_name=target_symbol_name,
+        symbol_category=symbol_category,
+        binary_dir=binary_dir,
+        pdb_path=pdb_path,
+        debug=debug,
+        llm_config=llm_config,
+        llm_decompile_specs=llm_decompile_specs,
+        struct_member_names=struct_member_names,
+        struct_metadata=struct_metadata,
+        gv_names=gv_names,
+        gv_metadata=gv_metadata,
+        func_names=func_names,
+        func_metadata=func_metadata,
+        func_xrefs_map=func_xrefs_map,
+    )
+    if fast_path is None:
         return PREPROCESS_STATUS_FAILED
+    payload, metadata, writer = fast_path
 
     if payload is None:
         payload = await resolve_symbol_via_llm_decompile(

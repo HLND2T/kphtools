@@ -109,7 +109,11 @@ KPHTOOLS_LLM_EFFORT=high
 KPHTOOLS_LLM_FAKE_AS=codex
 ```
 
-When `-llm_fake_as=codex` is set, the LLM helper uses a direct `/responses` SSE transport instead of `/competitions`; `-llm_baseurl` should point at the OpenAI-compatible `/v1` base URL.
+Normal providers use the OpenAI-compatible Chat Completions API. `-llm_effort` defaults to `medium`; `-llm_temperature` is omitted when unset.
+
+When `-llm_fake_as=codex` is set, the helper uses a direct `/responses` SSE transport. A non-empty `-llm_baseurl` is required and should point at the provider's `/v1` base URL. The Codex transport preserves conversation message IDs and one prompt cache key across validation and transport retries.
+
+Each skill's `max_retries` is the total number of LLM attempts, including the first request. Schema/validation correction and transient transport failures share that budget. The same config field still controls the existing agent fallback using its established runner semantics.
 
 ## Generate reference YAML for LLM_DECOMPILE
 
@@ -143,16 +147,48 @@ Attach the reference to a preprocessor script with prompt:
 
 ```python
 LLM_DECOMPILE = [
-    (
-        "AlpcAttributes",
-        "_ALPC_PORT->PortAttributes",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "AlpcAttributes",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {"AlpcpDeletePort.yaml": "required"},
+    },
+    {
+        "symbol_name": "MmCreateProcessAddressSpace",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/PspAllocateProcess.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {"PspAllocateProcess.yaml": "required"},
+    },
 ]
 ```
 
-The tuple fields are `(artifact_symbol_name, llm_query_name, prompt_path, reference_yaml_path)`. `artifact_symbol_name` selects the YAML artifact to generate, while `llm_query_name` is the exact text inserted into the LLM prompt. Then pass it into `preprocess_common_skill(..., llm_decompile_specs=LLM_DECOMPILE)`. The LLM response parser currently supports `found_call`, `found_gv`, and `found_struct_offset`; direct function and global-variable addresses are resolved from the returned instruction address through IDA MCP.
+Every entry must contain exactly the five fields shown above. Legacy tuples and unknown fields fail closed. `dependency_policy` must map every reference YAML `func_name` to its current artifact basename; `required` targets must be declared in the skill's `expected_input`, while `optional` targets must be declared in `optional_input`. Architecture-specific input fields are supported.
+
+`symbol_name` is the kphtools artifact name. Function/global semantic names use that value directly. Struct-member semantic names come from the finder metadata's `symbol_expr`, such as `_ALPC_PORT->PortAttributes`, without adding a non-standard field to the spec.
+
+The validated response contract supports only:
+
+- `found_call`: direct calls, direct tail jumps, and jump thunks
+- `found_funcptr`: direct references to regular function addresses
+- `found_gv`: global-variable references
+- `found_struct_offset`: regular struct-member accesses, including function-pointer fields
+
+`found_vcall` is currently unsupported and is rejected as a schema mismatch. Every non-empty result must match a requested symbol, its declared result section, and a real `(insn_va, insn_disasm)` pair from the target code. The canonical empty response is:
+
+```yaml
+found_call: []
+found_funcptr: []
+found_gv: []
+found_struct_offset: []
+```
+
+Pass the list to `preprocess_common_skill(..., llm_decompile_specs=LLM_DECOMPILE)`. Validated direct call/function-pointer/global-variable results are resolved through IDA references; validated struct results use the finder metadata and bit-offset constraints.
 
 ## Export kphdyn.xml
 

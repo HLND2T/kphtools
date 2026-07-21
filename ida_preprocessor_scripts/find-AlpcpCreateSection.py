@@ -5,12 +5,17 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_FUNCTION_NAMES = ["AlpcpCreateSection"]
 
 LLM_DECOMPILE = [
-    (
-        "AlpcpCreateSection",
-        "AlpcpCreateSection",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/NtAlpcCreatePortSection.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "AlpcpCreateSection",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/NtAlpcCreatePortSection.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "NtAlpcCreatePortSection.yaml": "required",
+        },
+    },
 ]
 
 FUNC_METADATA = {

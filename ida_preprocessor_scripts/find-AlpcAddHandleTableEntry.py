@@ -5,12 +5,13 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_FUNCTION_NAMES = ["AlpcAddHandleTableEntry"]
 
 LLM_DECOMPILE = [
-    (
-        "AlpcAddHandleTableEntry",
-        "AlpcAddHandleTableEntry",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/AlpcpCreateSection.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "AlpcAddHandleTableEntry",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": ["references/ntoskrnl/AlpcpCreateSection.{arch}.yaml"],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {"AlpcpCreateSection.yaml": "required"},
+    },
 ]
 
 FUNC_METADATA = {

@@ -7,30 +7,50 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_FUNCTION_NAMES = ["ExReferenceCallBackBlock", "ExDereferenceCallBackBlock", "PspEnumerateCallback", "CmpEnumerateCallback"]
 
 LLM_DECOMPILE = [
-    (
-        "ExReferenceCallBackBlock",
-        "ExReferenceCallBackBlock",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/PgInitContext.{buildnum}.{arch}.yaml",
-    ),
-    (
-        "ExDereferenceCallBackBlock",
-        "ExDereferenceCallBackBlock",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/PgInitContext.{buildnum}.{arch}.yaml",
-    ),
-    (
-        "PspEnumerateCallback",
-        "PspEnumerateCallback",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/PgInitContext.{buildnum}.{arch}.yaml",
-    ),
-    (
-        "CmpEnumerateCallback",
-        "CmpEnumerateCallback",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/PgInitContext.{buildnum}.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "ExReferenceCallBackBlock",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/PgInitContext.{buildnum}.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "PgInitContext.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "ExDereferenceCallBackBlock",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/PgInitContext.{buildnum}.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "PgInitContext.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "PspEnumerateCallback",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/PgInitContext.{buildnum}.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "PgInitContext.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "CmpEnumerateCallback",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/PgInitContext.{buildnum}.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "PgInitContext.yaml": "required",
+        },
+    },
 ]
 
 FUNC_METADATA = {
@@ -56,20 +76,20 @@ GENERATE_YAML_DESIRED_FIELDS = {
 }
 
 
-def _llm_decompile_specs(binary_dir: str | Path) -> list[tuple[str, str, str, str]]:
+def _llm_decompile_specs(binary_dir: str | Path) -> list[dict[str, object]]:
     arch = preprocessor_common.arch_from_binary_dir(binary_dir)
     buildnum = preprocessor_common.buildnum_from_binary_dir(binary_dir)
     if not arch or not buildnum:
         return []
     return [
-        (
-            symbol_name,
-            llm_symbol_name,
-            prompt_path,
-            reference_yaml_path.replace("{buildnum}", buildnum),
-        )
-        for symbol_name, llm_symbol_name, prompt_path, reference_yaml_path
-        in LLM_DECOMPILE
+        {
+            **spec,
+            "reference_yaml_paths": [
+                reference_path.replace("{buildnum}", buildnum)
+                for reference_path in spec["reference_yaml_paths"]
+            ],
+        }
+        for spec in LLM_DECOMPILE
     ]
 
 

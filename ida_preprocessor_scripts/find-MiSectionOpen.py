@@ -6,12 +6,17 @@ MI_SECTION_OPEN_MIN_BUILDNUM = 10074
 TARGET_FUNCTION_NAMES = ["MiSectionOpen"]
 
 LLM_DECOMPILE = [
-    (
-        "MiSectionOpen",
-        "MiSectionOpen",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/MiSectionInitialization.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "MiSectionOpen",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/MiSectionInitialization.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "MiSectionInitialization.yaml": "required",
+        },
+    },
 ]
 
 FUNC_METADATA = {

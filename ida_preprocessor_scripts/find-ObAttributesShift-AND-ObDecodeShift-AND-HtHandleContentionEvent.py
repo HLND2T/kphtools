@@ -5,24 +5,39 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_STRUCT_MEMBER_NAMES = ["ObAttributesShift", "ObDecodeShift", "HtHandleContentionEvent"]
 
 LLM_DECOMPILE = [
-    (
-        "ObAttributesShift",
-        "_HANDLE_TABLE_ENTRY->Attributes",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/ObpEnumFindHandleProcedure.{arch}.yaml",
-    ),
-    (
-        "ObDecodeShift",
-        "_HANDLE_TABLE_ENTRY->ObjectPointerBits",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/ObpEnumFindHandleProcedure.{arch}.yaml",
-    ),
-    (
-        "HtHandleContentionEvent",
-        "_HANDLE_TABLE->HandleContentionEvent",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/ObpEnumFindHandleProcedure.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "ObAttributesShift",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/ObpEnumFindHandleProcedure.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "ObpEnumFindHandleProcedure.yaml": "optional",
+        },
+    },
+    {
+        "symbol_name": "ObDecodeShift",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/ObpEnumFindHandleProcedure.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "ObpEnumFindHandleProcedure.yaml": "optional",
+        },
+    },
+    {
+        "symbol_name": "HtHandleContentionEvent",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/ObpEnumFindHandleProcedure.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "ObpEnumFindHandleProcedure.yaml": "optional",
+        },
+    },
 ]
 
 STRUCT_METADATA = {

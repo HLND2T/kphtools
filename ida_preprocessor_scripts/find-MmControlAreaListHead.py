@@ -5,12 +5,17 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_STRUCT_MEMBER_NAMES = ["MmControlAreaListHead"]
 
 LLM_DECOMPILE = [
-    (
-        "MmControlAreaListHead",
-        "_CONTROL_AREA->ListHead",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/MiInsertUnusedSegment.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "MmControlAreaListHead",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/MiInsertUnusedSegment.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "MiInsertUnusedSegment.yaml": "required",
+        },
+    },
 ]
 
 STRUCT_METADATA = {

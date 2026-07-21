@@ -7,24 +7,39 @@ TARGET_STRUCT_MEMBER_NAMES = ["EpCookie", "EpSectionObject"]
 TARGET_FUNCTION_NAMES = ["MmCreateProcessAddressSpace"]
 
 LLM_DECOMPILE = [
-    (
-        "EpCookie",
-        "_EPROCESS->Cookie",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/PspAllocateProcess.{arch}.yaml",
-    ),
-    (
-        "EpSectionObject",
-        "_EPROCESS->SectionObject",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/PspAllocateProcess.{arch}.yaml",
-    ),
-    (
-        "MmCreateProcessAddressSpace",
-        "MmCreateProcessAddressSpace",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/PspAllocateProcess.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "EpCookie",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/PspAllocateProcess.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "PspAllocateProcess.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "EpSectionObject",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/PspAllocateProcess.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "PspAllocateProcess.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "MmCreateProcessAddressSpace",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/PspAllocateProcess.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "PspAllocateProcess.yaml": "required",
+        },
+    },
 ]
 
 STRUCT_METADATA = {

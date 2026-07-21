@@ -5,12 +5,17 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_FUNCTION_NAMES = ["MiSectionControlArea"]
 
 LLM_DECOMPILE = [
-    (
-        "MiSectionControlArea",
-        "MiSectionControlArea",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/MiSectionOpen.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "MiSectionControlArea",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/MiSectionOpen.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "MiSectionOpen.yaml": "required",
+        },
+    },
 ]
 
 FUNC_METADATA = {

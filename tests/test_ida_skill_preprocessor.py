@@ -40,6 +40,48 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
                 entry = ida_skill_preprocessor._get_preprocess_entry(skill.name)
                 self.assertTrue(callable(entry), skill.name)
 
+    async def test_injects_current_arch_inputs_without_mutating_llm_config(self) -> None:
+        preprocess_func = AsyncMock(
+            return_value=ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS
+        )
+        original_llm_config = {"model": "test-model"}
+        skill = SkillSpec(
+            name="find-Test",
+            expected_output=["Output.yaml"],
+            expected_input=["Common.yaml"],
+            expected_input_amd64=["Amd64.yaml"],
+            expected_input_arm64=["Arm64.yaml"],
+            optional_input=["OptionalCommon.yaml"],
+            optional_input_amd64=["OptionalAmd64.yaml"],
+            optional_input_arm64=["OptionalArm64.yaml"],
+        )
+
+        with patch.object(
+            ida_skill_preprocessor,
+            "_get_preprocess_entry",
+            return_value=preprocess_func,
+        ):
+            status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
+                session=AsyncMock(),
+                skill=skill,
+                symbol=SymbolSpec(name="Output", category="func", data_type="uint32"),
+                binary_dir=Path("/symbols/ntoskrnl/amd64/.10.0.26100.1"),
+                pdb_path=None,
+                debug=False,
+                llm_config=original_llm_config,
+            )
+
+        self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
+        effective_config = preprocess_func.await_args.kwargs["llm_config"]
+        self.assertEqual(
+            ["Common.yaml", "Amd64.yaml"], effective_config["_expected_inputs"]
+        )
+        self.assertEqual(
+            ["OptionalCommon.yaml", "OptionalAmd64.yaml"],
+            effective_config["_optional_inputs"],
+        )
+        self.assertEqual({"model": "test-model"}, original_llm_config)
+
     async def test_stack_information_script_selects_pre_18305_target(self) -> None:
         with patch(
             "ida_preprocessor_common.preprocess_common_skill",
@@ -73,12 +115,15 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             [
-                (
-                    "KeQueryCurrentStackInformation",
-                    "KeQueryCurrentStackInformation",
-                    "prompt/call_llm_decompile.md",
-                    "references/ntoskrnl/RtlpGetStackLimits.pre-18305.{arch}.yaml",
-                )
+                {
+                    "symbol_name": "KeQueryCurrentStackInformation",
+                    "prompt_path": "prompt/call_llm_decompile.md",
+                    "reference_yaml_paths": [
+                        "references/ntoskrnl/RtlpGetStackLimits.pre-18305.{arch}.yaml"
+                    ],
+                    "expected_result_sections": ["found_call", "found_funcptr"],
+                    "dependency_policy": {"RtlpGetStackLimits.yaml": "required"},
+                }
             ],
             mock_common.await_args.kwargs["llm_decompile_specs"],
         )
@@ -116,12 +161,15 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             [
-                (
-                    "KeQueryCurrentStackInformationEx",
-                    "KeQueryCurrentStackInformationEx",
-                    "prompt/call_llm_decompile.md",
-                    "references/ntoskrnl/RtlpGetStackLimits.post-18305.{arch}.yaml",
-                )
+                {
+                    "symbol_name": "KeQueryCurrentStackInformationEx",
+                    "prompt_path": "prompt/call_llm_decompile.md",
+                    "reference_yaml_paths": [
+                        "references/ntoskrnl/RtlpGetStackLimits.post-18305.{arch}.yaml"
+                    ],
+                    "expected_result_sections": ["found_call", "found_funcptr"],
+                    "dependency_policy": {"RtlpGetStackLimits.yaml": "required"},
+                }
             ],
             mock_common.await_args.kwargs["llm_decompile_specs"],
         )
@@ -184,12 +232,17 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
         self.assertIn(
-            (
-                "KtInitialStack",
-                "_KTHREAD->InitialStack",
-                "prompt/call_llm_decompile.md",
-                "references/ntoskrnl/KeQueryCurrentStackInformation.{arch}.yaml",
-            ),
+            {
+                "symbol_name": "KtInitialStack",
+                "prompt_path": "prompt/call_llm_decompile.md",
+                "reference_yaml_paths": [
+                    "references/ntoskrnl/KeQueryCurrentStackInformation.{arch}.yaml"
+                ],
+                "expected_result_sections": ["found_struct_offset"],
+                "dependency_policy": {
+                    "KeQueryCurrentStackInformation.yaml": "required"
+                },
+            },
             mock_common.await_args.kwargs["llm_decompile_specs"],
         )
 
@@ -222,12 +275,17 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
         self.assertIn(
-            (
-                "KtInitialStack",
-                "_KTHREAD->InitialStack",
-                "prompt/call_llm_decompile.md",
-                "references/ntoskrnl/KeQueryCurrentStackInformationEx.{arch}.yaml",
-            ),
+            {
+                "symbol_name": "KtInitialStack",
+                "prompt_path": "prompt/call_llm_decompile.md",
+                "reference_yaml_paths": [
+                    "references/ntoskrnl/KeQueryCurrentStackInformationEx.{arch}.yaml"
+                ],
+                "expected_result_sections": ["found_struct_offset"],
+                "dependency_policy": {
+                    "KeQueryCurrentStackInformationEx.yaml": "required"
+                },
+            },
             mock_common.await_args.kwargs["llm_decompile_specs"],
         )
 
@@ -308,12 +366,15 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
         self.assertIn(
-            (
-                "AlpcOwnerProcess",
-                "_ALPC_PORT->OwnerProcess",
-                "prompt/call_llm_decompile.md",
-                "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-            ),
+            {
+                "symbol_name": "AlpcOwnerProcess",
+                "prompt_path": "prompt/call_llm_decompile.md",
+                "reference_yaml_paths": [
+                    "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml"
+                ],
+                "expected_result_sections": ["found_struct_offset"],
+                "dependency_policy": {"AlpcpDeletePort.yaml": "required"},
+            },
             mock_common.await_args.kwargs["llm_decompile_specs"],
         )
         self.assertEqual(
@@ -360,48 +421,24 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
         self.assertEqual(
             [
-                (
+                {
+                    "symbol_name": symbol_name,
+                    "prompt_path": "prompt/call_llm_decompile.md",
+                    "reference_yaml_paths": [
+                        "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml"
+                    ],
+                    "expected_result_sections": ["found_struct_offset"],
+                    "dependency_policy": {"AlpcpDeletePort.yaml": "required"},
+                }
+                for symbol_name in [
                     "AlpcAttributes",
-                    "_ALPC_PORT->PortAttributes",
-                    "prompt/call_llm_decompile.md",
-                    "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-                ),
-                (
                     "AlpcAttributesFlags",
-                    "_ALPC_PORT_ATTRIBUTES->Flags",
-                    "prompt/call_llm_decompile.md",
-                    "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-                ),
-                (
                     "AlpcCommunicationInfo",
-                    "_ALPC_PORT->CommunicationInfo",
-                    "prompt/call_llm_decompile.md",
-                    "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-                ),
-                (
                     "AlpcOwnerProcess",
-                    "_ALPC_PORT->OwnerProcess",
-                    "prompt/call_llm_decompile.md",
-                    "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-                ),
-                (
                     "AlpcConnectionPort",
-                    "_ALPC_COMMUNICATION_INFO->ConnectionPort",
-                    "prompt/call_llm_decompile.md",
-                    "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-                ),
-                (
                     "AlpcServerCommunicationPort",
-                    "_ALPC_COMMUNICATION_INFO->ServerCommunicationPort",
-                    "prompt/call_llm_decompile.md",
-                    "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-                ),
-                (
                     "AlpcClientCommunicationPort",
-                    "_ALPC_COMMUNICATION_INFO->ClientCommunicationPort",
-                    "prompt/call_llm_decompile.md",
-                    "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-                ),
+                ]
             ],
             mock_common.await_args.kwargs["llm_decompile_specs"],
         )
@@ -667,8 +704,15 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
             status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
                 session=AsyncMock(),
                 skill=SkillSpec(
-                    name="find-PspCreateProcessNotifyRoutine",
-                    expected_output=["PspCreateProcessNotifyRoutine.yaml"],
+                    name=(
+                        "find-PspCreateProcessNotifyRoutine-AND-"
+                        "PspCreateThreadNotifyRoutine-AND-PspLoadImageNotifyRoutine"
+                    ),
+                    expected_output=[
+                        "PspCreateProcessNotifyRoutine.yaml",
+                        "PspCreateThreadNotifyRoutine.yaml",
+                        "PspLoadImageNotifyRoutine.yaml",
+                    ],
                     expected_input=[],
                 ),
                 symbol=SymbolSpec(
@@ -684,16 +728,18 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(ida_skill_preprocessor.PREPROCESS_STATUS_SUCCESS, status)
         self.assertEqual(
-            ["PspCreateProcessNotifyRoutine"],
+            [
+                "PspCreateProcessNotifyRoutine",
+                "PspCreateThreadNotifyRoutine",
+                "PspLoadImageNotifyRoutine",
+            ],
             mock_common.await_args.kwargs["gv_names"],
         )
         self.assertEqual(
-            {
-                "PspCreateProcessNotifyRoutine": {
-                    "alias": ["PspCreateProcessNotifyRoutine"]
-                }
-            },
-            mock_common.await_args.kwargs["gv_metadata"],
+            {"alias": ["PspCreateProcessNotifyRoutine"]},
+            mock_common.await_args.kwargs["gv_metadata"][
+                "PspCreateProcessNotifyRoutine"
+            ],
         )
 
     async def test_func_script_dispatches_alias_metadata(

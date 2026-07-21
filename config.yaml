@@ -86,6 +86,8 @@ modules:
       - name: find-OtIndex
         expected_output:
           - OtIndex.yaml
+        expected_input:
+          - ObCreateObjectTypeEx.yaml
 
       - name: find-ObAttributesShift-AND-ObDecodeShift-AND-HtHandleContentionEvent
         expected_output:
@@ -94,6 +96,8 @@ modules:
           - HtHandleContentionEvent.yaml
         prerequisite:
           - find-ObReferenceProcessHandleTable-AND-ObpEnumFindHandleProcedure
+        optional_input:
+          - ObpEnumFindHandleProcedure.yaml
 
       - name: find-AlpcHandleTable-AND-AlpcPortContext-AND-AlpcPortObjectLock
         expected_output:
@@ -135,6 +139,9 @@ modules:
           - KtStackLimit.yaml
         prerequisite:
           - find-KeQueryCurrentStackInformation-OR-KeQueryCurrentStackInformationEx
+        expected_input:
+          - KeQueryCurrentStackInformation.yaml
+          - KeQueryCurrentStackInformationEx.yaml
 
       - name: find-KtKernelStack
         expected_output:
@@ -166,12 +173,16 @@ modules:
       - name: find-MiSectionControlArea
         expected_output:
           - MiSectionControlArea.yaml
+        expected_input:
+          - MiSectionOpen.yaml
         prerequisite:
           - find-MiSectionOpen
 
       - name: find-MmSectionControlArea
         expected_output:
           - MmSectionControlArea.yaml
+        expected_input:
+          - MiSectionControlArea.yaml
 
       - name: find-MmControlAreaListHead
         expected_input:
@@ -196,6 +207,8 @@ modules:
       - name: find-EpProtection
         expected_output:
           - EpProtection.yaml
+        optional_input:
+          - PsIsProtectedProcess.yaml
 
       - name: find-EpBreakOnTermination
         expected_output:
@@ -261,6 +274,8 @@ modules:
       - name: find-RtlpGetStackLimits
         expected_output:
           - RtlpGetStackLimits.yaml
+        expected_input:
+          - IoGetStackLimits.yaml
         prerequisite:
           - find-IoGetStackLimits
 
@@ -273,6 +288,8 @@ modules:
           - KeQueryCurrentStackInformationEx.yaml
         prerequisite:
           - find-RtlpGetStackLimits
+        expected_input:
+          - RtlpGetStackLimits.yaml
 
       - name: find-PgInitContext
         expected_output:
@@ -297,6 +314,8 @@ modules:
           - CmpEnumerateCallback.yaml
         prerequisite:
           - find-PgInitContext
+        expected_input:
+          - PgInitContext.yaml
         arch: amd64
 
       - name: find-PerfDiagInitialize

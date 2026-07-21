@@ -10,55 +10,55 @@ These are the target functions you need to reverse-engineering:
 
 {target_blocks}
 
-What you need to do is to collect all references to "{symbol_name_list}" in the target functions you need to reverse-engineering and output those references as YAML.
+Collect all references to "{symbol_name_list}" in the target functions and output only YAML using the four canonical sections below.
 
-Example:
+Classification rules:
+
+- `found_call`: direct call, direct tail jump, or jump thunk to a requested regular function.
+- `found_funcptr`: direct reference to the address of a requested regular function.
+- `found_gv`: direct reference to a requested global variable.
+- `found_struct_offset`: access to a requested regular struct field, including fields that store function pointers.
+- `found_vcall` is unsupported by kphtools and must never be returned.
 
 ```yaml
-found_vcall: # This is for indirect call to virtual function or virtual function pointer fetching.
-  - insn_va: '0x180777700'               # Always be the instruction with displacement offset
-    insn_disasm: call    [rax+68h]       # Always be the instruction with displacement offset
-    vfunc_offset: '0x68'
-    func_name: ILoopMode_OnLoopActivate
-  - insn_va: '0x180777778'               # Always be the instruction with displacement offset
-    insn_disasm: mov     rax, [rax+80h]  # Always be the instruction with displacement offset
-    vfunc_offset: '0x80'
-    func_name: INetworkMessages_GetNetworkGroupCount # This must be the true function name we asked to collect, not the sub_XXXXXXXX
-found_call: # This is for direct call to non-virtual regular function.
+found_call:
   - insn_va: '0x180888800'
     insn_disasm: call    sub_180999900
     func_name: CLoopModeGame_RegisterEventMapInternal
   - insn_va: '0x180888880'
-    insn_disasm: call    sub_180555500
-    func_name: CLoopModeGame_SetGameSystemState   # This must be the true function name we asked to collect, not the sub_XXXXXXXX
-found_funcptr: # This is for non-virtual regular function pointer.
-  - insn_va: '0x180666600'                # Must load/reference the function pointer target address
-    insn_disasm: lea     rdx, sub_15BC910 # Must load/reference the function pointer target address
-    funcptr_name: CLoopModeGame_OnClientPollNetworking   # This must be the true function name we asked to collect, not the sub_XXXXXXXX
-found_gv: # This is for reference to global variable.
+    insn_disasm: jmp     sub_180555500
+    func_name: CLoopModeGame_SetGameSystemState
+found_funcptr:
+  - insn_va: '0x180666600'
+    insn_disasm: lea     rdx, sub_15BC910
+    funcptr_name: CLoopModeGame_OnClientPollNetworking
+found_gv:
   - insn_va: '0x180444400'
-    insn_disasm: mov     rcx, cs:qword_180666600 # Must load/reference the global variable
-    gv_name: g_pNetworkMessages  # This must be the true globalvar name we asked to collect, not the qword_XXXXXXXX or unk_XXXXXXXX
-  - insn_va: '0x180333300'
-    insn_disasm: lea     rax, unk_180222200      # Must load/reference the global variable
-    gv_name: s_GameEventManager  # This must be the true globalvar name we asked to collect, not the qword_XXXXXXXX or unk_XXXXXXXX
-found_struct_offset: # This is for reference to struct offset. NOTE THAT virtual function pointer should not be here! virtual function pointer should ALWAYS be in found_vcall !
-  - insn_va: '0x1406DF5F8'                              # Always be the instruction with displacement offset
-    insn_disasm: test    dword ptr [r9+100h], 100000h   # Always be the instruction with displacement offset
+    insn_disasm: mov     rcx, cs:qword_180666600
+    gv_name: g_pNetworkMessages
+found_struct_offset:
+  - insn_va: '0x1406DF5F8'
+    insn_disasm: test    dword ptr [r9+100h], 100000h
     offset: '0x100'
+    size: '4'
     struct_name: _ALPC_PORT
     member_name: PortAttributes
-  - insn_va: '0x1406DF5F8'                              # Always be the instruction with displacement offset
-    insn_disasm: test    dword ptr [r9+100h], 100000h   # Always be the instruction with displacement offset
-    offset: '0x0'
-    struct_name: _ALPC_PORT_ATTRIBUTES
-    member_name: Flags
-  - insn_va: '0x1406C4D54'                              # Always be the instruction with displacement offset
-    insn_disasm: test    dword ptr [rcx+464h], 2000h   # Always be the instruction with displacement offset
+  - insn_va: '0x1406C4D54'
+    insn_disasm: test    dword ptr [rcx+464h], 2000h
     offset: '0x464'
-    bit_offset: '13'                                    # The bit offset in dword, 2000h = (1 << 13)
+    size: '4'
+    bit_offset: '13'
     struct_name: _EPROCESS
     member_name: BreakOnTermination
 ```
 
-If nothing found, output an empty YAML. DO NOT output anything other than the desired YAML. DO NOT collect unrelated symbols.
+If nothing is found, return this complete mapping:
+
+```yaml
+found_call: []
+found_funcptr: []
+found_gv: []
+found_struct_offset: []
+```
+
+Use the requested semantic names, not IDA-generated `sub_`, `qword_`, or `unk_` names. Do not output unrelated symbols, explanations, fences, or any text outside the YAML mapping.

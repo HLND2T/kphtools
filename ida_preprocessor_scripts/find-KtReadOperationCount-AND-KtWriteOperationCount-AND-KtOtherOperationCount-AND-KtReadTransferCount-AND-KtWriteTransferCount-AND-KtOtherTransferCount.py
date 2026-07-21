@@ -12,42 +12,72 @@ TARGET_STRUCT_MEMBER_NAMES = [
 ]
 
 LLM_DECOMPILE = [
-    (
-        "KtReadOperationCount",
-        "_KTHREAD->ReadOperationCount",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/KeFoldProcessStatisticsThread.{arch}.yaml",
-    ),
-    (
-        "KtWriteOperationCount",
-        "_KTHREAD->WriteOperationCount",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/KeFoldProcessStatisticsThread.{arch}.yaml",
-    ),
-    (
-        "KtOtherOperationCount",
-        "_KTHREAD->OtherOperationCount",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/KeFoldProcessStatisticsThread.{arch}.yaml",
-    ),
-    (
-        "KtReadTransferCount",
-        "_KTHREAD->ReadTransferCount",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/KeFoldProcessStatisticsThread.{arch}.yaml",
-    ),
-    (
-        "KtWriteTransferCount",
-        "_KTHREAD->WriteTransferCount",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/KeFoldProcessStatisticsThread.{arch}.yaml",
-    ),
-    (
-        "KtOtherTransferCount",
-        "_KTHREAD->OtherTransferCount",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/KeFoldProcessStatisticsThread.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "KtReadOperationCount",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/KeFoldProcessStatisticsThread.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "KeFoldProcessStatisticsThread.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "KtWriteOperationCount",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/KeFoldProcessStatisticsThread.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "KeFoldProcessStatisticsThread.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "KtOtherOperationCount",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/KeFoldProcessStatisticsThread.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "KeFoldProcessStatisticsThread.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "KtReadTransferCount",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/KeFoldProcessStatisticsThread.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "KeFoldProcessStatisticsThread.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "KtWriteTransferCount",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/KeFoldProcessStatisticsThread.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "KeFoldProcessStatisticsThread.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "KtOtherTransferCount",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/KeFoldProcessStatisticsThread.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "KeFoldProcessStatisticsThread.yaml": "required",
+        },
+    },
 ]
 
 STRUCT_METADATA = {

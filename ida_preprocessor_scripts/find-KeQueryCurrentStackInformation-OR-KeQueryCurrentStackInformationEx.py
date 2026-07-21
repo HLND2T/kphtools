@@ -15,20 +15,30 @@ TARGET_FUNCTION_NAMES = [
 
 LLM_DECOMPILE_BY_FUNCTION = {
     PRE_18305_FUNCTION_NAME: [
-        (
-            PRE_18305_FUNCTION_NAME,
-            PRE_18305_FUNCTION_NAME,
-            "prompt/call_llm_decompile.md",
-            "references/ntoskrnl/RtlpGetStackLimits.pre-18305.{arch}.yaml",
-        ),
+        {
+            "symbol_name": "KeQueryCurrentStackInformation",
+            "prompt_path": "prompt/call_llm_decompile.md",
+            "reference_yaml_paths": [
+                "references/ntoskrnl/RtlpGetStackLimits.pre-18305.{arch}.yaml",
+            ],
+            "expected_result_sections": ["found_call", "found_funcptr"],
+            "dependency_policy": {
+                "RtlpGetStackLimits.yaml": "required",
+            },
+        },
     ],
     POST_18305_FUNCTION_NAME: [
-        (
-            POST_18305_FUNCTION_NAME,
-            POST_18305_FUNCTION_NAME,
-            "prompt/call_llm_decompile.md",
-            "references/ntoskrnl/RtlpGetStackLimits.post-18305.{arch}.yaml",
-        ),
+        {
+            "symbol_name": "KeQueryCurrentStackInformationEx",
+            "prompt_path": "prompt/call_llm_decompile.md",
+            "reference_yaml_paths": [
+                "references/ntoskrnl/RtlpGetStackLimits.post-18305.{arch}.yaml",
+            ],
+            "expected_result_sections": ["found_call", "found_funcptr"],
+            "dependency_policy": {
+                "RtlpGetStackLimits.yaml": "required",
+            },
+        },
     ],
 }
 

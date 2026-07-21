@@ -9,24 +9,39 @@ TARGET_GLOBALVAR_NAMES = [
 ]
 
 LLM_DECOMPILE = [
-    (
-        "PspCreateProcessNotifyRoutine",
-        "PspCreateProcessNotifyRoutine",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/PspEnumerateCallback.{arch}.yaml",
-    ),
-    (
-        "PspCreateThreadNotifyRoutine",
-        "PspCreateThreadNotifyRoutine",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/PspEnumerateCallback.{arch}.yaml",
-    ),
-    (
-        "PspLoadImageNotifyRoutine",
-        "PspLoadImageNotifyRoutine",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/PspEnumerateCallback.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "PspCreateProcessNotifyRoutine",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/PspEnumerateCallback.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_gv"],
+        "dependency_policy": {
+            "PspEnumerateCallback.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "PspCreateThreadNotifyRoutine",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/PspEnumerateCallback.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_gv"],
+        "dependency_policy": {
+            "PspEnumerateCallback.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "PspLoadImageNotifyRoutine",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/PspEnumerateCallback.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_gv"],
+        "dependency_policy": {
+            "PspEnumerateCallback.yaml": "required",
+        },
+    },
 ]
 
 GV_METADATA = {

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import importlib.util
 import re
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import cast
 
 
 PREPROCESS_STATUS_SUCCESS = "success"
@@ -11,10 +13,14 @@ PREPROCESS_STATUS_ABSENT_OK = "absent_ok"
 
 _SCRIPT_DIR = Path(__file__).resolve().parent / "ida_preprocessor_scripts"
 _PREPROCESS_EXPORT_NAME = "preprocess_skill"
-_SCRIPT_ENTRY_CACHE: dict[str, object | None] = {}
+PreprocessEntry = Callable[..., Awaitable[str]]
+_SCRIPT_ENTRY_CACHE: dict[str, PreprocessEntry | None] = {}
 
 
-def _get_preprocess_entry(skill_name: str, debug: bool = False):
+def _get_preprocess_entry(
+    skill_name: str,
+    debug: bool = False,
+) -> PreprocessEntry | None:
     if skill_name in _SCRIPT_ENTRY_CACHE:
         return _SCRIPT_ENTRY_CACHE[skill_name]
 
@@ -52,6 +58,7 @@ def _get_preprocess_entry(skill_name: str, debug: bool = False):
         _SCRIPT_ENTRY_CACHE[skill_name] = None
         return None
 
+    preprocess_func = cast(PreprocessEntry, preprocess_func)
     _SCRIPT_ENTRY_CACHE[skill_name] = preprocess_func
     return preprocess_func
 
@@ -69,6 +76,23 @@ async def preprocess_single_skill_via_mcp(
     if preprocess_func is None:
         return PREPROCESS_STATUS_FAILED
 
+    effective_llm_config = dict(llm_config) if isinstance(llm_config, dict) else {}
+    arch = next(
+        (
+            part.lower()
+            for part in Path(binary_dir).parts
+            if part.lower() in {"amd64", "arm64"}
+        ),
+        "",
+    )
+    expected_inputs = list(getattr(skill, "expected_input", []) or [])
+    optional_inputs = list(getattr(skill, "optional_input", []) or [])
+    if arch:
+        expected_inputs.extend(getattr(skill, f"expected_input_{arch}", []) or [])
+        optional_inputs.extend(getattr(skill, f"optional_input_{arch}", []) or [])
+    effective_llm_config["_expected_inputs"] = expected_inputs
+    effective_llm_config["_optional_inputs"] = optional_inputs
+
     return await preprocess_func(
         session=session,
         skill=skill,
@@ -76,5 +100,5 @@ async def preprocess_single_skill_via_mcp(
         binary_dir=binary_dir,
         pdb_path=pdb_path,
         debug=debug,
-        llm_config=llm_config,
+        llm_config=effective_llm_config,
     )

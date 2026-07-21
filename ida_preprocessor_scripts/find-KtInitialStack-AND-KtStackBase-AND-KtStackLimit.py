@@ -11,24 +11,6 @@ POST_18305_REFERENCE_YAML_PATH = (
     "references/ntoskrnl/KeQueryCurrentStackInformationEx.{arch}.yaml"
 )
 
-LLM_DECOMPILE_TARGETS = [
-    (
-        "KtInitialStack",
-        "_KTHREAD->InitialStack",
-        "prompt/call_llm_decompile.md",
-    ),
-    (
-        "KtStackBase",
-        "_KTHREAD->StackBase",
-        "prompt/call_llm_decompile.md",
-    ),
-    (
-        "KtStackLimit",
-        "_KTHREAD->StackLimit",
-        "prompt/call_llm_decompile.md",
-    ),
-]
-
 STRUCT_METADATA = {
     "KtInitialStack": {
         "symbol_expr": "_KTHREAD->InitialStack",
@@ -57,16 +39,27 @@ GENERATE_YAML_DESIRED_FIELDS = {
 }
 
 
-def _llm_decompile_specs(binary_dir) -> list[tuple[str, str, str, str]]:
+def _llm_decompile_specs(binary_dir) -> list[dict[str, object]]:
     has_ex = preprocessor_common.has_current_stack_information_ex(binary_dir)
     if has_ex is None:
         return []
     reference_yaml_path = (
         POST_18305_REFERENCE_YAML_PATH if has_ex else PRE_18305_REFERENCE_YAML_PATH
     )
+    target_artifact = (
+        "KeQueryCurrentStackInformationEx.yaml"
+        if has_ex
+        else "KeQueryCurrentStackInformation.yaml"
+    )
     return [
-        (symbol_name, llm_symbol_name, prompt_path, reference_yaml_path)
-        for symbol_name, llm_symbol_name, prompt_path in LLM_DECOMPILE_TARGETS
+        {
+            "symbol_name": symbol_name,
+            "prompt_path": "prompt/call_llm_decompile.md",
+            "reference_yaml_paths": [reference_yaml_path],
+            "expected_result_sections": ["found_struct_offset"],
+            "dependency_policy": {target_artifact: "required"},
+        }
+        for symbol_name in TARGET_STRUCT_MEMBER_NAMES
     ]
 
 

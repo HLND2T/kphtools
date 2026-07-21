@@ -141,6 +141,28 @@ def _artifact_paths(binary_dir: str | Path, names: list[str]) -> list[str]:
     return [str(Path(binary_dir) / name) for name in names]
 
 
+def _build_effective_llm_config_for_skill(
+    llm_config: dict[str, Any] | None,
+    skill: Any,
+    binary_dir: str | Path,
+) -> dict[str, Any]:
+    effective = dict(llm_config) if isinstance(llm_config, dict) else {}
+    arch = _infer_arch_from_binary_dir(binary_dir)
+    expected_inputs = _string_list(skill, "expected_input")
+    optional_inputs = _string_list(skill, "optional_input")
+    if arch:
+        expected_inputs.extend(_string_list(skill, f"expected_input_{arch}"))
+        optional_inputs.extend(_string_list(skill, f"optional_input_{arch}"))
+    configured_attempts = _field(skill, "max_retries")
+    effective["max_retries"] = configured_attempts if configured_attempts is not None else 3
+    effective.setdefault("retry_initial_delay", 1.0)
+    effective.setdefault("retry_backoff_factor", 2.0)
+    effective.setdefault("retry_max_delay", 8.0)
+    effective["_expected_inputs"] = _unique_strings(expected_inputs)
+    effective["_optional_inputs"] = _unique_strings(optional_inputs)
+    return effective
+
+
 def _all_paths_exist(paths: list[str]) -> bool:
     return bool(paths) and all(Path(path).exists() for path in paths)
 
@@ -247,6 +269,11 @@ async def _preprocess_skill_outputs(
     llm_config: dict[str, Any] | None,
     session: Any,
 ) -> tuple[bool, set[str]]:
+    effective_llm_config = _build_effective_llm_config_for_skill(
+        llm_config,
+        skill,
+        binary_dir,
+    )
     required_symbol_names = _required_output_symbol_names(skill)
     internal_symbol_names = _internal_output_symbol_names(skill, symbol_map)
     failed_required_symbol_names: set[str] = set()
@@ -258,7 +285,7 @@ async def _preprocess_skill_outputs(
             binary_dir=Path(binary_dir),
             pdb_path=pdb_path,
             debug=debug,
-            llm_config=llm_config,
+            llm_config=effective_llm_config,
         )
         _debug_log(debug, f"preprocess status for {skill_name}/{symbol_name}: {status}")
         if status == PREPROCESS_STATUS_SUCCESS:
