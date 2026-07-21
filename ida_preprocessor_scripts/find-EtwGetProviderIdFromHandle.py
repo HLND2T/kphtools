@@ -5,12 +5,17 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_FUNCTION_NAMES = ["EtwGetProviderIdFromHandle"]
 
 LLM_DECOMPILE = [
-    (
-        "EtwGetProviderIdFromHandle",
-        "EtwGetProviderIdFromHandle",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/EtwWriteStartScenario.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "EtwGetProviderIdFromHandle",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/EtwWriteStartScenario.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "EtwWriteStartScenario.yaml": "required",
+        },
+    },
 ]
 
 FUNC_METADATA = {

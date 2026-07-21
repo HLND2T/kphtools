@@ -5,12 +5,17 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_FUNCTION_NAMES = ["AlpcpDisconnectPort"]
 
 LLM_DECOMPILE = [
-    (
-        "AlpcpDisconnectPort",
-        "AlpcpDisconnectPort",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/NtAlpcDisconnectPort.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "AlpcpDisconnectPort",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/NtAlpcDisconnectPort.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "NtAlpcDisconnectPort.yaml": "required",
+        },
+    },
 ]
 
 FUNC_METADATA = {

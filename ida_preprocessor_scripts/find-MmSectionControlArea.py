@@ -5,12 +5,17 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_STRUCT_MEMBER_NAMES = ["MmSectionControlArea"]
 
 LLM_DECOMPILE = [
-    (
-        "MmSectionControlArea",
-        "_SECTION->u1.ControlArea",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/MiSectionControlArea.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "MmSectionControlArea",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/MiSectionControlArea.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "MiSectionControlArea.yaml": "required",
+        },
+    },
 ]
 
 STRUCT_METADATA = {

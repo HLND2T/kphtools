@@ -5,18 +5,28 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_STRUCT_MEMBER_NAMES = ["EgeGuid", "EreGuidEntry"]
 
 LLM_DECOMPILE = [
-    (
-        "EgeGuid",
-        "_ETW_GUID_ENTRY->Guid",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/EtwGetProviderIdFromHandle.{arch}.yaml",
-    ),
-    (
-        "EreGuidEntry",
-        "_ETW_REG_ENTRY->GuidEntry",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/EtwGetProviderIdFromHandle.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "EgeGuid",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/EtwGetProviderIdFromHandle.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "EtwGetProviderIdFromHandle.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "EreGuidEntry",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/EtwGetProviderIdFromHandle.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "EtwGetProviderIdFromHandle.yaml": "required",
+        },
+    },
 ]
 
 STRUCT_METADATA = {

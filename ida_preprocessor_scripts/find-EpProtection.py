@@ -5,12 +5,17 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_STRUCT_MEMBER_NAMES = ["EpProtection"]
 
 LLM_DECOMPILE = [
-    (
-        "EpProtection",
-        "_EPROCESS->Protection",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/PsIsProtectedProcess.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "EpProtection",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/PsIsProtectedProcess.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "PsIsProtectedProcess.yaml": "optional",
+        },
+    },
 ]
 
 STRUCT_METADATA = {

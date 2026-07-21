@@ -13,48 +13,83 @@ TARGET_STRUCT_MEMBER_NAMES = [
 ]
 
 LLM_DECOMPILE = [
-    (
-        "AlpcAttributes",
-        "_ALPC_PORT->PortAttributes",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-    ),
-    (
-        "AlpcAttributesFlags",
-        "_ALPC_PORT_ATTRIBUTES->Flags",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-    ),
-    (
-        "AlpcCommunicationInfo",
-        "_ALPC_PORT->CommunicationInfo",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-    ),
-    (
-        "AlpcOwnerProcess",
-        "_ALPC_PORT->OwnerProcess",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-    ),
-    (
-        "AlpcConnectionPort",
-        "_ALPC_COMMUNICATION_INFO->ConnectionPort",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-    ),
-    (
-        "AlpcServerCommunicationPort",
-        "_ALPC_COMMUNICATION_INFO->ServerCommunicationPort",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-    ),
-    (
-        "AlpcClientCommunicationPort",
-        "_ALPC_COMMUNICATION_INFO->ClientCommunicationPort",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "AlpcAttributes",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "AlpcpDeletePort.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "AlpcAttributesFlags",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "AlpcpDeletePort.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "AlpcCommunicationInfo",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "AlpcpDeletePort.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "AlpcOwnerProcess",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "AlpcpDeletePort.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "AlpcConnectionPort",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "AlpcpDeletePort.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "AlpcServerCommunicationPort",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "AlpcpDeletePort.yaml": "required",
+        },
+    },
+    {
+        "symbol_name": "AlpcClientCommunicationPort",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "AlpcpDeletePort.yaml": "required",
+        },
+    },
 ]
 
 STRUCT_METADATA = {

@@ -5,12 +5,17 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_STRUCT_MEMBER_NAMES = ["OtIndex"]
 
 LLM_DECOMPILE = [
-    (
-        "OtIndex",
-        "_OBJECT_TYPE->Index",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/ObCreateObjectTypeEx.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "OtIndex",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/ObCreateObjectTypeEx.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "ObCreateObjectTypeEx.yaml": "required",
+        },
+    },
 ]
 
 STRUCT_METADATA = {

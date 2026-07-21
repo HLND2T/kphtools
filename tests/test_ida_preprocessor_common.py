@@ -233,7 +233,12 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
                     binary_dir=Path(temp_dir),
                     pdb_path=Path(temp_dir) / "ntkrnlmp.pdb",
                     debug=False,
-                    llm_config={"model": "test-model", "api_key": "test-key"},
+                    llm_config={
+                        "model": "test-model",
+                        "api_key": "test-key",
+                        "_expected_inputs": ["PspAllocateProcess.yaml"],
+                        "_optional_inputs": [],
+                    },
                     func_names=["ExReferenceCallBackBlock"],
                     func_metadata={
                         "ExReferenceCallBackBlock": {
@@ -241,12 +246,20 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
                         }
                     },
                     llm_decompile_specs=[
-                        (
-                            "ExReferenceCallBackBlock",
-                            "ExReferenceCallBackBlock",
-                            "prompt/call_llm_decompile.md",
-                            "references/ntoskrnl/Ref.{arch}.yaml",
-                        )
+                        {
+                            "symbol_name": "ExReferenceCallBackBlock",
+                            "prompt_path": "prompt/call_llm_decompile.md",
+                            "reference_yaml_paths": [
+                                "references/ntoskrnl/PspAllocateProcess.amd64.yaml"
+                            ],
+                            "expected_result_sections": [
+                                "found_call",
+                                "found_funcptr",
+                            ],
+                            "dependency_policy": {
+                                "PspAllocateProcess.yaml": "required"
+                            },
+                        }
                     ],
                     generate_yaml_desired_fields={
                         "ExReferenceCallBackBlock": ["func_name", "func_rva"]
@@ -653,12 +666,15 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         with TemporaryDirectory() as temp_dir:
             llm_specs = [
-                (
-                    "AlpcAttributes",
-                    "_ALPC_PORT->PortAttributes",
-                    "prompt/call_llm_decompile.md",
-                    "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-                )
+                {
+                    "symbol_name": "AlpcAttributes",
+                    "prompt_path": "prompt/call_llm_decompile.md",
+                    "reference_yaml_paths": [
+                        "references/ntoskrnl/AlpcpDeletePort.amd64.yaml"
+                    ],
+                    "expected_result_sections": ["found_struct_offset"],
+                    "dependency_policy": {"AlpcpDeletePort.yaml": "required"},
+                }
             ]
             with (
                 patch.object(
@@ -691,7 +707,12 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
                     binary_dir=Path(temp_dir),
                     pdb_path=Path(temp_dir) / "ntkrnlmp.pdb",
                     debug=True,
-                    llm_config={"model": "test-model", "api_key": "test-key"},
+                    llm_config={
+                        "model": "test-model",
+                        "api_key": "test-key",
+                        "_expected_inputs": ["AlpcpDeletePort.yaml"],
+                        "_optional_inputs": [],
+                    },
                     struct_member_names=["AlpcAttributes"],
                     struct_metadata={
                         "AlpcAttributes": {
@@ -746,12 +767,15 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
                 llm_config={"model": "test-model", "api_key": "test-key"},
                 binary_dir="/tmp/amd64/ntoskrnl",
                 llm_decompile_specs=[
-                    (
-                        "AlpcAttributes",
-                        "_ALPC_PORT->PortAttributes",
-                        "prompt/call_llm_decompile.md",
-                        "references/ntoskrnl/AlpcpDeletePort.{arch}.yaml",
-                    )
+                    {
+                        "symbol_name": "AlpcAttributes",
+                        "prompt_path": "prompt/call_llm_decompile.md",
+                        "reference_yaml_paths": [
+                            "references/ntoskrnl/AlpcpDeletePort.amd64.yaml"
+                        ],
+                        "expected_result_sections": ["found_struct_offset"],
+                        "dependency_policy": {"AlpcpDeletePort.yaml": "required"},
+                    }
                 ],
             )
 

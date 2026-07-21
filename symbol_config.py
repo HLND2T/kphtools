@@ -21,6 +21,9 @@ class SkillSpec:
     prerequisite: list[str] = field(default_factory=list)
     expected_input_amd64: list[str] = field(default_factory=list)
     expected_input_arm64: list[str] = field(default_factory=list)
+    optional_input: list[str] = field(default_factory=list)
+    optional_input_amd64: list[str] = field(default_factory=list)
+    optional_input_arm64: list[str] = field(default_factory=list)
 
     @property
     def produced_symbols(self) -> list[str]:
@@ -61,6 +64,9 @@ _ALLOWED_SKILL_FIELDS = frozenset(
         "expected_input",
         "expected_input_amd64",
         "expected_input_arm64",
+        "optional_input",
+        "optional_input_amd64",
+        "optional_input_arm64",
         "expected_output",
         "optional_output",
         "preprocessor_only_output",
@@ -189,6 +195,15 @@ def _load_skill(entry: dict[str, Any]) -> SkillSpec:
         entry.get("expected_input_arm64", []),
         "expected_input_arm64",
     )
+    optional_input = _require_string_list(entry.get("optional_input", []), "optional_input")
+    optional_input_amd64 = _require_string_list(
+        entry.get("optional_input_amd64", []),
+        "optional_input_amd64",
+    )
+    optional_input_arm64 = _require_string_list(
+        entry.get("optional_input_arm64", []),
+        "optional_input_arm64",
+    )
     skip_if_any_exists = _require_string_list(
         entry.get("skip_if_any_exists", []),
         "skip_if_any_exists",
@@ -215,6 +230,9 @@ def _load_skill(entry: dict[str, Any]) -> SkillSpec:
         expected_input=expected_input,
         expected_input_amd64=expected_input_amd64,
         expected_input_arm64=expected_input_arm64,
+        optional_input=optional_input,
+        optional_input_amd64=optional_input_amd64,
+        optional_input_arm64=optional_input_arm64,
         skip_if_any_exists=[
             _validate_artifact_name(item, "skip_if_any_exists")
             for item in skip_if_any_exists

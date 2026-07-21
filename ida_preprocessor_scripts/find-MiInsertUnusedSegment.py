@@ -5,12 +5,17 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_FUNCTION_NAMES = ["MiInsertUnusedSegment"]
 
 LLM_DECOMPILE = [
-    (
-        "MiInsertUnusedSegment",
-        "MiInsertUnusedSegment",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/MiCheckControlArea.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "MiInsertUnusedSegment",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/MiCheckControlArea.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "MiCheckControlArea.yaml": "required",
+        },
+    },
 ]
 
 FUNC_METADATA = {

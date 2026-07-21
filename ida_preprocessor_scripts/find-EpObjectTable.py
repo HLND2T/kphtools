@@ -5,12 +5,17 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_STRUCT_MEMBER_NAMES = ["EpObjectTable"]
 
 LLM_DECOMPILE = [
-    (
-        "EpObjectTable",
-        "_EPROCESS->ObjectTable",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/ObReferenceProcessHandleTable.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "EpObjectTable",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/ObReferenceProcessHandleTable.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "ObReferenceProcessHandleTable.yaml": "required",
+        },
+    },
 ]
 
 STRUCT_METADATA = {

@@ -5,12 +5,17 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_FUNCTION_NAMES = ["AlpcpCreateClientPort"]
 
 LLM_DECOMPILE = [
-    (
-        "AlpcpCreateClientPort",
-        "AlpcpCreateClientPort",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/NtSecureConnectPort.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "AlpcpCreateClientPort",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/NtSecureConnectPort.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "NtSecureConnectPort.yaml": "required",
+        },
+    },
 ]
 
 FUNC_METADATA = {

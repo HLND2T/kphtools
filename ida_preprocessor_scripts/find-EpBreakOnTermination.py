@@ -5,12 +5,17 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_STRUCT_MEMBER_NAMES = ["EpBreakOnTermination"]
 
 LLM_DECOMPILE = [
-    (
-        "EpBreakOnTermination",
-        "_EPROCESS->BreakOnTermination",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/PspTerminateAllThreads.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "EpBreakOnTermination",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/PspTerminateAllThreads.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_struct_offset"],
+        "dependency_policy": {
+            "PspTerminateAllThreads.yaml": "required",
+        },
+    },
 ]
 
 STRUCT_METADATA = {

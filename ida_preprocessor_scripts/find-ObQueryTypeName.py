@@ -5,12 +5,17 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_FUNCTION_NAMES = ["ObQueryTypeName"]
 
 LLM_DECOMPILE = [
-    (
-        "ObQueryTypeName",
-        "ObQueryTypeName",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/SepQueryTypeString.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "ObQueryTypeName",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/SepQueryTypeString.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "SepQueryTypeString.yaml": "required",
+        },
+    },
 ]
 
 FUNC_METADATA = {

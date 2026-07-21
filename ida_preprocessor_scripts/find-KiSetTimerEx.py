@@ -5,12 +5,17 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_FUNCTION_NAMES = ["KiSetTimerEx"]
 
 LLM_DECOMPILE = [
-    (
-        "KiSetTimerEx",
-        "KiSetTimerEx",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/PfSnInitializePrefetcher.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "KiSetTimerEx",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/PfSnInitializePrefetcher.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "PfSnInitializePrefetcher.yaml": "required",
+        },
+    },
 ]
 
 FUNC_METADATA = {

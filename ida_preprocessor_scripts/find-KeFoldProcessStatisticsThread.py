@@ -5,12 +5,17 @@ import ida_preprocessor_common as preprocessor_common
 TARGET_FUNCTION_NAMES = ["KeFoldProcessStatisticsThread"]
 
 LLM_DECOMPILE = [
-    (
-        "KeFoldProcessStatisticsThread",
-        "KeFoldProcessStatisticsThread",
-        "prompt/call_llm_decompile.md",
-        "references/ntoskrnl/PspThreadDelete.{arch}.yaml",
-    ),
+    {
+        "symbol_name": "KeFoldProcessStatisticsThread",
+        "prompt_path": "prompt/call_llm_decompile.md",
+        "reference_yaml_paths": [
+            "references/ntoskrnl/PspThreadDelete.{arch}.yaml",
+        ],
+        "expected_result_sections": ["found_call", "found_funcptr"],
+        "dependency_policy": {
+            "PspThreadDelete.yaml": "required",
+        },
+    },
 ]
 
 FUNC_METADATA = {
