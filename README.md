@@ -86,7 +86,7 @@ uv run dump_symbols.py [-symboldir="path/to/symbols"] [-configyaml="config.yaml"
 
 The script scans `<symboldir>/<arch>/<file>.<version>/<sha256>/`, resolves symbols into `{symbol}.yaml`, and writes them next to the corresponding PE/PDB files.
 
-When auto-starting a newer supervisor-based `idalib-mcp`, the client waits for the matching IDB to become active after the HTTP port opens. Long IDA auto-analysis therefore gets an additional IDB-ready wait using the 20-minute MCP startup timeout instead of failing immediately on an inactive worker.
+When an auto-started supervisor reports the matching IDB as inactive or unreachable, `dump_symbols.py` checks the owned worker and may restart it once for that binary. The restart waits for the previous supervisor port to be released; a second unavailable-worker failure aborts that binary instead of retrying indefinitely.
 
 LLM fallback options are shared by preprocessor scripts that declare `LLM_DECOMPILE`:
 
@@ -148,7 +148,7 @@ uv run generate_reference_yaml.py \
   -binary="symbols/amd64/ntoskrnl.exe.10.0.26100.1/{sha256}/ntoskrnl.exe"
 ```
 
-Auto-start mode also waits up to the MCP startup timeout for the matching supervisor IDB to finish startup and become active.
+Reference auto-start mode does not use the analyzer's recovery budget. A matching supervisor IDB that is inactive or unreachable is reported immediately as a reference-generation failure.
 
 Check the generated YAML:
 

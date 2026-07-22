@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import re
@@ -27,7 +26,6 @@ WORKER_TOOL_NAMES = frozenset(
 )
 MANAGEMENT_TOOL_NAMES = frozenset({"idb_open", "idb_list"})
 IDA_DATABASE_SUFFIXES = (".i64", ".idb")
-DATABASE_READY_RETRY_INTERVAL = 0.25
 
 
 class McpContractError(RuntimeError):
@@ -38,7 +36,7 @@ class McpDatabaseSelectionError(RuntimeError):
     pass
 
 
-class McpDatabaseNotReadyError(McpDatabaseSelectionError):
+class McpDatabaseUnavailableError(McpDatabaseSelectionError):
     pass
 
 
@@ -91,12 +89,14 @@ def detect_database_requirement(tools: Sequence[Any]) -> bool:
 def _session_summary(sessions: Sequence[Mapping[str, Any]]) -> str:
     return "; ".join(
         "session_id={session_id!r}, input_path={input_path!r}, backend={backend!r}, "
-        "owned={owned!r}, is_active={is_active!r}".format(
+        "owned={owned!r}, is_active={is_active!r}, pid={pid!r}, worker_pid={worker_pid!r}".format(
             session_id=session.get("session_id"),
             input_path=session.get("input_path"),
             backend=session.get("backend"),
             owned=session.get("owned"),
             is_active=session.get("is_active"),
+            pid=session.get("pid"),
+            worker_pid=session.get("worker_pid"),
         )
         for session in sessions
     )
@@ -126,8 +126,8 @@ def select_database_session(
             and session.get("is_active") is not True
         ]
         if discovered:
-            raise McpDatabaseNotReadyError(
-                f"MCP database {explicit_database!r} exists but is not active yet; "
+            raise McpDatabaseUnavailableError(
+                f"MCP database {explicit_database!r} exists but is inactive or unreachable; "
                 f"candidates: {_session_summary(sessions)}"
             )
         raise McpDatabaseSelectionError(
@@ -153,8 +153,8 @@ def select_database_session(
             and session.get("is_active") is not True
         ]
         if not matches and discovered:
-            raise McpDatabaseNotReadyError(
-                f"MCP database for expected binary {expected_binary!r} exists but is not active yet; "
+            raise McpDatabaseUnavailableError(
+                f"MCP database for expected binary {expected_binary!r} exists but is inactive or unreachable; "
                 f"candidates: {_session_summary(sessions)}"
             )
         label = "no" if not matches else "multiple"
@@ -300,78 +300,53 @@ async def open_ida_mcp_session(
     auto_started: bool = False,
     connect_timeout: float = 10.0,
     read_timeout: float = 300.0,
-    database_ready_timeout: float | None = None,
-    database_ready_retry_interval: float = DATABASE_READY_RETRY_INTERVAL,
 ):
-    loop = asyncio.get_running_loop()
-    ready_deadline = (
-        loop.time() + max(0.0, database_ready_timeout)
-        if database_ready_timeout is not None
-        else None
-    )
-    while True:
-        session_ready = False
-        try:
-            async with AsyncExitStack() as stack:
-                try:
-                    raw_session = await stack.enter_async_context(
-                        _open_raw_ida_mcp_session(host, port, connect_timeout, read_timeout)
-                    )
-                    tools = (await raw_session.list_tools()).tools
-                    database_required = detect_database_requirement(tools)
-                    if database_required:
-                        listed = await raw_session.call_tool(name="idb_list", arguments={})
-                        if getattr(listed, "isError", False):
-                            raise McpToolCallError(
-                                f"MCP tool idb_list failed: {_tool_result_error_text(listed)}"
-                            )
-                        payload = _tool_result_payload(listed) or {}
-                        selected = select_database_session(
-                            payload.get("sessions", []),
-                            expected_binary=expected_binary,
-                            explicit_database=explicit_database,
-                        )
-                        binding = McpDatabaseBinding(
-                            True,
-                            selected["session_id"],
-                            selected.get("input_path"),
-                            selected.get("backend"),
-                            bool(selected.get("owned")),
-                            auto_started,
-                        )
-                    else:
-                        binding = McpDatabaseBinding(
-                            False,
-                            None,
-                            str(expected_binary) if expected_binary else None,
-                            "worker" if auto_started else None,
-                            auto_started,
-                            auto_started,
-                        )
-                except (McpContractError, McpDatabaseSelectionError, McpToolCallError):
-                    raise
-                except Exception as exc:
-                    raise McpConnectionError(
-                        f"unable to open IDA MCP session at {host}:{port}: {exc}"
-                    ) from exc
-                session_ready = True
-                yield DatabaseBoundSession(raw_session, binding)
-                return
-        except Exception as exc:
-            known_error = _find_mcp_error(exc)
-            should_retry = (
-                not session_ready
-                and isinstance(known_error, McpDatabaseNotReadyError)
-                and ready_deadline is not None
-                and loop.time() < ready_deadline
-            )
-            if should_retry:
-                retry_delay = min(
-                    max(0.0, database_ready_retry_interval),
-                    max(0.0, ready_deadline - loop.time()),
+    try:
+        async with AsyncExitStack() as stack:
+            try:
+                raw_session = await stack.enter_async_context(
+                    _open_raw_ida_mcp_session(host, port, connect_timeout, read_timeout)
                 )
-                await asyncio.sleep(retry_delay)
-                continue
-            if known_error is not None and known_error is not exc:
-                raise known_error from None
-            raise
+                tools = (await raw_session.list_tools()).tools
+                database_required = detect_database_requirement(tools)
+                if database_required:
+                    listed = await raw_session.call_tool(name="idb_list", arguments={})
+                    if getattr(listed, "isError", False):
+                        raise McpToolCallError(
+                            f"MCP tool idb_list failed: {_tool_result_error_text(listed)}"
+                        )
+                    payload = _tool_result_payload(listed) or {}
+                    selected = select_database_session(
+                        payload.get("sessions", []),
+                        expected_binary=expected_binary,
+                        explicit_database=explicit_database,
+                    )
+                    binding = McpDatabaseBinding(
+                        True,
+                        selected["session_id"],
+                        selected.get("input_path"),
+                        selected.get("backend"),
+                        bool(selected.get("owned")),
+                        auto_started,
+                    )
+                else:
+                    binding = McpDatabaseBinding(
+                        False,
+                        None,
+                        str(expected_binary) if expected_binary else None,
+                        "worker" if auto_started else None,
+                        auto_started,
+                        auto_started,
+                    )
+            except (McpContractError, McpDatabaseSelectionError, McpToolCallError):
+                raise
+            except Exception as exc:
+                raise McpConnectionError(
+                    f"unable to open IDA MCP session at {host}:{port}: {exc}"
+                ) from exc
+            yield DatabaseBoundSession(raw_session, binding)
+    except Exception as exc:
+        known_error = _find_mcp_error(exc)
+        if known_error is not None and known_error is not exc:
+            raise known_error from None
+        raise

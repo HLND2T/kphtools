@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import generate_reference_yaml
-from ida_mcp_session import McpDatabaseSelectionError
+from ida_mcp_session import McpDatabaseSelectionError, McpDatabaseUnavailableError
 from ida_reference_export import ReferenceGenerationError
 
 
@@ -456,6 +456,50 @@ class TestGenerateReferenceYamlWorkflow(unittest.IsolatedAsyncioTestCase):
             explicit_database="server-db",
         )
 
+    async def test_autostart_unavailable_database_fails_without_recovery(self) -> None:
+        fake_process = MagicMock()
+        fake_process.poll.return_value = 0
+        start_idalib_mcp = MagicMock(return_value=fake_process)
+        fake_dump_symbols = type(
+            "FakeDumpSymbols",
+            (),
+            {"start_idalib_mcp": staticmethod(start_idalib_mcp)},
+        )
+        session_context = MagicMock()
+        session_context.__aenter__ = AsyncMock(
+            side_effect=McpDatabaseUnavailableError("inactive or unreachable")
+        )
+        session_context.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch.object(
+                generate_reference_yaml,
+                "_load_dump_symbols_module",
+                return_value=fake_dump_symbols,
+            ),
+            patch.object(
+                generate_reference_yaml,
+                "open_ida_mcp_session",
+                return_value=session_context,
+            ) as mock_open_session,
+        ):
+            with self.assertRaisesRegex(ReferenceGenerationError, "inactive or unreachable"):
+                async with generate_reference_yaml.autostart_mcp_session(
+                    Path("/repo/ntoskrnl.exe"),
+                    "127.0.0.1",
+                    13337,
+                    False,
+                ):
+                    self.fail("unavailable database must fail before yielding a session")
+
+        start_idalib_mcp.assert_called_once()
+        mock_open_session.assert_called_once_with(
+            "127.0.0.1",
+            13337,
+            expected_binary=Path("/repo/ntoskrnl.exe"),
+            auto_started=True,
+        )
+
     async def test_run_reference_generation_attach_mode_exports_yaml(self) -> None:
         fake_session = AsyncMock()
 
@@ -663,7 +707,6 @@ class TestGenerateReferenceYamlWorkflow(unittest.IsolatedAsyncioTestCase):
             (),
             {
                 "IDALIB_QEXIT_TIMEOUT_SECONDS": 1,
-                "MCP_STARTUP_TIMEOUT": 1200,
                 "start_idalib_mcp": staticmethod(lambda *args, **kwargs: FakeProcess()),
             },
         )
@@ -697,7 +740,6 @@ class TestGenerateReferenceYamlWorkflow(unittest.IsolatedAsyncioTestCase):
             13337,
             expected_binary=Path("/repo/ntoskrnl.exe"),
             auto_started=True,
-            database_ready_timeout=fake_dump_symbols.MCP_STARTUP_TIMEOUT,
         )
         fake_session.call_tool.assert_awaited_once_with(
             name="py_eval",

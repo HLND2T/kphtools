@@ -30,7 +30,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ida_mcp_session import open_ida_mcp_session
+from ida_mcp_session import McpDatabaseUnavailableError, open_ida_mcp_session
 from ida_skill_preprocessor import (
     PREPROCESS_STATUS_ABSENT_OK as _PREPROCESS_STATUS_ABSENT_OK,
     PREPROCESS_STATUS_FAILED as _PREPROCESS_STATUS_FAILED,
@@ -56,6 +56,7 @@ SURVEY_CURRENT_IDB_PATH_PY_EVAL = (
     "result = json.dumps({'metadata': {'path': path}})\n"
 )
 MCP_STARTUP_TIMEOUT = 1200
+MCP_SHUTDOWN_TIMEOUT = 10.0
 IDALIB_QEXIT_TIMEOUT_SECONDS = 3
 SUPPORTED_ARCHES = ("amd64", "arm64")
 DEFAULT_ARCH = ",".join(SUPPORTED_ARCHES)
@@ -63,6 +64,19 @@ DEFAULT_SYMBOL_DIR = "symbols"
 DEFAULT_LLM_MODEL = "gpt-5.4"
 PREPROCESS_STATUS_ABSENT_OK = _PREPROCESS_STATUS_ABSENT_OK
 PREPROCESS_STATUS_FAILED = _PREPROCESS_STATUS_FAILED
+
+
+class McpRecoveryBudget:
+    """Limit owned MCP restarts for one binary processing lifecycle."""
+
+    def __init__(self, restart_limit: int = 1) -> None:
+        self.remaining_restarts = max(0, int(restart_limit))
+
+    def consume_restart(self) -> bool:
+        if self.remaining_restarts <= 0:
+            return False
+        self.remaining_restarts -= 1
+        return True
 
 
 def _field(item: Any, name: str, default: Any = None) -> Any:
@@ -289,6 +303,9 @@ async def _preprocess_skill_outputs(
             llm_config=effective_llm_config,
         )
         _debug_log(debug, f"preprocess status for {skill_name}/{symbol_name}: {status}")
+        if isinstance(session, LazyIdalibSession) and session.recovery_failed:
+            failed_required_symbol_names.update(required_symbol_names)
+            return False, failed_required_symbol_names
         if status == PREPROCESS_STATUS_SUCCESS:
             _debug_log_written_yaml(debug, output_path)
             continue
@@ -331,6 +348,9 @@ async def _process_one_skill(
         llm_config=llm_config,
         session=session,
     )
+    if isinstance(session, LazyIdalibSession) and session.recovery_failed:
+        _debug_log(debug, f"aborting {skill_name}; owned MCP worker is unavailable")
+        return False
     if preprocessed_all:
         return True
     if not required_outputs and optional_outputs:
@@ -771,6 +791,28 @@ def _allocate_local_port(host: str = "127.0.0.1") -> int:
         return int(sock.getsockname()[1])
 
 
+def _is_port_in_use(host: str, port: int) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=1.0):
+            return True
+    except OSError:
+        return False
+
+
+def _wait_for_port_release(
+    host: str,
+    port: int,
+    timeout: float = MCP_SHUTDOWN_TIMEOUT,
+    retry_interval: float = 0.1,
+) -> bool:
+    deadline = time.monotonic() + max(0.0, timeout)
+    while _is_port_in_use(host, port):
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(max(0.0, retry_interval))
+    return True
+
+
 def start_idalib_mcp(
     binary_path: Path,
     host: str = "127.0.0.1",
@@ -800,6 +842,19 @@ def start_idalib_mcp(
     return process
 
 
+async def check_mcp_worker_health(host: str, port: int, binary_path: Path) -> bool:
+    try:
+        async with open_ida_mcp_session(
+            host,
+            port,
+            expected_binary=binary_path,
+        ) as session:
+            await session.call_tool(name="py_eval", arguments={"code": "1"})
+            return True
+    except Exception:
+        return False
+
+
 class LazyIdalibSession:
     def __init__(
         self,
@@ -814,6 +869,40 @@ class LazyIdalibSession:
         self.process = None
         self.session = None
         self.session_context = None
+        self.recovery_budget = McpRecoveryBudget()
+        self.recovery_failed = False
+
+    async def _open_session(self):
+        if self.port is None:
+            raise RuntimeError("MCP port must be allocated before opening a session")
+        if self.session_context is None:
+            self.session_context = open_ida_mcp_session(
+                self.host,
+                self.port,
+                expected_binary=self.binary_path,
+                auto_started=True,
+            )
+        if self.session is None:
+            self.session = await self.session_context.__aenter__()
+        return self.session
+
+    async def _cleanup_failed_start(self) -> None:
+        process = self.process
+        self.process = None
+        try:
+            await self._close_handles()
+        except BaseException:
+            pass
+        if process is not None and process.poll() is None:
+            try:
+                process.kill()
+            except Exception:
+                pass
+            try:
+                await asyncio.to_thread(process.wait, timeout=1)
+            except BaseException:
+                pass
+        await self._wait_for_port_release()
 
     async def ensure_started(self):
         if self.session is not None:
@@ -830,33 +919,40 @@ class LazyIdalibSession:
                     port=self.port,
                     debug=self.debug,
                 )
-            if self.session_context is None:
-                self.session_context = open_ida_mcp_session(
-                    self.host,
-                    self.port,
-                    expected_binary=self.binary_path,
-                    auto_started=True,
-                    database_ready_timeout=MCP_STARTUP_TIMEOUT,
-                )
-            if self.session is None:
-                self.session = await self.session_context.__aenter__()
-            return self.session
+            return await self._open_session()
+        except McpDatabaseUnavailableError:
+            await self._close_handles()
+            raise
         except BaseException:
             _debug_log(self.debug, f"startup cleanup for {self.binary_path}")
-            session_context = self.session_context
-            process = self.process
+            await self._cleanup_failed_start()
+            raise
 
-            self.process = None
-            self.session = None
-            self.session_context = None
+    async def _wait_for_port_release(self) -> bool:
+        if self.port is None:
+            return True
+        released = await asyncio.to_thread(
+            _wait_for_port_release,
+            self.host,
+            self.port,
+            MCP_SHUTDOWN_TIMEOUT,
+        )
+        if self.debug and not released:
+            _debug_log(
+                True,
+                f"MCP port {self.host}:{self.port} remained in use after shutdown",
+            )
+        return released
 
-            if session_context is not None:
-                try:
-                    await session_context.__aexit__(None, None, None)
-                except BaseException:
-                    pass
-
-            if process is not None and process.poll() is None:
+    async def _stop_for_recovery(self) -> bool:
+        process = self.process
+        self.process = None
+        await self._close_handles()
+        if process is not None and process.poll() is None:
+            try:
+                process.terminate()
+                await asyncio.to_thread(process.wait, timeout=10)
+            except (OSError, subprocess.TimeoutExpired):
                 try:
                     process.kill()
                 except Exception:
@@ -865,10 +961,75 @@ class LazyIdalibSession:
                     await asyncio.to_thread(process.wait, timeout=1)
                 except BaseException:
                     pass
-            raise
+        return await self._wait_for_port_release()
+
+    async def _restart_once(self) -> bool:
+        if not self.recovery_budget.consume_restart():
+            print("MCP recovery restart already used; aborting this binary")
+            return False
+        if not await self._stop_for_recovery():
+            print(
+                f"MCP port {self.host}:{self.port} remained in use; "
+                "recovery restart aborted"
+            )
+            return False
+        print(f"Restarting unavailable MCP worker for {self.binary_path}")
+        try:
+            await self.ensure_started()
+            return True
+        except McpDatabaseUnavailableError:
+            print("MCP worker remained unavailable after the single recovery restart")
+            await self._cleanup_failed_start()
+        except Exception as exc:
+            print(f"MCP recovery restart failed: {exc}")
+        return False
+
+    async def _recover_unavailable_worker(self, reason: BaseException) -> bool:
+        print(f"MCP worker unavailable for {self.binary_path}: {reason}")
+        await self._close_handles()
+        port = self.port
+        if self.process is not None and self.process.poll() is None and port is not None:
+            if await check_mcp_worker_health(self.host, port, self.binary_path):
+                _debug_log(self.debug, "MCP worker recovered without a restart; rebinding")
+                try:
+                    await self.ensure_started()
+                    return True
+                except McpDatabaseUnavailableError:
+                    await self._close_handles()
+                    print("MCP worker remained unavailable after rebinding")
+                    return False
+        return await self._restart_once()
+
+    async def ensure_available(self) -> bool:
+        if self.session is None:
+            try:
+                await self.ensure_started()
+                self.recovery_failed = False
+                return True
+            except McpDatabaseUnavailableError as exc:
+                available = await self._recover_unavailable_worker(exc)
+                self.recovery_failed = not available
+                return available
+
+        try:
+            await self.session.call_tool(name="py_eval", arguments={"code": "1"})
+            self.recovery_failed = False
+            return True
+        except Exception as exc:
+            available = await self._recover_unavailable_worker(exc)
+            self.recovery_failed = not available
+            return available
 
     async def call_tool(self, name, arguments):
-        session = await self.ensure_started()
+        if not await self.ensure_available():
+            raise McpDatabaseUnavailableError(
+                f"owned MCP worker for {self.binary_path} is unavailable"
+            )
+        session = self.session
+        if session is None:
+            raise McpDatabaseUnavailableError(
+                f"owned MCP worker for {self.binary_path} did not yield a session"
+            )
         return await session.call_tool(name=name, arguments=arguments)
 
     async def _close_handles(self) -> None:
@@ -893,7 +1054,7 @@ class LazyIdalibSession:
         if cancel_error is not None:
             raise cancel_error
 
-    async def close(self) -> None:
+    async def close(self) -> bool:
         if self.process is not None or self.session_context is not None or self.session is not None:
             _debug_log(self.debug, f"closing lazy MCP session for {self.binary_path}")
         process = self.process
@@ -902,37 +1063,36 @@ class LazyIdalibSession:
         try:
             if process is None:
                 await self._close_handles()
-                return
-            if process.poll() is not None:
-                await self._close_handles()
-                return
-
-            binding = getattr(self.session, "binding", None)
-            if self.session is not None and getattr(binding, "should_auto_quit", False):
-                try:
-                    await asyncio.wait_for(
-                        self.session.call_tool(
-                            name="py_eval",
-                            arguments={"code": "import idc; idc.qexit(0)"},
-                        ),
-                        timeout=IDALIB_QEXIT_TIMEOUT_SECONDS,
-                    )
-                except asyncio.CancelledError as exc:
-                    if not _is_mcp_cancel_scope_cancelled(exc):
-                        raise
-                    _debug_log(
-                        self.debug,
-                        _format_close_cancelled_message("qexit request", exc),
-                    )
-                except Exception:
-                    pass
+                return True
+            if process.poll() is None:
+                binding = getattr(self.session, "binding", None)
+                if self.session is not None and getattr(binding, "should_auto_quit", False):
+                    try:
+                        await asyncio.wait_for(
+                            self.session.call_tool(
+                                name="py_eval",
+                                arguments={"code": "import idc; idc.qexit(0)"},
+                            ),
+                            timeout=IDALIB_QEXIT_TIMEOUT_SECONDS,
+                        )
+                    except asyncio.CancelledError as exc:
+                        if not _is_mcp_cancel_scope_cancelled(exc):
+                            raise
+                        _debug_log(
+                            self.debug,
+                            _format_close_cancelled_message("qexit request", exc),
+                        )
+                    except Exception:
+                        pass
 
             await self._close_handles()
-            try:
-                await asyncio.to_thread(process.wait, timeout=10)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                await asyncio.to_thread(process.wait, timeout=1)
+            if process.poll() is None:
+                try:
+                    await asyncio.to_thread(process.wait, timeout=10)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    await asyncio.to_thread(process.wait, timeout=1)
+            return await self._wait_for_port_release()
         except asyncio.CancelledError:
             try:
                 await self._close_handles()

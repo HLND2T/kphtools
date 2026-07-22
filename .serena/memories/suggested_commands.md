@@ -85,7 +85,7 @@ LLM_DECOMPILE 相关参数：
 
 - `uv run python generate_reference_yaml.py -func_name="PgInitContext" -outyaml="PgInitContext.yaml"`
 
-自动启动 `idalib-mcp`；新版 supervisor 中匹配 IDB 尚未 active 时，会在 MCP 启动超时内等待长时间 IDA auto-analysis 完成：
+自动启动 `idalib-mcp`；reference 生成不使用 analyzer 的单次恢复预算，匹配 IDB inactive 或 unreachable 时会立即失败：
 
 - `uv run python generate_reference_yaml.py -func_name="ExReferenceCallBackBlock" -auto_start_mcp -binary="symbols/amd64/ntoskrnl.exe.10.0.26100.1/{sha256}/ntoskrnl.exe"`
 

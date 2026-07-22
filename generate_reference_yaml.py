@@ -545,7 +545,6 @@ async def autostart_mcp_session(
         session_kwargs = {
             "expected_binary": binary_path,
             "auto_started": True,
-            "database_ready_timeout": dump_symbols.MCP_STARTUP_TIMEOUT,
         }
         if explicit_database is not None:
             session_kwargs["explicit_database"] = explicit_database

@@ -1549,8 +1549,11 @@ class TestDumpSymbols(unittest.TestCase):
             fake_session = AsyncMock()
             fake_session.binding = SimpleNamespace(should_auto_quit=True)
             first_result = object()
+            health_result = object()
             second_result = object()
-            fake_session.call_tool = AsyncMock(side_effect=[first_result, second_result])
+            fake_session.call_tool = AsyncMock(
+                side_effect=[first_result, health_result, second_result]
+            )
             fake_context = MagicMock()
             fake_context.__aenter__ = AsyncMock(return_value=fake_session)
             fake_context.__aexit__ = AsyncMock()
@@ -1597,10 +1600,10 @@ class TestDumpSymbols(unittest.TestCase):
             24567,
             expected_binary=binary_path,
             auto_started=True,
-            database_ready_timeout=dump_symbols.MCP_STARTUP_TIMEOUT,
         )
         fake_session.call_tool.assert_has_awaits(
             [
+                call(name="py_eval", arguments={"code": "1"}),
                 call(name="py_eval", arguments={"code": "1"}),
                 call(name="py_eval", arguments={"code": "2"}),
                 call(
@@ -1612,6 +1615,208 @@ class TestDumpSymbols(unittest.TestCase):
         fake_context.__aexit__.assert_awaited_once_with(None, None, None)
         fake_process.kill.assert_not_called()
         fake_process.wait.assert_called_once_with(timeout=10)
+
+    def test_lazy_idalib_session_restarts_initial_unavailable_worker_once(self) -> None:
+        binary_path = Path("/tmp/ntoskrnl.exe")
+        original_process = MagicMock()
+        original_process.poll.return_value = None
+        restarted_process = MagicMock()
+        restarted_process.poll.return_value = None
+        first_context = MagicMock()
+        first_context.__aenter__ = AsyncMock(
+            side_effect=dump_symbols.McpDatabaseUnavailableError(
+                "inactive or unreachable"
+            )
+        )
+        first_context.__aexit__ = AsyncMock()
+        recovered_result = object()
+        recovered_session = AsyncMock()
+        recovered_session.call_tool = AsyncMock(return_value=recovered_result)
+        second_context = MagicMock()
+        second_context.__aenter__ = AsyncMock(return_value=recovered_session)
+        second_context.__aexit__ = AsyncMock()
+
+        with (
+            patch.object(dump_symbols, "_allocate_local_port", return_value=24567),
+            patch.object(
+                dump_symbols,
+                "start_idalib_mcp",
+                side_effect=[original_process, restarted_process],
+            ) as start_ida,
+            patch.object(
+                dump_symbols,
+                "open_ida_mcp_session",
+                side_effect=[first_context, second_context],
+            ) as open_session,
+            patch.object(
+                dump_symbols,
+                "check_mcp_worker_health",
+                new=AsyncMock(return_value=False),
+            ),
+            patch.object(
+                dump_symbols,
+                "_wait_for_port_release",
+                return_value=True,
+            ) as wait_for_release,
+        ):
+            session = dump_symbols.LazyIdalibSession(binary_path)
+            result = asyncio.run(session.call_tool("py_eval", {"code": "42"}))
+
+        self.assertIs(recovered_result, result)
+        self.assertEqual(2, start_ida.call_count)
+        self.assertEqual(2, open_session.call_count)
+        self.assertEqual(0, session.recovery_budget.remaining_restarts)
+        self.assertFalse(session.recovery_failed)
+        original_process.terminate.assert_called_once_with()
+        original_process.wait.assert_called_once_with(timeout=10)
+        wait_for_release.assert_called_once_with(
+            "127.0.0.1",
+            24567,
+            dump_symbols.MCP_SHUTDOWN_TIMEOUT,
+        )
+        recovered_session.call_tool.assert_awaited_once_with(
+            name="py_eval",
+            arguments={"code": "42"},
+        )
+
+    def test_lazy_idalib_session_rebinds_recovered_worker_without_restart(self) -> None:
+        binary_path = Path("/tmp/ntoskrnl.exe")
+        process = MagicMock()
+        process.poll.return_value = None
+        first_context = MagicMock()
+        first_context.__aenter__ = AsyncMock(
+            side_effect=dump_symbols.McpDatabaseUnavailableError(
+                "inactive or unreachable"
+            )
+        )
+        first_context.__aexit__ = AsyncMock()
+        recovered_result = object()
+        recovered_session = AsyncMock()
+        recovered_session.call_tool = AsyncMock(return_value=recovered_result)
+        second_context = MagicMock()
+        second_context.__aenter__ = AsyncMock(return_value=recovered_session)
+        second_context.__aexit__ = AsyncMock()
+
+        with (
+            patch.object(dump_symbols, "_allocate_local_port", return_value=24567),
+            patch.object(
+                dump_symbols,
+                "start_idalib_mcp",
+                return_value=process,
+            ) as start_ida,
+            patch.object(
+                dump_symbols,
+                "open_ida_mcp_session",
+                side_effect=[first_context, second_context],
+            ),
+            patch.object(
+                dump_symbols,
+                "check_mcp_worker_health",
+                new=AsyncMock(return_value=True),
+            ),
+        ):
+            session = dump_symbols.LazyIdalibSession(binary_path)
+            result = asyncio.run(session.call_tool("py_eval", {"code": "42"}))
+
+        self.assertIs(recovered_result, result)
+        start_ida.assert_called_once()
+        self.assertEqual(1, session.recovery_budget.remaining_restarts)
+        process.terminate.assert_not_called()
+
+    def test_lazy_idalib_session_shares_one_restart_budget_across_failures(self) -> None:
+        session = dump_symbols.LazyIdalibSession(Path("/tmp/ntoskrnl.exe"))
+        session.port = 24567
+        original_process = MagicMock()
+        original_process.poll.return_value = None
+        restarted_process = MagicMock()
+        restarted_process.poll.return_value = None
+        stale_session = AsyncMock()
+        stale_session.call_tool = AsyncMock(side_effect=RuntimeError("worker lost"))
+        stale_context = MagicMock()
+        stale_context.__aexit__ = AsyncMock()
+        session.process = original_process
+        session.session = stale_session
+        session.session_context = stale_context
+
+        recovered_session = AsyncMock()
+        recovered_session.call_tool = AsyncMock(
+            side_effect=RuntimeError("worker lost again")
+        )
+        recovered_context = MagicMock()
+        recovered_context.__aenter__ = AsyncMock(return_value=recovered_session)
+        recovered_context.__aexit__ = AsyncMock()
+
+        with (
+            patch.object(
+                dump_symbols,
+                "check_mcp_worker_health",
+                new=AsyncMock(side_effect=[False, False]),
+            ),
+            patch.object(
+                dump_symbols,
+                "start_idalib_mcp",
+                return_value=restarted_process,
+            ) as start_ida,
+            patch.object(
+                dump_symbols,
+                "open_ida_mcp_session",
+                return_value=recovered_context,
+            ),
+            patch.object(dump_symbols, "_wait_for_port_release", return_value=True),
+        ):
+            first_available = asyncio.run(session.ensure_available())
+            second_available = asyncio.run(session.ensure_available())
+
+        self.assertTrue(first_available)
+        self.assertFalse(second_available)
+        self.assertTrue(session.recovery_failed)
+        self.assertEqual(0, session.recovery_budget.remaining_restarts)
+        start_ida.assert_called_once()
+        original_process.terminate.assert_called_once_with()
+        restarted_process.terminate.assert_not_called()
+
+    def test_process_skill_does_not_fallback_after_mcp_recovery_failure(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            session = dump_symbols.LazyIdalibSession(binary_dir / "ntoskrnl.exe")
+
+            async def fail_preprocess(**_kwargs):
+                session.recovery_failed = True
+                return dump_symbols.PREPROCESS_STATUS_FAILED
+
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=AsyncMock(side_effect=fail_preprocess),
+                ) as preprocess,
+                patch.object(dump_symbols, "run_skill") as run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols._process_one_skill(
+                        skill_name="find-Example",
+                        skill={
+                            "name": "find-Example",
+                            "expected_output": ["Example.yaml", "Other.yaml"],
+                        },
+                        symbol_map={
+                            "Example": {"name": "Example"},
+                            "Other": {"name": "Other"},
+                        },
+                        binary_dir=binary_dir,
+                        pdb_path=None,
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                        session=session,
+                        activity={"did_work": False},
+                    )
+                )
+
+        self.assertFalse(ok)
+        preprocess.assert_awaited_once()
+        run_skill.assert_not_called()
 
     def test_lazy_idalib_session_debug_logs_startup(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -1662,7 +1867,6 @@ class TestDumpSymbols(unittest.TestCase):
             24567,
             expected_binary=binary_path,
             auto_started=True,
-            database_ready_timeout=dump_symbols.MCP_STARTUP_TIMEOUT,
         )
         printed_messages = [
             c.args[0]
@@ -1745,7 +1949,6 @@ class TestDumpSymbols(unittest.TestCase):
             24567,
             expected_binary=binary_path,
             auto_started=True,
-            database_ready_timeout=dump_symbols.MCP_STARTUP_TIMEOUT,
         )
         fake_context.__aexit__.assert_awaited_once_with(None, None, None)
         fake_process.kill.assert_called_once_with()
@@ -1844,7 +2047,6 @@ class TestDumpSymbols(unittest.TestCase):
             24567,
             expected_binary=binary_path,
             auto_started=True,
-            database_ready_timeout=dump_symbols.MCP_STARTUP_TIMEOUT,
         )
         fake_context.__aexit__.assert_awaited_once_with(None, None, None)
         fake_process.kill.assert_called_once_with()
@@ -2028,6 +2230,80 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertIsNone(session.process)
         self.assertIsNone(session.session)
         self.assertIsNone(session.session_context)
+
+    def test_wait_for_port_release_waits_until_port_is_free(self) -> None:
+        with (
+            patch.object(
+                dump_symbols,
+                "_is_port_in_use",
+                side_effect=[True, True, False],
+            ) as port_in_use,
+            patch.object(dump_symbols.time, "sleep") as sleep,
+        ):
+            released = dump_symbols._wait_for_port_release(
+                "127.0.0.1",
+                13337,
+                timeout=1.0,
+                retry_interval=0.01,
+            )
+
+        self.assertTrue(released)
+        self.assertEqual(3, port_in_use.call_count)
+        self.assertEqual(2, sleep.call_count)
+
+    def test_wait_for_port_release_returns_false_after_timeout(self) -> None:
+        with (
+            patch.object(dump_symbols, "_is_port_in_use", return_value=True),
+            patch.object(dump_symbols.time, "monotonic", side_effect=[0.0, 1.0]),
+            patch.object(dump_symbols.time, "sleep") as sleep,
+        ):
+            released = dump_symbols._wait_for_port_release(
+                "127.0.0.1",
+                13337,
+                timeout=0.5,
+                retry_interval=0.01,
+            )
+
+        self.assertFalse(released)
+        sleep.assert_not_called()
+
+    def test_recovery_restart_aborts_when_port_does_not_release(self) -> None:
+        session = dump_symbols.LazyIdalibSession(Path("/tmp/ntoskrnl.exe"))
+        session.port = 24567
+        exited_process = MagicMock()
+        exited_process.poll.return_value = 1
+        session.process = exited_process
+
+        with (
+            patch.object(dump_symbols, "_wait_for_port_release", return_value=False),
+            patch.object(dump_symbols, "start_idalib_mcp") as start_ida,
+        ):
+            restarted = asyncio.run(session._restart_once())
+
+        self.assertFalse(restarted)
+        self.assertEqual(0, session.recovery_budget.remaining_restarts)
+        start_ida.assert_not_called()
+
+    def test_lazy_idalib_session_close_waits_for_port_release(self) -> None:
+        session = dump_symbols.LazyIdalibSession(Path("/tmp/ntoskrnl.exe"))
+        session.port = 24567
+        process = MagicMock()
+        process.poll.return_value = 0
+        session.process = process
+
+        with patch.object(
+            dump_symbols,
+            "_wait_for_port_release",
+            return_value=True,
+        ) as wait_for_release:
+            released = asyncio.run(session.close())
+
+        self.assertTrue(released)
+        wait_for_release.assert_called_once_with(
+            "127.0.0.1",
+            24567,
+            dump_symbols.MCP_SHUTDOWN_TIMEOUT,
+        )
 
     def test_start_idalib_mcp_uses_devnull_streams(self) -> None:
         fake_process = MagicMock()

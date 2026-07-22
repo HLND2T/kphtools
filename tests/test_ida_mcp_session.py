@@ -13,8 +13,8 @@ from ida_mcp_session import (
     McpConnectionError,
     McpContractError,
     McpDatabaseBinding,
-    McpDatabaseNotReadyError,
     McpDatabaseSelectionError,
+    McpDatabaseUnavailableError,
     McpToolCallError,
     detect_database_requirement,
     normalize_binary_identity_path,
@@ -104,19 +104,27 @@ class TestSelectDatabaseSession(unittest.TestCase):
 
         self.assertEqual("server-db", selected["session_id"])
 
-    def test_matching_inactive_database_is_reported_as_not_ready(self) -> None:
-        inactive_server = {**ACTIVE_SERVER, "is_active": False}
+    def test_matching_inactive_database_is_reported_as_unavailable(self) -> None:
+        inactive_server = {
+            **ACTIVE_SERVER,
+            "is_active": False,
+            "pid": 321,
+            "worker_pid": 654,
+        }
 
-        with self.assertRaisesRegex(McpDatabaseNotReadyError, "not active yet"):
+        with self.assertRaisesRegex(
+            McpDatabaseUnavailableError,
+            r"inactive or unreachable.*pid=321.*worker_pid=654",
+        ):
             select_database_session(
                 [inactive_server],
                 expected_binary=r"D:\repo\tests\bin\ida-mcp-smoke.dll",
             )
 
-    def test_explicit_inactive_database_is_reported_as_not_ready(self) -> None:
+    def test_explicit_inactive_database_is_reported_as_unavailable(self) -> None:
         inactive_server = {**ACTIVE_SERVER, "is_active": False}
 
-        with self.assertRaisesRegex(McpDatabaseNotReadyError, "not active yet"):
+        with self.assertRaisesRegex(McpDatabaseUnavailableError, "inactive or unreachable"):
             select_database_session(
                 [inactive_server],
                 explicit_database="server-db",
@@ -264,51 +272,7 @@ class TestOpenIdaMcpSession(unittest.IsolatedAsyncioTestCase):
 
         raw.call_tool.assert_awaited_once_with(name="idb_list", arguments={})
 
-    async def test_supervisor_retries_matching_database_until_active(self) -> None:
-        raw = MagicMock()
-        raw.list_tools = AsyncMock(
-            return_value=SimpleNamespace(
-                tools=[
-                    SimpleNamespace(
-                        name="py_eval",
-                        inputSchema={"required": ["code", "database"]},
-                    )
-                ]
-            )
-        )
-        inactive_server = {**ACTIVE_SERVER, "is_active": False}
-        raw.call_tool = AsyncMock(
-            side_effect=[
-                _tool_result({"sessions": [inactive_server]}),
-                _tool_result({"sessions": [ACTIVE_SERVER]}),
-            ]
-        )
-        raw_contexts = [
-            _async_context(raw),
-            _async_context(raw),
-        ]
-
-        with (
-            patch(
-                "ida_mcp_session._open_raw_ida_mcp_session",
-                side_effect=raw_contexts,
-            ) as open_raw_session,
-            patch("ida_mcp_session.asyncio.sleep", new=AsyncMock()) as sleep,
-        ):
-            async with open_ida_mcp_session(
-                "127.0.0.1",
-                13337,
-                expected_binary=r"D:\repo\tests\bin\ida-mcp-smoke.dll",
-                database_ready_timeout=1.0,
-                database_ready_retry_interval=0.01,
-            ) as session:
-                self.assertEqual("server-db", session.binding.session_id)
-
-        self.assertEqual(2, open_raw_session.call_count)
-        self.assertEqual(2, raw.call_tool.await_count)
-        sleep.assert_awaited_once_with(0.01)
-
-    async def test_supervisor_stops_when_database_ready_timeout_expires(self) -> None:
+    async def test_supervisor_reports_inactive_database_without_retry(self) -> None:
         raw = MagicMock()
         raw.list_tools = AsyncMock(
             return_value=SimpleNamespace(
@@ -325,24 +289,23 @@ class TestOpenIdaMcpSession(unittest.IsolatedAsyncioTestCase):
             return_value=_tool_result({"sessions": [inactive_server]})
         )
 
-        with (
-            patch(
-                "ida_mcp_session._open_raw_ida_mcp_session",
-                return_value=_async_context(raw),
-            ) as open_raw_session,
-            patch("ida_mcp_session.asyncio.sleep", new=AsyncMock()) as sleep,
-        ):
-            with self.assertRaisesRegex(McpDatabaseNotReadyError, "not active yet"):
+        with patch(
+            "ida_mcp_session._open_raw_ida_mcp_session",
+            return_value=_async_context(raw),
+        ) as open_raw_session:
+            with self.assertRaisesRegex(
+                McpDatabaseUnavailableError,
+                "inactive or unreachable",
+            ):
                 async with open_ida_mcp_session(
                     "127.0.0.1",
                     13337,
                     expected_binary=r"D:\repo\tests\bin\ida-mcp-smoke.dll",
-                    database_ready_timeout=0.0,
                 ):
                     self.fail("inactive database must fail before yielding a session")
 
         open_raw_session.assert_called_once()
-        sleep.assert_not_awaited()
+        raw.call_tool.assert_awaited_once_with(name="idb_list", arguments={})
 
     async def test_selection_error_is_not_wrapped_by_transport_shutdown(self) -> None:
         raw = MagicMock()
