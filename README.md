@@ -8,7 +8,6 @@ Install the [requirements](docs/requirements.md), then run the main symbol pipel
 
 ```bash
 curl -O https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml
-uv sync
 uv run download_symbols.py -fast
 uv run dump_symbols.py
 uv run update_symbols.py
