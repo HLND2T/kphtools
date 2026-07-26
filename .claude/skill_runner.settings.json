@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "deny": [
+      "mcp__ida-pro-mcp__open_file"
+    ],
+    "allow": [
+      "Read(ida_preprocessor_scripts)",
+      "Read(symbols)",
+      "mcp__ida-pro-mcp__*"
+    ]
+  },
+  "claudeMdExcludes": [
+    ".claude/CLAUDE.md"
+  ],
+  "effortLevel": "high"
+}
