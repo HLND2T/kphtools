@@ -13,7 +13,8 @@
     -arch        要扫描的架构列表，逗号分隔；当前支持 `amd64`、`arm64`。
     -version     只扫描指定版本目录，例如 `10.0.26100.8246`。
     -skill       只执行指定名称的 skill，其他 skill 会被跳过。
-    -agent       回退到外部 Agent CLI 时使用的可执行文件名，默认 `codex`。
+    -agent       回退到外部 Agent CLI 时使用的可执行文件名，默认 `codex`；支持 OpenCode。
+    -agent_model 外部 Agent 使用的可选模型；OpenCode 要求 `provider/model` 格式。
     -force       即使预期 YAML 已存在，也强制重新生成。
     -debug       输出调试日志，并保留更多 MCP/子进程诊断信息。
 """
@@ -30,6 +31,11 @@ import time
 from pathlib import Path
 from typing import Any
 
+from agent_runner import (
+    DEFAULT_AGENT_MODEL,
+    _detect_agent_kind,
+    run_skill as run_opencode_skill,
+)
 from ida_mcp_session import McpDatabaseUnavailableError, open_ida_mcp_session
 from ida_skill_preprocessor import (
     PREPROCESS_STATUS_ABSENT_OK as _PREPROCESS_STATUS_ABSENT_OK,
@@ -259,14 +265,17 @@ def _run_fallback_skill_and_log_outputs(
     debug: bool,
     required_outputs: list[str],
     max_retries: int,
+    agent_model: str = DEFAULT_AGENT_MODEL,
 ) -> bool:
-    fallback_ok = run_skill(
-        skill_name,
-        agent=agent,
-        debug=debug,
-        expected_yaml_paths=required_outputs,
-        max_retries=max_retries,
-    )
+    run_kwargs = {
+        "agent": agent,
+        "debug": debug,
+        "expected_yaml_paths": required_outputs,
+        "max_retries": max_retries,
+    }
+    if agent_model:
+        run_kwargs["agent_model"] = agent_model
+    fallback_ok = run_skill(skill_name, **run_kwargs)
     if fallback_ok:
         for output_path in required_outputs:
             _debug_log_written_yaml(debug, output_path)
@@ -326,6 +335,7 @@ async def _process_one_skill(
     binary_dir: str | Path, pdb_path: Path | None,
     agent: str, debug: bool, force: bool,
     llm_config: dict[str, Any] | None, session: Any, activity: dict[str, bool] | None,
+    agent_model: str = DEFAULT_AGENT_MODEL,
 ) -> bool:
     _debug_log(debug, f"skill {skill_name} started")
     required_outputs, optional_outputs = _skill_output_paths(binary_dir, skill)
@@ -370,6 +380,7 @@ async def _process_one_skill(
         debug=debug,
         required_outputs=required_outputs,
         max_retries=skill_max_retries,
+        agent_model=agent_model,
     )
 
 
@@ -538,7 +549,22 @@ def parse_args(argv=None):
         default=None,
         help="Exact skill name to run; all other skills are skipped",
     )
-    parser.add_argument("-agent", default="codex")
+    parser.add_argument(
+        "-agent",
+        default=os.environ.get("KPHTOOLS_AGENT", "codex"),
+        help=(
+            "Agent executable for fallback analysis, e.g. codex, codex.cmd, "
+            "opencode, or opencode.cmd; can also be set with KPHTOOLS_AGENT"
+        ),
+    )
+    parser.add_argument(
+        "-agent_model",
+        default=os.environ.get("KPHTOOLS_AGENT_MODEL", DEFAULT_AGENT_MODEL),
+        help=(
+            "Custom model for the selected agent; OpenCode requires "
+            "provider/model format (or KPHTOOLS_AGENT_MODEL)"
+        ),
+    )
     parser.add_argument("-force", action="store_true")
     parser.add_argument("-debug", action="store_true")
     parser.add_argument(
@@ -658,8 +684,19 @@ def run_skill(
     debug,
     expected_yaml_paths,
     max_retries=3,
+    agent_model=DEFAULT_AGENT_MODEL,
 ):
     _debug_log(debug, f"starting fallback skill for {skill_name}")
+    if _detect_agent_kind(agent) == "opencode":
+        return run_opencode_skill(
+            skill_name,
+            agent=agent,
+            debug=debug,
+            expected_yaml_paths=expected_yaml_paths,
+            max_retries=max_retries,
+            agent_model=agent_model,
+        )
+
     skill_md_path = Path(".claude") / "skills" / skill_name / "SKILL.md"
     if not skill_md_path.exists():
         return False
@@ -681,9 +718,10 @@ def run_skill(
         f"developer_instructions={json.dumps(developer_instructions)}",
         "-c",
         "model_reasoning_effort=high",
-        "exec",
-        "-",
     ]
+    if agent_model:
+        cmd.extend(["-m", agent_model])
+    cmd.extend(["exec", "-"])
     prompt = f"Run SKILL: {skill_md_path}"
     try:
         completed = subprocess.run(cmd, input=prompt, text=True, check=False)
@@ -735,6 +773,7 @@ async def process_binary_dir(
     force,
     llm_config,
     session=None, activity=None, arch=None, skill=None,
+    agent_model=DEFAULT_AGENT_MODEL,
 ):
     if activity is not None and "did_work" not in activity:
         activity["did_work"] = False
@@ -763,6 +802,7 @@ async def process_binary_dir(
             binary_dir=binary_dir,
             pdb_path=resolved_pdb_path,
             agent=agent,
+            agent_model=agent_model,
             debug=debug,
             force=force,
             llm_config=llm_config,
@@ -1174,6 +1214,7 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
             skills=module.skills,
             symbols=module.symbols,
             agent=args.agent,
+            agent_model=getattr(args, "agent_model", DEFAULT_AGENT_MODEL),
             debug=args.debug,
             force=args.force,
             llm_config=_build_llm_config(args),

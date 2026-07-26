@@ -154,6 +154,20 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertEqual("high", args.llm_effort)
         self.assertEqual("codex", args.llm_fake_as)
 
+    def test_parse_args_uses_kphtools_agent_env_fallbacks(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "KPHTOOLS_AGENT": "opencode.cmd",
+                "KPHTOOLS_AGENT_MODEL": "openai/gpt-5.4",
+            },
+            clear=True,
+        ):
+            args = dump_symbols.parse_args([])
+
+        self.assertEqual("opencode.cmd", args.agent)
+        self.assertEqual("openai/gpt-5.4", args.agent_model)
+
     def test_parse_args_uses_dotenv_file_when_present(self) -> None:
         with TemporaryDirectory() as temp_dir:
             cwd = os.getcwd()
@@ -1313,6 +1327,32 @@ class TestDumpSymbols(unittest.TestCase):
 
         self.assertFalse(ok)
         mock_run.assert_called_once()
+
+    def test_run_skill_passes_explicit_model_to_codex(self) -> None:
+        completed = subprocess.CompletedProcess(args=["codex"], returncode=0)
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.read_text", return_value="developer prompt"),
+            patch.object(
+                dump_symbols.subprocess,
+                "run",
+                return_value=completed,
+            ) as mock_run,
+        ):
+            ok = dump_symbols.run_skill(
+                "find-test",
+                agent="codex",
+                debug=False,
+                expected_yaml_paths=[],
+                agent_model="gpt-5.4",
+            )
+
+        self.assertTrue(ok)
+        command = mock_run.call_args.args[0]
+        self.assertIn(
+            ["-m", "gpt-5.4"],
+            [command[index : index + 2] for index in range(len(command) - 1)],
+        )
 
     def test_run_skill_reports_missing_agent_cli_without_raising(self) -> None:
         with (

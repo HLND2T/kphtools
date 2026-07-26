@@ -89,10 +89,24 @@ Where `{sha256}` is the lowercase SHA256 hash of the PE file (e.g., `68d5867b5e6
 `dump_symbols.py` is the primary analysis entry point.
 
 ```bash
-uv run dump_symbols.py [-symboldir="path/to/symbols"] [-configyaml="config.yaml"] [-version=10.0.26100.8246] [-arch=amd64] [-debug]
+uv run dump_symbols.py [-symboldir="path/to/symbols"] [-configyaml="config.yaml"] [-version=10.0.26100.8246] [-arch=amd64] [-agent=codex/opencode/"codex.cmd"/"opencode.cmd"] [-agent_model=provider/model] [-debug]
 ```
 
 The script scans `<symboldir>/<arch>/<file>.<version>/<sha256>/`, resolves symbols into `{symbol}.yaml`, and writes them next to the corresponding PE/PDB files.
+
+`-agent="opencode.cmd"` selects an OpenCode CLI installed through npm on Windows. OpenCode loads the project Agent from `.opencode/agents/sig-finder.md`, checks that `ida-pro-mcp` is configured, and runs the selected skill in non-interactive JSON mode. When an OpenCode retry is required, the runner resumes the exact reported `sessionID`, falling back to `--continue` only if no session event was emitted.
+
+The agent executable and optional model can also be provided by `.env` or environment variables. OpenCode model names must use `provider/model` format.
+
+```bash
+KPHTOOLS_AGENT=opencode
+KPHTOOLS_AGENT_MODEL=openai/gpt-5.4
+```
+
+```bat
+set KPHTOOLS_AGENT=opencode.cmd
+set KPHTOOLS_AGENT_MODEL=openai/gpt-5.4
+```
 
 When an auto-started supervisor reports the matching IDB as inactive or unreachable, `dump_symbols.py` checks the owned worker and may restart it once for that binary. The restart waits for the previous supervisor port to be released; a second unavailable-worker failure aborts that binary instead of retrying indefinitely.
 
