@@ -3,7 +3,7 @@
 File Upload Server for KPH Dynamic Data
 
 HTTP server that handles file uploads, validates PE files and digital signatures,
-and stores files in the symbol directory structure.
+and stores files on local disk or Alibaba Cloud OSS.
 
 Upload format:
     application/octet-stream: Raw binary file upload
@@ -16,6 +16,9 @@ Usage:
 
     Or:
     uv run python upload_server.py -symboldir C:/Symbols -port 8000 -debug
+
+    OSS storage:
+    KPHTOOLS_SERVER_STORAGE=oss uv run python upload_server.py [-port=8000]
 
     Upload example:
     curl -X POST -H "Content-Type: application/octet-stream" --data-binary "@ntoskrnl.exe" http://localhost:8000/upload
@@ -41,6 +44,7 @@ import http.server
 import json
 import re
 from io import BytesIO
+from typing import Protocol
 from urllib.parse import urlparse, parse_qs
 import gzip
 
@@ -90,6 +94,228 @@ FILEVERSION_PATTERN = re.compile(
 )
 
 
+class StorageError(Exception):
+    """Raised when the configured storage backend cannot complete an operation."""
+
+
+class StorageBackend(Protocol):
+    def stat_file(self, relative_path: str) -> tuple[bool, int | None]:
+        """Return whether a file exists and its size when available."""
+
+    def save_file(
+        self,
+        relative_path: str,
+        file_data: bytes,
+        file_hash: str,
+    ) -> tuple[bool, str, int]:
+        """Store a file and return success, message, and HTTP status code."""
+
+
+def build_symbol_path(arch, file_name, file_version, file_hash):
+    """Build the storage-relative path used by all storage backends."""
+    return "/".join((
+        arch,
+        f"{file_name}.{file_version}",
+        file_hash,
+        file_name,
+    ))
+
+
+class DiskStorage:
+    """Store uploaded files in the local symbol directory."""
+
+    def __init__(self, symboldir):
+        self.symboldir = symboldir
+
+    def _target_path(self, relative_path):
+        return os.path.join(self.symboldir, *relative_path.split('/'))
+
+    def stat_file(self, relative_path):
+        target_path = self._target_path(relative_path)
+        file_exists = os.path.exists(target_path) and os.path.isfile(target_path)
+        if not file_exists:
+            return (False, None)
+
+        try:
+            return (True, os.path.getsize(target_path))
+        except OSError:
+            return (True, None)
+
+    def save_file(self, relative_path, file_data, file_hash):
+        target_path = self._target_path(relative_path)
+
+        if os.path.exists(target_path):
+            with open(target_path, 'rb') as existing_file:
+                existing_data = existing_file.read()
+
+            existing_hash = hashlib.sha256(existing_data).hexdigest().lower()
+            if existing_hash == file_hash:
+                return (True, "File already exists and is identical", 200)
+
+            return (False, "File already exists with different content", 409)
+
+        target_dir = os.path.dirname(target_path)
+        try:
+            os.makedirs(target_dir, exist_ok=True)
+        except OSError as error:
+            return (False, f"Failed to create directory: {error}", 500)
+
+        try:
+            with open(target_path, 'wb') as target_file:
+                target_file.write(file_data)
+            return (True, "File uploaded successfully", 200)
+        except OSError as error:
+            return (False, f"Failed to save file: {error}", 500)
+
+
+class OssStorage:
+    """Store uploaded files in Alibaba Cloud OSS."""
+
+    def __init__(self, client, oss_module, bucket, prefix=""):
+        self.client = client
+        self.oss = oss_module
+        self.bucket = bucket
+        self.prefix = prefix.strip().strip('/')
+
+    def _object_key(self, relative_path):
+        if self.prefix:
+            return f"{self.prefix}/{relative_path}"
+        return relative_path
+
+    @staticmethod
+    def _unwrap_error(error):
+        """Unwrap SDK operation errors to their underlying service error."""
+        while hasattr(error, 'unwrap'):
+            unwrapped_error = error.unwrap()
+            if unwrapped_error is None or unwrapped_error is error:
+                break
+            error = unwrapped_error
+        return error
+
+    def _raise_storage_error(self, operation, error):
+        status_code = getattr(error, 'status_code', None)
+        error_code = getattr(error, 'code', type(error).__name__)
+        request_id = getattr(error, 'request_id', None)
+        print(
+            f"OSS {operation} failed: status={status_code}, "
+            f"code={error_code}, request_id={request_id}",
+            file=sys.stderr,
+        )
+        raise StorageError("OSS storage operation failed") from error
+
+    def stat_file(self, relative_path):
+        request = self.oss.HeadObjectRequest(
+            bucket=self.bucket,
+            key=self._object_key(relative_path),
+        )
+        try:
+            result = self.client.head_object(request)
+        except Exception as error:
+            error = self._unwrap_error(error)
+            if getattr(error, 'code', None) == 'NoSuchKey':
+                return (False, None)
+            self._raise_storage_error("head_object", error)
+
+        return (True, getattr(result, 'content_length', None))
+
+    def save_file(self, relative_path, file_data, file_hash):
+        file_exists, _ = self.stat_file(relative_path)
+        if file_exists:
+            return (True, "File already exists and is identical", 200)
+
+        request = self.oss.PutObjectRequest(
+            bucket=self.bucket,
+            key=self._object_key(relative_path),
+            body=BytesIO(file_data),
+            content_type="application/octet-stream",
+            forbid_overwrite=True,
+        )
+        try:
+            self.client.put_object(request)
+        except Exception as error:
+            error = self._unwrap_error(error)
+            if getattr(error, 'status_code', None) == 409:
+                return (True, "File already exists and is identical", 200)
+            self._raise_storage_error("put_object", error)
+
+        return (True, "File uploaded successfully", 200)
+
+
+def get_storage_mode(environ=None):
+    """Read and validate the configured server storage mode."""
+    environ = os.environ if environ is None else environ
+    storage_mode = environ.get('KPHTOOLS_SERVER_STORAGE', 'disk').strip().lower()
+    if storage_mode not in ('disk', 'oss'):
+        raise ValueError(
+            "KPHTOOLS_SERVER_STORAGE must be either 'disk' or 'oss'"
+        )
+    return storage_mode
+
+
+def create_storage_backend(
+    storage_mode,
+    symboldir=None,
+    environ=None,
+    oss_module=None,
+):
+    """Create the configured storage backend."""
+    environ = os.environ if environ is None else environ
+
+    if storage_mode == 'disk':
+        if not symboldir:
+            raise ValueError(
+                "symboldir must be provided either via KPHTOOLS_SYMBOLDIR "
+                "environment variable or -symboldir command line argument"
+            )
+        os.makedirs(symboldir, exist_ok=True)
+        return DiskStorage(symboldir)
+
+    if storage_mode != 'oss':
+        raise ValueError(f"Unsupported storage mode: {storage_mode}")
+
+    required_variables = (
+        'KPHTOOLS_SERVER_OSS_REGION',
+        'KPHTOOLS_SERVER_OSS_BUCKET',
+        'OSS_ACCESS_KEY_ID',
+        'OSS_ACCESS_KEY_SECRET',
+    )
+    missing_variables = [
+        name for name in required_variables if not environ.get(name, '').strip()
+    ]
+    if missing_variables:
+        raise ValueError(
+            "Missing required OSS environment variables: "
+            + ", ".join(missing_variables)
+        )
+
+    if oss_module is None:
+        try:
+            import alibabacloud_oss_v2 as oss_module
+        except ImportError as error:
+            raise RuntimeError(
+                "Missing OSS dependency: run `uv sync` in the repository root"
+            ) from error
+
+    credentials_provider = (
+        oss_module.credentials.EnvironmentVariableCredentialsProvider()
+    )
+    config = oss_module.config.load_default()
+    config.credentials_provider = credentials_provider
+    config.region = environ['KPHTOOLS_SERVER_OSS_REGION'].strip()
+
+    endpoint = environ.get('KPHTOOLS_SERVER_OSS_ENDPOINT', '').strip()
+    if endpoint:
+        config.endpoint = endpoint
+
+    client = oss_module.Client(config)
+    return OssStorage(
+        client,
+        oss_module,
+        environ['KPHTOOLS_SERVER_OSS_BUCKET'].strip(),
+        environ.get('KPHTOOLS_SERVER_OSS_PREFIX', ''),
+    )
+
+
 def validate_exists_params(arch, filename, fileversion, sha256):
     """
     Validate parameters for /exists endpoint.
@@ -122,12 +348,12 @@ def validate_exists_params(arch, filename, fileversion, sha256):
     return (True, None)
 
 
-def check_file_exists(symboldir, arch, filename, fileversion, sha256):
+def check_file_exists(storage, arch, filename, fileversion, sha256):
     """
     Check if a file exists in the symbol directory.
 
     Args:
-        symboldir: Base symbol directory path
+        storage: Configured storage backend
         arch: Architecture (x86/amd64/arm64)
         filename: Filename to check
         fileversion: File version string
@@ -145,18 +371,13 @@ def check_file_exists(symboldir, arch, filename, fileversion, sha256):
             'file_size': int (optional, only if file exists)
         }
     """
-    # Build file path: {symboldir}/{arch}/{filename}.{fileversion}/{sha256}/{filename}
-    target_dir = os.path.join(symboldir, arch, f"{filename}.{fileversion}", sha256)
-    target_path = os.path.join(target_dir, filename)
-
-    # Build relative path (relative to symboldir) for response
-    # Format: {arch}/{filename}.{fileversion}/{sha256}/{filename}
-    relative_path = os.path.join(arch, f"{filename}.{fileversion}", sha256, filename)
-    # Normalize path separators to forward slashes for consistency
-    relative_path = relative_path.replace(os.sep, '/')
-
-    # Check if file exists
-    file_exists = os.path.exists(target_path) and os.path.isfile(target_path)
+    relative_path = build_symbol_path(
+        arch,
+        filename,
+        fileversion,
+        sha256,
+    )
+    file_exists, file_size = storage.stat_file(relative_path)
 
     # Prepare response data
     result = {
@@ -168,13 +389,8 @@ def check_file_exists(symboldir, arch, filename, fileversion, sha256):
         'path': relative_path
     }
 
-    if file_exists:
-        # Get file size
-        try:
-            file_size = os.path.getsize(target_path)
-            result['file_size'] = file_size
-        except OSError:
-            pass
+    if file_exists and file_size is not None:
+        result['file_size'] = file_size
 
     return result
 
@@ -187,7 +403,7 @@ def parse_args():
     parser.add_argument(
         "-symboldir",
         required=False,
-        help="Directory to store uploaded files (can also be set via KPHTOOLS_SYMBOLDIR environment variable)"
+        help="Directory to store uploaded files in disk mode (can also be set via KPHTOOLS_SYMBOLDIR environment variable)"
     )
     parser.add_argument(
         "-port",
@@ -410,7 +626,7 @@ def verify_signature(file_data):
         return False
 
 
-def save_file(file_data, file_name, file_version, arch, symboldir):
+def save_file(file_data, file_name, file_version, arch, storage):
     """
     Save file to target directory.
 
@@ -419,7 +635,7 @@ def save_file(file_data, file_name, file_version, arch, symboldir):
         file_name: Original filename
         file_version: File version
         arch: Architecture (x86/amd64/arm64)
-        symboldir: Base symbol directory
+        storage: Configured storage backend
 
     Returns:
         Tuple of (success: bool, message: str, status_code: int, sha256: str or None)
@@ -427,44 +643,25 @@ def save_file(file_data, file_name, file_version, arch, symboldir):
     # Calculate SHA256 hash of the file
     file_hash = hashlib.sha256(file_data).hexdigest().lower()
 
-    # Build target path: {symboldir}/{arch}/{FileName}.{FileVersion}/{sha256}/{FileName}
-    target_dir = os.path.join(symboldir, arch, f"{file_name}.{file_version}", file_hash)
-    target_path = os.path.join(target_dir, file_name)
-
-    # Check if file already exists
-    if os.path.exists(target_path):
-        # Compare file contents by hash (file path already includes hash, so it should match)
-        with open(target_path, 'rb') as f:
-            existing_data = f.read()
-
-        existing_hash = hashlib.sha256(existing_data).hexdigest().lower()
-
-        if existing_hash == file_hash:
-            return (True, "File already exists and is identical", 200, file_hash)
-        else:
-            # This should not happen since path includes hash, but handle it anyway
-            return (False, "File already exists with different content", 409, file_hash)
-
-    # Create directory if needed
-    try:
-        os.makedirs(target_dir, exist_ok=True)
-    except OSError as e:
-        return (False, f"Failed to create directory: {e}", 500, file_hash)
-
-    # Save file
-    try:
-        with open(target_path, 'wb') as f:
-            f.write(file_data)
-        return (True, "File uploaded successfully", 200, file_hash)
-    except OSError as e:
-        return (False, f"Failed to save file: {e}", 500, file_hash)
+    relative_path = build_symbol_path(
+        arch,
+        file_name,
+        file_version,
+        file_hash,
+    )
+    success, message, status_code = storage.save_file(
+        relative_path,
+        file_data,
+        file_hash,
+    )
+    return (success, message, status_code, file_hash)
 
 
 class UploadHandler(http.server.BaseHTTPRequestHandler):
     """HTTP request handler for file uploads."""
     
-    def __init__(self, *args, symboldir=None, debug=False, **kwargs):
-        self.symboldir = symboldir
+    def __init__(self, *args, storage=None, debug=False, **kwargs):
+        self.storage = storage
         self.debug = debug
         super().__init__(*args, **kwargs)
     
@@ -564,7 +761,17 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
             return
 
         # Check file existence
-        response_data = check_file_exists(self.symboldir, arch, filename, fileversion, sha256)
+        try:
+            response_data = check_file_exists(
+                self.storage,
+                arch,
+                filename,
+                fileversion,
+                sha256,
+            )
+        except StorageError as error:
+            self.send_json_response(502, str(error))
+            return
 
         self.send_json_response(200, "File existence checked", response_data)
 
@@ -652,13 +859,17 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
             return
         
         # Save file
-        success, message, status_code, file_hash = save_file(
-            file_data,
-            pe_info['file_name'],
-            pe_info['file_version'],
-            pe_info['arch'],
-            self.symboldir
-        )
+        try:
+            success, message, status_code, file_hash = save_file(
+                file_data,
+                pe_info['file_name'],
+                pe_info['file_version'],
+                pe_info['arch'],
+                self.storage,
+            )
+        except StorageError as error:
+            self.send_json_response(502, str(error))
+            return
 
         if success:
             self.send_json_response(status_code, message, {
@@ -683,17 +894,13 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
 def main():
     """Main entry point."""
     args = parse_args()
-    
-    # Get symboldir from environment variable or command line argument
-    symboldir = os.environ.get('KPHTOOLS_SYMBOLDIR')
-    if not symboldir:
-        symboldir = args.symboldir
-    
-    # Validate that symboldir is provided
-    if not symboldir:
-        print("Error: symboldir must be provided either via KPHTOOLS_SYMBOLDIR environment variable or -symboldir command line argument")
+
+    try:
+        storage_mode = get_storage_mode()
+    except ValueError as error:
+        print(f"Error: {error}")
         sys.exit(1)
-    
+
     # Get port from environment variable or command line argument
     port_env = os.environ.get('KPHTOOLS_SERVER_PORT')
     if port_env:
@@ -704,27 +911,36 @@ def main():
             sys.exit(1)
     else:
         port = args.port
-    
-    # Validate symbol directory
-    if not os.path.exists(symboldir):
-        try:
-            os.makedirs(symboldir, exist_ok=True)
-        except OSError as e:
-            print(f"Error: Cannot create symbol directory: {e}")
-            sys.exit(1)
-    
-    # Ensure upload directory exists
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-    
-    print(f"Symbol directory: {symboldir}")
-    print(f"Upload directory: {UPLOAD_DIR}")
+
+    symboldir = os.environ.get('KPHTOOLS_SYMBOLDIR') or args.symboldir
+    try:
+        storage = create_storage_backend(storage_mode, symboldir=symboldir)
+    except (ValueError, RuntimeError, OSError) as error:
+        print(f"Error: {error}")
+        sys.exit(1)
+
+    print(f"Storage mode: {storage_mode}")
+    if storage_mode == 'disk':
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        print(f"Symbol directory: {storage.symboldir}")
+        print(f"Upload directory: {UPLOAD_DIR}")
+    else:
+        print(f"OSS region: {os.environ['KPHTOOLS_SERVER_OSS_REGION'].strip()}")
+        print(f"OSS bucket: {storage.bucket}")
+        print(f"OSS prefix: {storage.prefix or '(none)'}")
+
     print(f"Max file size: {MAX_FILE_SIZE / (1024 * 1024)}MB")
     print(f"Starting server on port {port}...")
     print(f"Upload endpoint: http://localhost:{port}/upload")
-    
-    # Create handler with symboldir parameter
+
+    # Create handler with storage backend parameter
     def handler_factory(*handler_args, **handler_kwargs):
-        return UploadHandler(*handler_args, symboldir=symboldir, debug=args.debug, **handler_kwargs)
+        return UploadHandler(
+            *handler_args,
+            storage=storage,
+            debug=args.debug,
+            **handler_kwargs,
+        )
     
     # Start server
     try:

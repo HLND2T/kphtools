@@ -5,6 +5,7 @@ description = "Toolkits for KPH dynamic data"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "alibabacloud-oss-v2",
     "anthropic",
     "httpx",
     "mcp",

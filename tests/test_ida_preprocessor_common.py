@@ -99,6 +99,82 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
                 payload,
             )
 
+    async def test_preprocess_common_skill_skips_llm_validation_when_pdb_succeeds(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir) / "arm64" / "ntoskrnl.exe.10.0.19041.7548"
+            binary_dir.mkdir(parents=True)
+            with (
+                patch.object(
+                    ida_preprocessor_common,
+                    "preprocess_func_symbol",
+                    new=AsyncMock(
+                        return_value={
+                            "func_name": "AlpcpDeletePort",
+                            "func_rva": 0x12340,
+                        }
+                    ),
+                ) as mock_pdb,
+                patch.object(
+                    ida_preprocessor_common,
+                    "_prepare_llm_decompile_context",
+                    side_effect=AssertionError("LLM context should be lazy"),
+                ),
+                patch.object(
+                    ida_preprocessor_common,
+                    "resolve_symbol_via_llm_decompile",
+                    new=AsyncMock(),
+                ) as mock_llm,
+            ):
+                status = await ida_preprocessor_common.preprocess_common_skill(
+                    session=AsyncMock(),
+                    skill=SimpleNamespace(name="find-AlpcpDeletePort"),
+                    symbol=SimpleNamespace(
+                        name="AlpcpDeletePort",
+                        category="func",
+                        data_type="uint32",
+                    ),
+                    binary_dir=binary_dir,
+                    pdb_path=Path(temp_dir) / "ntkrnlmp.pdb",
+                    debug=False,
+                    llm_config={
+                        "_expected_inputs": ["AlpcpInitSystem.yaml"],
+                        "_optional_inputs": [],
+                    },
+                    func_names=["AlpcpDeletePort"],
+                    func_metadata={"AlpcpDeletePort": {"alias": ["AlpcpDeletePort"]}},
+                    llm_decompile_specs=[
+                        {
+                            "symbol_name": "AlpcpDeletePort",
+                            "prompt_path": "prompt/call_llm_decompile.md",
+                            "reference_yaml_paths": [
+                                "references/ntoskrnl/AlpcpInitSystem.{arch}.yaml"
+                            ],
+                            "expected_result_sections": ["found_call"],
+                            "dependency_policy": {
+                                "AlpcpInitSystem.yaml": "required"
+                            },
+                        }
+                    ],
+                    generate_yaml_desired_fields={
+                        "AlpcpDeletePort": ["func_name", "func_rva"]
+                    },
+                )
+
+            self.assertEqual(ida_preprocessor_common.PREPROCESS_STATUS_SUCCESS, status)
+            mock_pdb.assert_awaited_once()
+            mock_llm.assert_not_awaited()
+            payload = load_artifact(binary_dir / "AlpcpDeletePort.yaml")
+            self.assertEqual(
+                {
+                    "category": "func",
+                    "func_name": "AlpcpDeletePort",
+                    "func_rva": 0x12340,
+                },
+                payload,
+            )
+
     async def test_preprocess_common_skill_fails_when_requested_field_is_missing(
         self,
     ) -> None:
