@@ -18,13 +18,21 @@ powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/w
 
 ## Requirements
 
-Requirements are managed by `pyproject.toml`:
 
-```bash
-uv sync
-```
+1. [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
-System dependencies (for signify library, required on Linux):
+2. claude / codex / opencode
+
+3. IDA Pro 9.0+
+
+4. [ida-pro-mcp](https://github.com/mrexodia/ida-pro-mcp)
+
+5. [idalib](https://docs.hex-rays.com/user-guide/idalib) (mandatory for `ida_analyze_bin.py`)
+
+6. Clang-LLVM (clang must be in PATH)
+
+#### extra dependencies on linux
+
 - **Ubuntu/Debian:**
   ```bash
   sudo apt-get update
