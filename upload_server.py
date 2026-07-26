@@ -18,7 +18,10 @@ Usage:
     uv run python upload_server.py -symboldir C:/Symbols -port 8000 -debug
 
     OSS storage:
-    KPHTOOLS_SERVER_STORAGE=oss uv run python upload_server.py [-port=8000]
+    set KPHTOOLS_SERVER_STORAGE=oss
+    uv run python upload_server.py [-port=8000]
+
+    Environment variables are automatically loaded from the .env file next to this script.
 
     Upload example:
     curl -X POST -H "Content-Type: application/octet-stream" --data-binary "@ntoskrnl.exe" http://localhost:8000/upload
@@ -44,6 +47,7 @@ import http.server
 import json
 import re
 from io import BytesIO
+from pathlib import Path
 from typing import Protocol
 from urllib.parse import urlparse, parse_qs
 import gzip
@@ -239,6 +243,34 @@ class OssStorage:
             self._raise_storage_error("put_object", error)
 
         return (True, "File uploaded successfully", 200)
+
+
+def _load_dotenv_file(path=None, environ=None):
+    """Load environment variables from .env without overriding existing values."""
+    environ = os.environ if environ is None else environ
+    env_path = (
+        Path(path) if path is not None else Path(__file__).resolve().with_name(".env")
+    )
+    if not env_path.is_file():
+        return
+
+    try:
+        lines = env_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key or key in environ:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1]
+        environ[key] = value
 
 
 def get_storage_mode(environ=None):
@@ -893,6 +925,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
 
 def main():
     """Main entry point."""
+    _load_dotenv_file()
     args = parse_args()
 
     try:
