@@ -370,18 +370,6 @@ async def preprocess_common_skill(
     if func_xrefs_map is None:
         return PREPROCESS_STATUS_FAILED
 
-    llm_context = _prepare_llm_decompile_context(
-        llm_decompile_specs=llm_decompile_specs,
-        llm_config=llm_config,
-        desired_fields_by_symbol=desired_fields_by_symbol,
-        struct_metadata=struct_metadata,
-        binary_dir=binary_dir,
-        debug=debug,
-    )
-    if llm_context is None:
-        return PREPROCESS_STATUS_FAILED
-    llm_decompile_specs, llm_config = llm_context
-
     desired_fields = desired_fields_by_symbol.get(target_symbol_name)
     if not desired_fields:
         return PREPROCESS_STATUS_FAILED
@@ -415,6 +403,17 @@ async def preprocess_common_skill(
     payload, metadata, writer = fast_path
 
     if payload is None:
+        llm_context = _prepare_llm_decompile_context(
+            llm_decompile_specs=llm_decompile_specs,
+            llm_config=llm_config,
+            desired_fields_by_symbol=desired_fields_by_symbol,
+            struct_metadata=struct_metadata,
+            binary_dir=binary_dir,
+            debug=debug,
+        )
+        if llm_context is None:
+            return PREPROCESS_STATUS_FAILED
+        llm_decompile_specs, llm_config = llm_context
         payload = await resolve_symbol_via_llm_decompile(
             session=session,
             symbol_name=target_symbol_name,
