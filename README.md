@@ -135,6 +135,8 @@ KPHTOOLS_LLM_BASEURL=https://api.example.com/v1
 KPHTOOLS_LLM_TEMPERATURE=0.2
 KPHTOOLS_LLM_EFFORT=high
 KPHTOOLS_LLM_FAKE_AS=codex
+KPHTOOLS_AGENT=claude.cmd
+KPHTOOLS_AGENT_MODEL=sonnet
 ```
 
 Normal providers use the OpenAI-compatible Chat Completions API. `-llm_effort` defaults to `medium`; `-llm_temperature` is omitted when unset.
