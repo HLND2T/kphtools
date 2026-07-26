@@ -27,6 +27,8 @@ The default symbol layout is:
 symbols/<arch>/<file>.<version>/<sha256>/
 ```
 
+All four scripts use `symbols` under the current working directory by default. Set `KPHTOOLS_SYMBOLDIR` to override that directory; the environment variable takes precedence over `-symboldir`.
+
 ## Documentation
 
 - [Requirements and environment setup](docs/requirements.md)

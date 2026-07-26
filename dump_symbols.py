@@ -9,6 +9,7 @@
 
 可用参数:
     -symboldir   符号根目录，默认 `symbols`。
+                 可通过 `KPHTOOLS_SYMBOLDIR` 覆盖。
     -configyaml  模块与符号配置文件，默认 `config.yaml`。
     -arch        要扫描的架构列表，逗号分隔；当前支持 `amd64`、`arm64`。
     -version     只扫描指定版本目录，例如 `10.0.26100.8246`。
@@ -514,7 +515,14 @@ def parse_args(argv=None):
         description="Dump kphtools symbols into YAML artifacts",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("-symboldir", default=DEFAULT_SYMBOL_DIR, help="Symbol artifact root directory")
+    parser.add_argument(
+        "-symboldir",
+        default=DEFAULT_SYMBOL_DIR,
+        help=(
+            f"Symbol artifact root directory (default: {DEFAULT_SYMBOL_DIR}); "
+            "can be overridden by KPHTOOLS_SYMBOLDIR"
+        ),
+    )
     parser.add_argument("-configyaml", default="config.yaml")
     parser.add_argument(
         "-arch",
@@ -581,6 +589,13 @@ def parse_args(argv=None):
         help="Optional transport profile; currently only 'codex', or KPHTOOLS_LLM_FAKE_AS",
     )
     args = parser.parse_args(argv)
+
+    env_symboldir = os.getenv("KPHTOOLS_SYMBOLDIR")
+    if env_symboldir is not None:
+        args.symboldir = env_symboldir
+    if not args.symboldir:
+        parser.error("-symboldir cannot be empty")
+
     try:
         args.arches = _parse_arches(args.arch)
     except argparse.ArgumentTypeError as exc:

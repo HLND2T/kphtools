@@ -12,10 +12,10 @@ Optional features:
     - X-File-Compressed: gzip header to indicate gzip-compressed file
 
 Usage:
-    uv run python upload_server.py -symboldir=C:/Symbols [-port=8000] [-debug]
+    uv run python upload_server.py [-symboldir=C:/Symbols] [-port=8000] [-debug]
 
     Or:
-    uv run python upload_server.py -symboldir C:/Symbols -port 8000 -debug
+    uv run python upload_server.py [-symboldir C:/Symbols] -port 8000 -debug
 
     OSS storage:
     set KPHTOOLS_SERVER_STORAGE=oss
@@ -80,6 +80,7 @@ except Exception as e:
 
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
 UPLOAD_DIR = 'uploads'
+DEFAULT_SYMBOL_DIR = 'symbols'
 ALLOW_FILENAME = ['ntoskrnl.exe', 'ntkrnlmp.exe', 'ntkrla57.exe']
 ALLOW_FILEDESC = ['NT Kernel & System']
 ALLOW_ARCH = ['x86', 'amd64', 'arm64']
@@ -295,10 +296,7 @@ def create_storage_backend(
 
     if storage_mode == 'disk':
         if not symboldir:
-            raise ValueError(
-                "symboldir must be provided either via KPHTOOLS_SYMBOLDIR "
-                "environment variable or -symboldir command line argument"
-            )
+            raise ValueError("symboldir cannot be empty")
         os.makedirs(symboldir, exist_ok=True)
         return DiskStorage(symboldir)
 
@@ -427,15 +425,18 @@ def check_file_exists(storage, arch, filename, fileversion, sha256):
     return result
 
 
-def parse_args():
+def parse_args(argv=None):
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         description="HTTP server that handles file uploads, validates PE files and digital signatures"
     )
     parser.add_argument(
         "-symboldir",
-        required=False,
-        help="Directory to store uploaded files in disk mode (can also be set via KPHTOOLS_SYMBOLDIR environment variable)"
+        default=DEFAULT_SYMBOL_DIR,
+        help=(
+            f"Directory to store uploaded files in disk mode (default: {DEFAULT_SYMBOL_DIR}; "
+            "can be overridden by KPHTOOLS_SYMBOLDIR)"
+        ),
     )
     parser.add_argument(
         "-port",
@@ -449,7 +450,13 @@ def parse_args():
         help="Enable debug mode (includes HTTP request logging)"
     )
     
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+
+    env_symboldir = os.environ.get('KPHTOOLS_SYMBOLDIR')
+    if env_symboldir is not None:
+        args.symboldir = env_symboldir
+    if not args.symboldir:
+        parser.error("-symboldir cannot be empty")
     
     return args
 
@@ -945,7 +952,7 @@ def main():
     else:
         port = args.port
 
-    symboldir = os.environ.get('KPHTOOLS_SYMBOLDIR') or args.symboldir
+    symboldir = args.symboldir
     try:
         storage = create_storage_backend(storage_mode, symboldir=symboldir)
     except (ValueError, RuntimeError, OSError) as error:

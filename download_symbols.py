@@ -135,8 +135,8 @@ def parse_args(argv=None):
     
     # Check symbol directory environment variable first, then fallback to command line argument
     symbol_dir = os.getenv("KPHTOOLS_SYMBOLDIR")
-    if symbol_dir:
-        # Environment variable takes precedence
+    if symbol_dir is not None:
+        # Environment variable takes precedence, including an empty value
         args.symboldir = symbol_dir
     
     if not args.symboldir:

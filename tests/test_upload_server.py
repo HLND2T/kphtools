@@ -111,6 +111,18 @@ class TestDotenvLoading(unittest.TestCase):
 
 
 class TestStorageConfiguration(unittest.TestCase):
+    def test_parse_args_defaults_to_symbols(self):
+        with patch.dict(os.environ, {}, clear=True):
+            args = upload_server.parse_args([])
+
+        self.assertEqual("symbols", args.symboldir)
+
+    def test_parse_args_prefers_environment_symboldir(self):
+        with patch.dict(os.environ, {"KPHTOOLS_SYMBOLDIR": "env-symbols"}, clear=True):
+            args = upload_server.parse_args(["-symboldir", "cli-symbols"])
+
+        self.assertEqual("env-symbols", args.symboldir)
+
     def test_storage_mode_defaults_to_disk_and_is_case_insensitive(self):
         self.assertEqual("disk", upload_server.get_storage_mode({}))
         self.assertEqual(

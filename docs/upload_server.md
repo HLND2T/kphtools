@@ -38,6 +38,8 @@ cd "$HOME/kphtools"
 uv run python upload_server.py [-port=8000]
 ```
 
+Disk storage uses `symbols` under the current working directory by default. Use `-symboldir` to select another directory; `KPHTOOLS_SYMBOLDIR` takes precedence when set.
+
 OSS storage writes uploaded files directly from memory to OSS and does not create a local symbol directory:
 
 ```bash
@@ -61,7 +63,7 @@ Common server variables:
 
 Disk storage variables:
 
-- `KPHTOOLS_SYMBOLDIR`: required unless `-symboldir` is provided.
+- `KPHTOOLS_SYMBOLDIR`: optional symbol directory override; defaults to `symbols` under the current working directory.
 
 OSS storage variables:
 
