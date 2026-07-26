@@ -89,14 +89,16 @@ Where `{sha256}` is the lowercase SHA256 hash of the PE file (e.g., `68d5867b5e6
 `dump_symbols.py` is the primary analysis entry point.
 
 ```bash
-uv run dump_symbols.py [-symboldir="path/to/symbols"] [-configyaml="config.yaml"] [-version=10.0.26100.8246] [-arch=amd64] [-agent=codex/opencode/"codex.cmd"/"opencode.cmd"] [-agent_model=provider/model] [-debug]
+uv run dump_symbols.py [-symboldir="path/to/symbols"] [-configyaml="config.yaml"] [-version=10.0.26100.8246] [-arch=amd64] [-agent=claude/codex/opencode/"claude.cmd"/"codex.cmd"/"opencode.cmd"] [-agent_model=model] [-debug]
 ```
 
 The script scans `<symboldir>/<arch>/<file>.<version>/<sha256>/`, resolves symbols into `{symbol}.yaml`, and writes them next to the corresponding PE/PDB files.
 
-`-agent="opencode.cmd"` selects an OpenCode CLI installed through npm on Windows. OpenCode loads the project Agent from `.opencode/agents/sig-finder.md`, checks that `ida-pro-mcp` is configured, and runs the selected skill in non-interactive JSON mode. When an OpenCode retry is required, the runner resumes the exact reported `sessionID`, falling back to `--continue` only if no session event was emitted.
+Claude, Codex, and OpenCode use the same non-interactive runner. Before starting a skill, the runner checks that `ida-pro-mcp` is listed, then enforces the same timeout, output validation, and retry budget for every CLI. Claude runs with project settings and a fixed UUID session, Codex uses the `skill_runner` profile and receives the skill prompt through stdin, and OpenCode runs in JSON mode with the project `sig-finder` agent.
 
-The agent executable and optional model can also be provided by `.env` or environment variables. OpenCode model names must use `provider/model` format.
+On retries, Claude resumes its fixed UUID, Codex resumes the latest session with `exec resume --last`, and OpenCode resumes the exact reported `sessionID` or falls back to `--continue`. `max_retries` is the total number of attempts, including the first, and values below one still produce one attempt.
+
+`-agent_model` is passed through using each CLI's model option. Claude and Codex accept their native model names; OpenCode model names must use `provider/model` format. The agent executable and optional model can also be provided by `.env` or environment variables.
 
 ```bash
 KPHTOOLS_AGENT=opencode
@@ -107,6 +109,8 @@ KPHTOOLS_AGENT_MODEL=openai/gpt-5.4
 set KPHTOOLS_AGENT=opencode.cmd
 set KPHTOOLS_AGENT_MODEL=openai/gpt-5.4
 ```
+
+Equivalent agent values include `claude`, `codex`, `opencode`, and their Windows `*.cmd` variants.
 
 When an auto-started supervisor reports the matching IDB as inactive or unreachable, `dump_symbols.py` checks the owned worker and may restart it once for that binary. The restart waits for the previous supervisor port to be released; a second unavailable-worker failure aborts that binary instead of retrying indefinitely.
 
@@ -137,7 +141,7 @@ Normal providers use the OpenAI-compatible Chat Completions API. `-llm_effort` d
 
 When `-llm_fake_as=codex` is set, the helper uses a direct `/responses` SSE transport. A non-empty `-llm_baseurl` is required and should point at the provider's `/v1` base URL. The Codex transport preserves conversation message IDs and one prompt cache key across validation and transport retries.
 
-Each skill's `max_retries` is the total number of LLM attempts, including the first request. Schema/validation correction and transient transport failures share that budget. The same config field still controls the existing agent fallback using its established runner semantics.
+Each skill's `max_retries` is the total number of attempts, including the first request. Schema/validation correction and transient transport failures share that budget for LLM fallback; agent fallback uses the same total-attempt interpretation.
 
 ## Generate reference YAML for LLM_DECOMPILE
 

@@ -1,20 +1,19 @@
-"""OpenCode CLI execution, MCP preflight, retries, and output validation."""
+"""Agent CLI execution, MCP preflight, retries, and output validation."""
 
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import threading
+import uuid
 from dataclasses import dataclass
-
+from pathlib import Path
 
 SKILL_TIMEOUT = 1200
 MCP_LIST_TIMEOUT = 30
-SKILL_ERROR_RE = re.compile(
-    r"<skill_error>\s*(.*?)\s*</skill_error>",
-    re.IGNORECASE | re.DOTALL,
-)
+SKILL_ERROR_RE = re.compile(r"<skill_error>\s*(.*?)\s*</skill_error>", re.IGNORECASE | re.DOTALL)
 CYBERSECURITY_BLOCK_MARKERS = (
     "This chat was flagged for possible cybersecurity risk",
     "flagged this message for a cybersecurity topic",
@@ -22,6 +21,8 @@ CYBERSECURITY_BLOCK_MARKERS = (
 ANSI_ESCAPE_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 _MCP_PREFLIGHT_DONE = False
 _MCP_PREFLIGHT_FAILED = False
+CLAUDE_SKILL_RUNNER_SETTINGS = ".claude/skill_runner.settings.json"
+SKILL_RUNNER_SYSTEM_PROMPT = ".claude/SKILL_RUNNER.md"
 OPENCODE_SKILL_RUNNER_CONFIG = ".opencode/skill_runner.config.json"
 DEFAULT_AGENT_MODEL = ""
 
@@ -79,9 +80,7 @@ def _mcp_list_contains_server(output, server_name="ida-pro-mcp"):
         return False
     normalized_output = ANSI_ESCAPE_RE.sub("", output)
     prefix = r"(?:[-*•●|│T—]\s*)*(?:[✓✗]\s*)?"
-    pattern = re.compile(
-        rf"(?m)^\s*{prefix}{re.escape(server_name)}(?:\s|:|$)"
-    )
+    pattern = re.compile(rf"(?m)^\s*{prefix}{re.escape(server_name)}(?:\s|:|$)")
     return bool(pattern.search(normalized_output))
 
 
@@ -127,16 +126,11 @@ def _ensure_agent_mcp_preflight(agent, debug=False, server_name="ida-pro-mcp"):
         )
     except subprocess.TimeoutExpired:
         _MCP_PREFLIGHT_FAILED = True
-        print(
-            "    Error: MCP list preflight timeout "
-            f"({MCP_LIST_TIMEOUT} seconds): {' '.join(cmd)}"
-        )
+        print(f"    Error: MCP list preflight timeout ({MCP_LIST_TIMEOUT} seconds): {' '.join(cmd)}")
         return False
     except FileNotFoundError:
         _MCP_PREFLIGHT_FAILED = True
-        print(
-            f"    Error: Agent '{agent}' not found while running MCP list preflight."
-        )
+        print(f"    Error: Agent '{agent}' not found while running MCP list preflight.")
         return False
     except Exception as error:
         _MCP_PREFLIGHT_FAILED = True
@@ -149,10 +143,7 @@ def _ensure_agent_mcp_preflight(agent, debug=False, server_name="ida-pro-mcp"):
         return True
 
     _MCP_PREFLIGHT_FAILED = True
-    print(
-        f"    Error: Required MCP server '{server_name}' is not listed by "
-        f"'{agent} mcp list'."
-    )
+    print(f"    Error: Required MCP server '{server_name}' is not listed by '{agent} mcp list'.")
     if result.returncode != 0:
         print(f"    mcp list return code: {result.returncode}")
     print(f"    mcp list output:\n{_format_mcp_list_output(output)}")
@@ -173,14 +164,7 @@ def _drain_text_stream(stream, chunks, forward_stream=None):
             pass
 
 
-def _run_process_with_stream_capture(
-    cmd,
-    *,
-    agent_input=None,
-    debug=False,
-    timeout=SKILL_TIMEOUT,
-    env=None,
-):
+def _run_process_with_stream_capture(cmd, *, agent_input=None, debug=False, timeout=SKILL_TIMEOUT, env=None):
     process = subprocess.Popen(
         cmd,
         stdin=subprocess.PIPE if agent_input is not None else None,
@@ -219,30 +203,107 @@ def _run_process_with_stream_capture(
 
     stdout_thread.join()
     stderr_thread.join()
-    return subprocess.CompletedProcess(
-        cmd,
-        process.returncode,
-        "".join(stdout_chunks),
-        "".join(stderr_chunks),
-    )
+    return subprocess.CompletedProcess(cmd, process.returncode, "".join(stdout_chunks), "".join(stderr_chunks))
 
 
-def _agent_permission_args(agent_kind: str) -> list[str]:
+def _strip_optional_frontmatter(prompt: str) -> str:
+    stripped = prompt.strip()
+    if not stripped.startswith("---"):
+        return stripped
+    lines = stripped.splitlines()
+    for index, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            return "\n".join(lines[index + 1 :]).strip()
+    return stripped
+
+
+def _load_codex_developer_instructions(
+    system_prompt_path: Path = Path(".claude/agents/sig-finder.md"),
+) -> str | None:
+    try:
+        raw_prompt = system_prompt_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        print(f"    Error: Codex system prompt file not found: {system_prompt_path}")
+        return None
+    except OSError as error:
+        print(f"    Error: Failed to read Codex system prompt from {system_prompt_path}: {error}")
+        return None
+
+    prompt = _strip_optional_frontmatter(raw_prompt)
+    if not prompt:
+        print(f"    Error: Codex system prompt is empty in {system_prompt_path}")
+        return None
+    return f"developer_instructions={json.dumps(prompt)}"
+
+
+def _split_cli_args(raw_args: str) -> list[str]:
+    text = str(raw_args or "").strip()
+    if not text:
+        return []
+    try:
+        return shlex.split(text, posix=False)
+    except ValueError:
+        return text.split()
+
+
+def _agent_permission_args(agent_kind: str, *, claude_permission_mode: str = "") -> list[str]:
     if agent_kind == "opencode":
         return ["--auto"]
-    return []
+    if agent_kind == "codex":
+        return ["--approval-mode", "full-auto"]
+    permission_mode = str(claude_permission_mode or "").strip() or "auto"
+    return ["--permission-mode", permission_mode]
 
 
-def _agent_model_args(
-    agent_kind: str,
-    agent_model: str = DEFAULT_AGENT_MODEL,
-) -> list[str]:
+def _agent_model_args(agent_kind: str, agent_model: str = DEFAULT_AGENT_MODEL) -> list[str]:
     model = str(agent_model or "").strip()
     if not model:
         return []
     if agent_kind == "opencode" and "/" not in model:
         raise ValueError("OpenCode model must use provider/model format")
     return ["--model" if agent_kind == "claude" else "-m", model]
+
+
+def _build_claude_base_args(
+    *,
+    agent: str,
+    prompt_arg: str,
+    agent_profile: str,
+    session_id: str,
+    is_retry: bool,
+    permission_mode: str = "",
+    extra_args: str = "",
+    agent_model: str = DEFAULT_AGENT_MODEL,
+) -> list[str]:
+    args = [agent, "-p", prompt_arg, "--agent", agent_profile]
+    args.extend(_agent_model_args("claude", agent_model))
+    args.extend(["--settings", CLAUDE_SKILL_RUNNER_SETTINGS])
+    args.extend(["--append-system-prompt-file", SKILL_RUNNER_SYSTEM_PROMPT])
+    args.extend(_agent_permission_args("claude", claude_permission_mode=permission_mode))
+    args.extend(_split_cli_args(extra_args))
+    args.extend(["--resume" if is_retry else "--session-id", session_id])
+    return args
+
+
+def _build_codex_base_args(
+    agent: str,
+    developer_instructions: str,
+    is_retry: bool,
+    agent_model: str = DEFAULT_AGENT_MODEL,
+) -> list[str]:
+    args = [
+        agent,
+        "--profile",
+        "skill_runner",
+        "-c",
+        developer_instructions,
+    ]
+    args.extend(_agent_model_args("codex", agent_model))
+    args.extend(_agent_permission_args("codex"))
+    args.append("exec")
+    if is_retry:
+        args.extend(["resume", "--last"])
+    return args
 
 
 def _build_opencode_base_args(
@@ -263,6 +324,40 @@ def _build_opencode_base_args(
     return args
 
 
+def _build_claude_command(
+    agent: str,
+    skill_name: str,
+    session_id: str,
+    is_retry: bool,
+    agent_model: str = DEFAULT_AGENT_MODEL,
+) -> AgentCommand:
+    args = _build_claude_base_args(
+        agent=agent,
+        prompt_arg=f"/{skill_name}",
+        agent_profile="sig-finder",
+        session_id=session_id,
+        is_retry=is_retry,
+        agent_model=agent_model,
+    )
+    return AgentCommand(args, None, f"session {session_id}")
+
+
+def _build_codex_command(
+    agent: str,
+    skill_name: str,
+    developer_instructions: str,
+    is_retry: bool,
+    agent_model: str = DEFAULT_AGENT_MODEL,
+) -> AgentCommand:
+    args = _build_codex_base_args(agent, developer_instructions, is_retry, agent_model)
+    args.append("-")
+    return AgentCommand(
+        args,
+        f"Run SKILL: .claude/skills/{skill_name}/SKILL.md",
+        "the latest codex session (--last)",
+    )
+
+
 def _build_opencode_command(
     agent: str,
     skill_name: str,
@@ -270,20 +365,20 @@ def _build_opencode_command(
     session_id: str | None,
     agent_model: str = DEFAULT_AGENT_MODEL,
 ) -> AgentCommand:
-    args = _build_opencode_base_args(
-        agent,
-        "sig-finder",
-        is_retry,
-        session_id,
-        agent_model,
-    )
+    args = _build_opencode_base_args(agent, "sig-finder", is_retry, session_id, agent_model)
     args.append(f"Run SKILL: .claude/skills/{skill_name}/SKILL.md")
-    retry_target = (
-        f"OpenCode session {session_id}"
-        if session_id
-        else "the latest OpenCode session (--continue)"
-    )
+    retry_target = f"OpenCode session {session_id}" if session_id else "the latest OpenCode session (--continue)"
     return AgentCommand(args, None, retry_target)
+
+
+def _display_command(args: list[str]) -> list[str]:
+    display_args = args
+    for index, arg in enumerate(args[:-1]):
+        if arg == "-c" and args[index + 1].startswith("developer_instructions="):
+            if display_args is args:
+                display_args = args.copy()
+            display_args[index + 1] = "developer_instructions=<sig-finder-system-prompt>"
+    return display_args
 
 
 def _missing_expected_outputs(expected_yaml_paths) -> list[str]:
@@ -292,13 +387,59 @@ def _missing_expected_outputs(expected_yaml_paths) -> list[str]:
     return [path for path in expected_yaml_paths if not os.path.exists(path)]
 
 
+def _build_agent_command(
+    *,
+    agent: str,
+    agent_kind: str,
+    skill_name: str,
+    session_id: str,
+    opencode_session_id: str | None,
+    developer_instructions: str | None,
+    is_retry: bool,
+    agent_model: str = DEFAULT_AGENT_MODEL,
+) -> AgentCommand:
+    if agent_kind == "claude":
+        return _build_claude_command(agent, skill_name, session_id, is_retry, agent_model)
+    if agent_kind == "opencode":
+        return _build_opencode_command(agent, skill_name, is_retry, opencode_session_id, agent_model)
+    if developer_instructions is None:
+        raise ValueError("Codex developer instructions are required")
+    return _build_codex_command(agent, skill_name, developer_instructions, is_retry, agent_model)
+
+
+def _print_command(command: AgentCommand, attempt: int, max_retries: int) -> None:
+    attempt_str = f"(attempt {attempt + 1}/{max_retries})" if max_retries > 1 else ""
+    retry_str = "[RETRY] " if attempt else ""
+    prompt_transport = " <prompt via stdin>" if command.input_text is not None else ""
+    print(f"    {retry_str}Running {attempt_str}: {' '.join(_display_command(command.args))}{prompt_transport}")
+
+
+def _retry_if_available(attempt: int, max_retries: int, retry_target_desc: str) -> None:
+    if attempt < max_retries - 1:
+        print(f"    Retrying with {retry_target_desc}...")
+
+
+def _notify_progress(progress_callback, event: str, **payload) -> None:
+    if progress_callback is None:
+        return
+    try:
+        progress_callback(event=event, **payload)
+    except Exception as error:
+        print(f"    Warning: Skill progress callback failed: {error}")
+
+
+def _failure_progress_payload(reason, result) -> dict:
+    if reason == "returncode":
+        return {"reason": "returncode", "returncode": result.returncode}
+    if isinstance(reason, tuple):
+        return {"reason": reason[0], "error": reason[1]}
+    return {"reason": "missing_expected_output", "missing_outputs": list(reason)}
+
+
 def _result_failure_reason(result, expected_yaml_paths):
     if result.returncode != 0:
         return "returncode"
-    cybersecurity_block = _extract_cybersecurity_block(
-        result.stdout,
-        result.stderr,
-    )
+    cybersecurity_block = _extract_cybersecurity_block(result.stdout, result.stderr)
     if cybersecurity_block is not None:
         return ("cybersecurity_block", cybersecurity_block)
     skill_error = _extract_skill_error(result.stdout, result.stderr)
@@ -323,39 +464,40 @@ def _report_result_failure(reason, result, debug: bool) -> None:
         print(f"    Error: Expected yaml files not generated: {reason}")
 
 
-def _retry_if_available(
-    attempt: int,
-    max_retries: int,
-    retry_target_desc: str,
-) -> None:
-    if attempt < max_retries - 1:
-        print(f"    Retrying with {retry_target_desc}...")
-
-
-def _run_opencode_skill_attempts(
+def _run_skill_attempts(
     *,
     skill_name: str,
     agent: str,
+    agent_kind: str,
+    session_id: str,
+    developer_instructions: str | None,
     debug: bool,
     expected_yaml_paths,
     max_retries: int,
     agent_model: str,
+    progress_callback=None,
 ) -> bool:
     opencode_session_id = None
-    process_env = _agent_process_env("opencode")
+    process_env = _agent_process_env(agent_kind)
     for attempt in range(max_retries):
-        command = _build_opencode_command(
-            agent,
-            skill_name,
-            attempt > 0,
-            opencode_session_id,
-            agent_model,
+        attempt_number = attempt + 1
+        _notify_progress(
+            progress_callback,
+            "attempt_started",
+            attempt=attempt_number,
+            max_attempts=max_retries,
         )
-        attempt_text = (
-            f"(attempt {attempt + 1}/{max_retries})" if max_retries > 1 else ""
+        command = _build_agent_command(
+            agent=agent,
+            agent_kind=agent_kind,
+            skill_name=skill_name,
+            session_id=session_id,
+            opencode_session_id=opencode_session_id,
+            developer_instructions=developer_instructions,
+            is_retry=attempt > 0,
+            agent_model=agent_model,
         )
-        retry_text = "[RETRY] " if attempt else ""
-        print(f"    {retry_text}Running {attempt_text}: {' '.join(command.args)}")
+        _print_command(command, attempt, max_retries)
         try:
             result = _run_process_with_stream_capture(
                 command.args,
@@ -364,83 +506,129 @@ def _run_opencode_skill_attempts(
                 timeout=SKILL_TIMEOUT,
                 env=process_env,
             )
-            if opencode_session_id is None:
+            if agent_kind == "opencode" and opencode_session_id is None:
                 opencode_session_id = _extract_opencode_session_id(result.stdout)
             reason = _result_failure_reason(result, expected_yaml_paths)
             if reason is None:
+                _notify_progress(
+                    progress_callback,
+                    "succeeded",
+                    attempt=attempt_number,
+                    max_attempts=max_retries,
+                )
                 return True
             _report_result_failure(reason, result, debug)
+            failure_payload = _failure_progress_payload(reason, result)
             if isinstance(reason, tuple) and reason[0] == "cybersecurity_block":
+                _notify_progress(
+                    progress_callback,
+                    "failed",
+                    attempt=attempt_number,
+                    max_attempts=max_retries,
+                    **failure_payload,
+                )
                 return False
-            _retry_if_available(
-                attempt,
-                max_retries,
-                command.retry_target_desc,
+            _notify_progress(
+                progress_callback,
+                "attempt_failed",
+                attempt=attempt_number,
+                max_attempts=max_retries,
+                will_retry=attempt < max_retries - 1,
+                **failure_payload,
             )
+            _retry_if_available(attempt, max_retries, command.retry_target_desc)
         except subprocess.TimeoutExpired:
             print(f"    Error: Skill execution timeout ({SKILL_TIMEOUT} seconds)")
-            _retry_if_available(
-                attempt,
-                max_retries,
-                command.retry_target_desc,
+            _notify_progress(
+                progress_callback,
+                "attempt_failed",
+                attempt=attempt_number,
+                max_attempts=max_retries,
+                reason="timeout",
+                timeout_seconds=SKILL_TIMEOUT,
+                will_retry=attempt < max_retries - 1,
             )
+            _retry_if_available(attempt, max_retries, command.retry_target_desc)
         except FileNotFoundError:
-            print(
-                f"    Error: Agent '{agent}' not found. "
-                "Please ensure it is installed and in PATH."
+            print(f"    Error: Agent '{agent}' not found. Please ensure it is installed and in PATH.")
+            _notify_progress(
+                progress_callback,
+                "failed",
+                attempt=attempt_number,
+                max_attempts=max_retries,
+                reason="agent_not_found",
             )
             return False
         except Exception as error:
             print(f"    Error executing skill: {error}")
-            _retry_if_available(
-                attempt,
-                max_retries,
-                command.retry_target_desc,
+            _notify_progress(
+                progress_callback,
+                "attempt_failed",
+                attempt=attempt_number,
+                max_attempts=max_retries,
+                reason="execution_error",
+                error=str(error),
+                will_retry=attempt < max_retries - 1,
             )
+            _retry_if_available(attempt, max_retries, command.retry_target_desc)
 
     print(f"    Failed after {max_retries} attempts")
+    _notify_progress(
+        progress_callback,
+        "failed",
+        attempt=max_retries,
+        max_attempts=max_retries,
+        reason="retries_exhausted",
+    )
     return False
 
 
 def run_skill(
     skill_name,
-    agent="opencode",
+    agent="claude",
     debug=False,
     expected_yaml_paths=None,
     max_retries=3,
     agent_model=DEFAULT_AGENT_MODEL,
+    progress_callback=None,
 ) -> bool:
-    """Execute a skill with OpenCode and retry support."""
+    """Execute a skill with its configured agent and retry support."""
+    max_retries = max(1, int(max_retries))
     agent_kind = _detect_agent_kind(agent)
-    if agent_kind != "opencode":
-        print(
-            f"    Error: Unsupported agent type '{agent}'. "
-            "This runner requires opencode or opencode.cmd."
-        )
+    if agent_kind is None:
+        print(f"    Error: Unknown agent type '{agent}'. Agent name must contain 'claude', 'codex', or 'opencode'.")
+        _notify_progress(progress_callback, "failed", reason="unknown_agent")
         return False
     try:
         _agent_model_args(agent_kind, agent_model)
     except ValueError as error:
         print(f"    Error: {error}")
+        _notify_progress(progress_callback, "failed", reason="invalid_agent_model", error=str(error))
         return False
 
-    skill_md_path = os.path.join(
-        ".claude",
-        "skills",
-        skill_name,
-        "SKILL.md",
-    )
+    skill_md_path = os.path.join(".claude", "skills", skill_name, "SKILL.md")
     print(f"    Falling back to: {skill_md_path}")
     if not os.path.exists(skill_md_path):
         print(f"    Error: Skill file not found: {skill_md_path}")
+        _notify_progress(progress_callback, "failed", reason="skill_file_missing", path=skill_md_path)
         return False
     if not _ensure_agent_mcp_preflight(agent, debug=debug):
+        _notify_progress(progress_callback, "failed", reason="mcp_unavailable")
         return False
-    return _run_opencode_skill_attempts(
+
+    developer_instructions = _load_codex_developer_instructions() if agent_kind == "codex" else None
+    if agent_kind == "codex" and developer_instructions is None:
+        _notify_progress(progress_callback, "failed", reason="developer_instructions_unavailable")
+        return False
+    return _run_skill_attempts(
         skill_name=skill_name,
         agent=agent,
+        agent_kind=agent_kind,
+        session_id=str(uuid.uuid4()) if agent_kind == "claude" else "",
+        developer_instructions=developer_instructions,
         debug=debug,
         expected_yaml_paths=expected_yaml_paths,
         max_retries=max_retries,
         agent_model=agent_model,
+        progress_callback=progress_callback,
     )

@@ -13,7 +13,7 @@
     -arch        要扫描的架构列表，逗号分隔；当前支持 `amd64`、`arm64`。
     -version     只扫描指定版本目录，例如 `10.0.26100.8246`。
     -skill       只执行指定名称的 skill，其他 skill 会被跳过。
-    -agent       回退到外部 Agent CLI 时使用的可执行文件名，默认 `codex`；支持 OpenCode。
+    -agent       回退到外部 Agent CLI 时使用的可执行文件名，默认 `codex`；支持 Claude、Codex 与 OpenCode。
     -agent_model 外部 Agent 使用的可选模型；OpenCode 要求 `provider/model` 格式。
     -force       即使预期 YAML 已存在，也强制重新生成。
     -debug       输出调试日志，并保留更多 MCP/子进程诊断信息。
@@ -31,15 +31,15 @@ import time
 from pathlib import Path
 from typing import Any
 
-from agent_runner import (
-    DEFAULT_AGENT_MODEL,
-    _detect_agent_kind,
-    run_skill as run_opencode_skill,
-)
+from agent_runner import DEFAULT_AGENT_MODEL, run_skill
 from ida_mcp_session import McpDatabaseUnavailableError, open_ida_mcp_session
 from ida_skill_preprocessor import (
     PREPROCESS_STATUS_ABSENT_OK as _PREPROCESS_STATUS_ABSENT_OK,
+)
+from ida_skill_preprocessor import (
     PREPROCESS_STATUS_FAILED as _PREPROCESS_STATUS_FAILED,
+)
+from ida_skill_preprocessor import (
     PREPROCESS_STATUS_SUCCESS,
     preprocess_single_skill_via_mcp,
 )
@@ -138,10 +138,7 @@ def _skill_output_names(skill: Any) -> list[str]:
 
 
 def _output_symbol_names(skill: Any) -> list[str]:
-    return [
-        symbol_name_from_artifact_name(output_path)
-        for output_path in _skill_output_names(skill)
-    ]
+    return [symbol_name_from_artifact_name(output_path) for output_path in _skill_output_names(skill)]
 
 
 def _output_symbol_path_pairs(
@@ -213,10 +210,7 @@ def _skill_output_paths(
 ) -> tuple[list[str], list[str]]:
     required_outputs = _artifact_paths(
         binary_dir,
-        _unique_strings(
-            _string_list(skill, "expected_output")
-            + _string_list(skill, "preprocessor_only_output")
-        ),
+        _unique_strings(_string_list(skill, "expected_output") + _string_list(skill, "preprocessor_only_output")),
     )
     optional_outputs = _artifact_paths(
         binary_dir,
@@ -229,23 +223,17 @@ def _required_output_symbol_names(skill: Any) -> set[str]:
     return {
         symbol_name_from_artifact_name(path)
         for path in _unique_strings(
-            _string_list(skill, "expected_output")
-            + _string_list(skill, "preprocessor_only_output")
+            _string_list(skill, "expected_output") + _string_list(skill, "preprocessor_only_output")
         )
     }
 
 
 def _preprocessor_only_output_symbol_names(skill: Any) -> set[str]:
-    return {
-        symbol_name_from_artifact_name(path)
-        for path in _string_list(skill, "preprocessor_only_output")
-    }
+    return {symbol_name_from_artifact_name(path) for path in _string_list(skill, "preprocessor_only_output")}
 
 
 def _internal_output_symbol_names(skill: Any, symbol_map: dict[str, Any]) -> set[str]:
-    return _preprocessor_only_output_symbol_names(skill) | (
-        _required_output_symbol_names(skill) - set(symbol_map)
-    )
+    return _preprocessor_only_output_symbol_names(skill) | (_required_output_symbol_names(skill) - set(symbol_map))
 
 
 def _debug_log_written_yaml(debug: bool, path: str | Path) -> None:
@@ -331,10 +319,17 @@ async def _preprocess_skill_outputs(
 
 async def _process_one_skill(
     *,
-    skill_name: str, skill: Any, symbol_map: dict[str, Any],
-    binary_dir: str | Path, pdb_path: Path | None,
-    agent: str, debug: bool, force: bool,
-    llm_config: dict[str, Any] | None, session: Any, activity: dict[str, bool] | None,
+    skill_name: str,
+    skill: Any,
+    symbol_map: dict[str, Any],
+    binary_dir: str | Path,
+    pdb_path: Path | None,
+    agent: str,
+    debug: bool,
+    force: bool,
+    llm_config: dict[str, Any] | None,
+    session: Any,
+    activity: dict[str, bool] | None,
     agent_model: str = DEFAULT_AGENT_MODEL,
 ) -> bool:
     _debug_log(debug, f"skill {skill_name} started")
@@ -401,21 +396,8 @@ def _parse_arches(raw_value: str) -> list[str]:
             arches.append(arch)
     if not arches:
         supported = ", ".join(SUPPORTED_ARCHES)
-        raise argparse.ArgumentTypeError(
-            f"arch must include at least one value from: {supported}"
-        )
+        raise argparse.ArgumentTypeError(f"arch must include at least one value from: {supported}")
     return arches
-
-
-def _strip_frontmatter(text: str) -> str:
-    content = text.strip()
-    if not content.startswith("---"):
-        return content
-    lines = content.splitlines()
-    for index, line in enumerate(lines[1:], start=1):
-        if line.strip() == "---":
-            return "\n".join(lines[index + 1 :]).strip()
-    return content
 
 
 def _parse_tool_json_content(result) -> dict[str, Any] | None:
@@ -553,17 +535,15 @@ def parse_args(argv=None):
         "-agent",
         default=os.environ.get("KPHTOOLS_AGENT", "codex"),
         help=(
-            "Agent executable for fallback analysis, e.g. codex, codex.cmd, "
-            "opencode, or opencode.cmd; can also be set with KPHTOOLS_AGENT"
+            "Agent executable for fallback analysis, e.g. claude, claude.cmd, "
+            "codex, codex.cmd, opencode, or opencode.cmd; can also be set "
+            "with KPHTOOLS_AGENT"
         ),
     )
     parser.add_argument(
         "-agent_model",
         default=os.environ.get("KPHTOOLS_AGENT_MODEL", DEFAULT_AGENT_MODEL),
-        help=(
-            "Custom model for the selected agent; OpenCode requires "
-            "provider/model format (or KPHTOOLS_AGENT_MODEL)"
-        ),
+        help=("Custom model for the selected agent; OpenCode requires provider/model format (or KPHTOOLS_AGENT_MODEL)"),
     )
     parser.add_argument("-force", action="store_true")
     parser.add_argument("-debug", action="store_true")
@@ -625,9 +605,7 @@ def topological_sort_skills(skills):
     producers: dict[str, set[str]] = {}
     for skill in skills:
         skill_name = _field(skill, "name")
-        output_paths = _string_list(skill, "expected_output") + _string_list(
-            skill, "preprocessor_only_output"
-        )
+        output_paths = _string_list(skill, "expected_output") + _string_list(skill, "preprocessor_only_output")
         for output_path in output_paths:
             normalized = normalize(output_path)
             basename = normalize(os.path.basename(output_path))
@@ -678,88 +656,17 @@ def topological_sort_skills(skills):
     return sorted_names
 
 
-def run_skill(
-    skill_name,
-    agent,
-    debug,
-    expected_yaml_paths,
-    max_retries=3,
-    agent_model=DEFAULT_AGENT_MODEL,
-):
-    _debug_log(debug, f"starting fallback skill for {skill_name}")
-    if _detect_agent_kind(agent) == "opencode":
-        return run_opencode_skill(
-            skill_name,
-            agent=agent,
-            debug=debug,
-            expected_yaml_paths=expected_yaml_paths,
-            max_retries=max_retries,
-            agent_model=agent_model,
-        )
-
-    skill_md_path = Path(".claude") / "skills" / skill_name / "SKILL.md"
-    if not skill_md_path.exists():
-        return False
-
-    system_prompt_path = Path(".claude") / "agents" / "sig-finder.md"
-    try:
-        developer_instructions = _strip_frontmatter(
-            system_prompt_path.read_text(encoding="utf-8")
-        )
-    except OSError:
-        return False
-
-    if not developer_instructions:
-        return False
-
-    cmd = [
-        agent,
-        "-c",
-        f"developer_instructions={json.dumps(developer_instructions)}",
-        "-c",
-        "model_reasoning_effort=high",
-    ]
-    if agent_model:
-        cmd.extend(["-m", agent_model])
-    cmd.extend(["exec", "-"])
-    prompt = f"Run SKILL: {skill_md_path}"
-    try:
-        completed = subprocess.run(cmd, input=prompt, text=True, check=False)
-    except FileNotFoundError as exc:
-        missing_executable = exc.filename or agent
-        _progress(
-            f"Agent CLI not found: {missing_executable}. "
-            "Install it or pass -agent with a valid executable path."
-        )
-        return False
-    if completed.returncode != 0:
-        _debug_log(debug, f"skill failed: {skill_name}")
-        return False
-    return all(Path(path).exists() for path in expected_yaml_paths)
-
-
 def _select_skills_by_name(skills, selected_skill_name):
     if selected_skill_name is None:
         return skills
 
     normalized_name = str(selected_skill_name).strip()
-    selected_skills = [
-        skill_item
-        for skill_item in skills
-        if _field(skill_item, "name") == normalized_name
-    ]
+    selected_skills = [skill_item for skill_item in skills if _field(skill_item, "name") == normalized_name]
     if selected_skills:
         return selected_skills
 
-    available_skills = ", ".join(
-        str(_field(skill_item, "name"))
-        for skill_item in skills
-        if _field(skill_item, "name")
-    )
-    _progress(
-        f"Skill '{normalized_name}' not found; available skills: "
-        f"{available_skills or '(none)'}"
-    )
+    available_skills = ", ".join(str(_field(skill_item, "name")) for skill_item in skills if _field(skill_item, "name"))
+    _progress(f"Skill '{normalized_name}' not found; available skills: {available_skills or '(none)'}")
     return None
 
 
@@ -772,7 +679,10 @@ async def process_binary_dir(
     debug,
     force,
     llm_config,
-    session=None, activity=None, arch=None, skill=None,
+    session=None,
+    activity=None,
+    arch=None,
+    skill=None,
     agent_model=DEFAULT_AGENT_MODEL,
 ):
     if activity is not None and "did_work" not in activity:
@@ -791,8 +701,7 @@ async def process_binary_dir(
         if not _skill_matches_arch(current_skill, current_arch):
             _debug_log(
                 debug,
-                f"skipping {skill_name}; skill arch {_skill_arch(current_skill)} "
-                f"does not match {current_arch}",
+                f"skipping {skill_name}; skill arch {_skill_arch(current_skill)} does not match {current_arch}",
             )
             continue
         ok = await _process_one_skill(
@@ -1008,10 +917,7 @@ class LazyIdalibSession:
             print("MCP recovery restart already used; aborting this binary")
             return False
         if not await self._stop_for_recovery():
-            print(
-                f"MCP port {self.host}:{self.port} remained in use; "
-                "recovery restart aborted"
-            )
+            print(f"MCP port {self.host}:{self.port} remained in use; recovery restart aborted")
             return False
         print(f"Restarting unavailable MCP worker for {self.binary_path}")
         try:
@@ -1062,14 +968,10 @@ class LazyIdalibSession:
 
     async def call_tool(self, name, arguments):
         if not await self.ensure_available():
-            raise McpDatabaseUnavailableError(
-                f"owned MCP worker for {self.binary_path} is unavailable"
-            )
+            raise McpDatabaseUnavailableError(f"owned MCP worker for {self.binary_path} is unavailable")
         session = self.session
         if session is None:
-            raise McpDatabaseUnavailableError(
-                f"owned MCP worker for {self.binary_path} did not yield a session"
-            )
+            raise McpDatabaseUnavailableError(f"owned MCP worker for {self.binary_path} did not yield a session")
         return await session.call_tool(name=name, arguments=arguments)
 
     async def _close_handles(self) -> None:
@@ -1241,9 +1143,7 @@ def main(argv=None):
         _progress(f"Scanning {arch_dir}")
 
         if getattr(args, "version", None):
-            candidates = list(
-                _iter_binary_dirs(Path(args.symboldir), arch, config, args.version)
-            )
+            candidates = list(_iter_binary_dirs(Path(args.symboldir), arch, config, args.version))
         else:
             candidates = list(_iter_binary_dirs(Path(args.symboldir), arch, config))
         total_candidates += len(candidates)

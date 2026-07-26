@@ -1,19 +1,24 @@
+import asyncio
 import os
+import subprocess
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import asyncio
-import subprocess
 from types import SimpleNamespace
-import unittest
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
+import agent_runner
 import dump_symbols
 
 
 class TestDumpSymbols(unittest.TestCase):
     def test_topological_sort_uses_expected_input_output(self) -> None:
         skills = [
-            {"name": "find-B", "expected_output": ["B.yaml"], "expected_input": ["A.yaml"]},
+            {
+                "name": "find-B",
+                "expected_output": ["B.yaml"],
+                "expected_input": ["A.yaml"],
+            },
             {"name": "find-A", "expected_output": ["A.yaml"], "expected_input": []},
         ]
 
@@ -379,9 +384,7 @@ class TestDumpSymbols(unittest.TestCase):
 
         self.assertTrue(ok)
         mock_run_skill.assert_not_called()
-        mock_print.assert_any_call(
-            f"[debug] successfully wrote YAML: {output_path.resolve(strict=False)}"
-        )
+        mock_print.assert_any_call(f"[debug] successfully wrote YAML: {output_path.resolve(strict=False)}")
 
     def test_process_binary_preprocesses_each_symbol_derived_from_outputs(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -409,9 +412,7 @@ class TestDumpSymbols(unittest.TestCase):
                     },
                 ],
             }
-            preprocess_mock = AsyncMock(
-                return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS
-            )
+            preprocess_mock = AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS)
             with (
                 patch.object(
                     dump_symbols,
@@ -437,14 +438,13 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertEqual(2, preprocess_mock.await_count)
         self.assertEqual(
             ["ExReferenceCallBackBlock", "ExDereferenceCallBackBlock"],
-            [
-                invocation.kwargs["symbol"]["name"]
-                for invocation in preprocess_mock.await_args_list
-            ],
+            [invocation.kwargs["symbol"]["name"] for invocation in preprocess_mock.await_args_list],
         )
         mock_run_skill.assert_not_called()
 
-    def test_process_binary_preprocesses_expected_output_without_symbol_spec(self) -> None:
+    def test_process_binary_preprocesses_expected_output_without_symbol_spec(
+        self,
+    ) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             config = {
@@ -456,9 +456,7 @@ class TestDumpSymbols(unittest.TestCase):
                 ],
                 "symbols": [],
             }
-            preprocess_mock = AsyncMock(
-                return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS
-            )
+            preprocess_mock = AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS)
             with (
                 patch.object(
                     dump_symbols,
@@ -488,7 +486,9 @@ class TestDumpSymbols(unittest.TestCase):
         )
         mock_run_skill.assert_not_called()
 
-    def test_process_binary_returns_false_for_failed_internal_expected_output(self) -> None:
+    def test_process_binary_returns_false_for_failed_internal_expected_output(
+        self,
+    ) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             config = {
@@ -500,9 +500,7 @@ class TestDumpSymbols(unittest.TestCase):
                 ],
                 "symbols": [],
             }
-            preprocess_mock = AsyncMock(
-                return_value=dump_symbols.PREPROCESS_STATUS_FAILED
-            )
+            preprocess_mock = AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_FAILED)
             with (
                 patch.object(
                     dump_symbols,
@@ -532,7 +530,9 @@ class TestDumpSymbols(unittest.TestCase):
         )
         mock_run_skill.assert_not_called()
 
-    def test_process_binary_accepts_absent_ok_for_internal_expected_output(self) -> None:
+    def test_process_binary_accepts_absent_ok_for_internal_expected_output(
+        self,
+    ) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             config = {
@@ -544,9 +544,7 @@ class TestDumpSymbols(unittest.TestCase):
                 ],
                 "symbols": [],
             }
-            preprocess_mock = AsyncMock(
-                return_value=dump_symbols.PREPROCESS_STATUS_ABSENT_OK
-            )
+            preprocess_mock = AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_ABSENT_OK)
             with (
                 patch.object(
                     dump_symbols,
@@ -633,10 +631,7 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(
             ["Regular", "Helper"],
-            [
-                invocation.kwargs["symbol"]["name"]
-                for invocation in preprocess_mock.await_args_list
-            ],
+            [invocation.kwargs["symbol"]["name"] for invocation in preprocess_mock.await_args_list],
         )
         mock_run_skill.assert_called_once_with(
             "find-RegularAndHelper",
@@ -690,10 +685,10 @@ class TestDumpSymbols(unittest.TestCase):
                 )
 
         self.assertTrue(ok)
-        self.assertEqual(["Optional"], [
-            invocation.kwargs["symbol"]["name"]
-            for invocation in preprocess_mock.await_args_list
-        ])
+        self.assertEqual(
+            ["Optional"],
+            [invocation.kwargs["symbol"]["name"] for invocation in preprocess_mock.await_args_list],
+        )
         mock_run_skill.assert_not_called()
 
     def test_process_binary_runs_only_selected_skill(self) -> None:
@@ -733,10 +728,7 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(
             ["Target"],
-            [
-                invocation.kwargs["symbol"]["name"]
-                for invocation in preprocess_mock.await_args_list
-            ],
+            [invocation.kwargs["symbol"]["name"] for invocation in preprocess_mock.await_args_list],
         )
         mock_run_skill.assert_not_called()
 
@@ -770,11 +762,11 @@ class TestDumpSymbols(unittest.TestCase):
 
         self.assertFalse(ok)
         preprocess_mock.assert_not_awaited()
-        mock_print.assert_called_once_with(
-            "Skill 'missing-skill' not found; available skills: find-Target"
-        )
+        mock_print.assert_called_once_with("Skill 'missing-skill' not found; available skills: find-Target")
 
-    def test_process_binary_skips_optional_only_skill_when_optional_output_exists(self) -> None:
+    def test_process_binary_skips_optional_only_skill_when_optional_output_exists(
+        self,
+    ) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             (binary_dir / "Optional.yaml").write_text("name: Optional\n", encoding="utf-8")
@@ -822,7 +814,9 @@ class TestDumpSymbols(unittest.TestCase):
         preprocess_mock.assert_not_awaited()
         mock_run_skill.assert_not_called()
 
-    def test_process_binary_skips_when_any_skip_if_any_exists_artifact_exists(self) -> None:
+    def test_process_binary_skips_when_any_skip_if_any_exists_artifact_exists(
+        self,
+    ) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             (binary_dir / "SubstituteB.yaml").write_text(
@@ -877,7 +871,9 @@ class TestDumpSymbols(unittest.TestCase):
         preprocess_mock.assert_not_awaited()
         mock_run_skill.assert_not_called()
 
-    def test_process_binary_skips_when_all_skip_if_all_exists_artifacts_exist(self) -> None:
+    def test_process_binary_skips_when_all_skip_if_all_exists_artifacts_exist(
+        self,
+    ) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             (binary_dir / "SubstituteA.yaml").write_text(
@@ -936,7 +932,9 @@ class TestDumpSymbols(unittest.TestCase):
         preprocess_mock.assert_not_awaited()
         mock_run_skill.assert_not_called()
 
-    def test_process_binary_does_not_skip_until_all_skip_if_all_exists_artifacts_exist(self) -> None:
+    def test_process_binary_does_not_skip_until_all_skip_if_all_exists_artifacts_exist(
+        self,
+    ) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             (binary_dir / "SubstituteA.yaml").write_text(
@@ -1109,9 +1107,7 @@ class TestDumpSymbols(unittest.TestCase):
                     }
                 ],
             }
-            preprocess_mock = AsyncMock(
-                return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS
-            )
+            preprocess_mock = AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS)
             with (
                 patch.object(
                     dump_symbols,
@@ -1137,7 +1133,9 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertIsNone(preprocess_mock.await_args.kwargs["pdb_path"])
         mock_run_skill.assert_not_called()
 
-    def test_process_binary_returns_false_immediately_when_run_skill_fails(self) -> None:
+    def test_process_binary_returns_false_immediately_when_run_skill_fails(
+        self,
+    ) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             skills = [
@@ -1188,7 +1186,9 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertEqual(1, mock_run_skill.call_count)
         self.assertEqual(1, preprocess_mock.await_count)
 
-    def test_process_binary_dir_debug_logs_preprocess_failure_and_fallback(self) -> None:
+    def test_process_binary_dir_debug_logs_preprocess_failure_and_fallback(
+        self,
+    ) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             output_path = binary_dir / "EpObjectTable.yaml"
@@ -1216,9 +1216,7 @@ class TestDumpSymbols(unittest.TestCase):
                 patch.object(
                     dump_symbols,
                     "run_skill",
-                    side_effect=lambda *args, **kwargs: (
-                        output_path.write_text("ready", encoding="utf-8") or True
-                    ),
+                    side_effect=lambda *args, **kwargs: output_path.write_text("ready", encoding="utf-8") or True,
                 ) as mock_run_skill,
                 patch("builtins.print") as mock_print,
             ):
@@ -1243,11 +1241,7 @@ class TestDumpSymbols(unittest.TestCase):
             expected_yaml_paths=[str(binary_dir / "EpObjectTable.yaml")],
             max_retries=3,
         )
-        printed_messages = [
-            c.args[0]
-            for c in mock_print.call_args_list
-            if c.args and isinstance(c.args[0], str)
-        ]
+        printed_messages = [c.args[0] for c in mock_print.call_args_list if c.args and isinstance(c.args[0], str)]
         self.assertIn("[debug] skill find-EpObjectTable started", printed_messages)
         self.assertIn(
             "[debug] preprocess status for find-EpObjectTable/EpObjectTable: failed",
@@ -1303,81 +1297,15 @@ class TestDumpSymbols(unittest.TestCase):
                 )
 
         self.assertTrue(ok)
-        printed_messages = [
-            c.args[0]
-            for c in mock_print.call_args_list
-            if c.args and isinstance(c.args[0], str)
-        ]
+        printed_messages = [c.args[0] for c in mock_print.call_args_list if c.args and isinstance(c.args[0], str)]
         self.assertFalse(any(message.startswith("[debug]") for message in printed_messages))
 
-    def test_run_skill_calls_subprocess_once_even_with_higher_retry_limit(self) -> None:
-        completed = subprocess.CompletedProcess(args=["codex"], returncode=1)
-        with (
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.read_text", return_value="developer prompt"),
-            patch.object(dump_symbols.subprocess, "run", return_value=completed) as mock_run,
-        ):
-            ok = dump_symbols.run_skill(
-                "find-test",
-                agent="codex",
-                debug=False,
-                expected_yaml_paths=[],
-                max_retries=5,
-            )
+    def test_run_skill_uses_shared_agent_runner(self) -> None:
+        self.assertIs(agent_runner.run_skill, dump_symbols.run_skill)
 
-        self.assertFalse(ok)
-        mock_run.assert_called_once()
-
-    def test_run_skill_passes_explicit_model_to_codex(self) -> None:
-        completed = subprocess.CompletedProcess(args=["codex"], returncode=0)
-        with (
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.read_text", return_value="developer prompt"),
-            patch.object(
-                dump_symbols.subprocess,
-                "run",
-                return_value=completed,
-            ) as mock_run,
-        ):
-            ok = dump_symbols.run_skill(
-                "find-test",
-                agent="codex",
-                debug=False,
-                expected_yaml_paths=[],
-                agent_model="gpt-5.4",
-            )
-
-        self.assertTrue(ok)
-        command = mock_run.call_args.args[0]
-        self.assertIn(
-            ["-m", "gpt-5.4"],
-            [command[index : index + 2] for index in range(len(command) - 1)],
-        )
-
-    def test_run_skill_reports_missing_agent_cli_without_raising(self) -> None:
-        with (
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.read_text", return_value="developer prompt"),
-            patch.object(
-                dump_symbols.subprocess,
-                "run",
-                side_effect=FileNotFoundError(2, "No such file or directory", "codex"),
-            ),
-            patch("builtins.print") as mock_print,
-        ):
-            ok = dump_symbols.run_skill(
-                "find-test",
-                agent="codex",
-                debug=False,
-                expected_yaml_paths=[],
-            )
-
-        self.assertFalse(ok)
-        mock_print.assert_any_call(
-            "Agent CLI not found: codex. Install it or pass -agent with a valid executable path."
-        )
-
-    def test_process_module_binary_passes_lazy_session_without_eager_start(self) -> None:
+    def test_process_module_binary_passes_lazy_session_without_eager_start(
+        self,
+    ) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             binary_path = binary_dir / "ntoskrnl.exe"
@@ -1406,9 +1334,7 @@ class TestDumpSymbols(unittest.TestCase):
                     new=AsyncMock(return_value=True),
                 ) as mock_process_binary,
             ):
-                ok, did_work = asyncio.run(
-                    dump_symbols._process_module_binary(module, binary_dir, pdb_path, args)
-                )
+                ok, did_work = asyncio.run(dump_symbols._process_module_binary(module, binary_dir, pdb_path, args))
 
         self.assertTrue(ok)
         self.assertFalse(did_work)
@@ -1423,7 +1349,9 @@ class TestDumpSymbols(unittest.TestCase):
         mock_process_binary.assert_awaited_once()
         fake_lazy_session.close.assert_awaited_once()
 
-    def test_process_module_binary_real_empty_pipeline_does_not_eager_start(self) -> None:
+    def test_process_module_binary_real_empty_pipeline_does_not_eager_start(
+        self,
+    ) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             binary_path = binary_dir / "ntoskrnl.exe"
@@ -1438,9 +1366,7 @@ class TestDumpSymbols(unittest.TestCase):
                 patch.object(dump_symbols, "start_idalib_mcp") as mock_start,
                 patch.object(dump_symbols, "open_ida_mcp_session") as mock_open_session,
             ):
-                ok, did_work = asyncio.run(
-                    dump_symbols._process_module_binary(module, binary_dir, pdb_path, args)
-                )
+                ok, did_work = asyncio.run(dump_symbols._process_module_binary(module, binary_dir, pdb_path, args))
 
         self.assertTrue(ok)
         self.assertFalse(did_work)
@@ -1501,9 +1427,7 @@ class TestDumpSymbols(unittest.TestCase):
                 }
             ]
             activity = {"did_work": False}
-            preprocess_mock = AsyncMock(
-                return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS
-            )
+            preprocess_mock = AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_SUCCESS)
             with (
                 patch.object(
                     dump_symbols,
@@ -1568,9 +1492,7 @@ class TestDumpSymbols(unittest.TestCase):
                 ) as mock_preprocess,
                 patch.object(dump_symbols, "run_skill", return_value=True) as mock_run_skill,
             ):
-                ok, did_work = asyncio.run(
-                    dump_symbols._process_module_binary(module, binary_dir, pdb_path, args)
-                )
+                ok, did_work = asyncio.run(dump_symbols._process_module_binary(module, binary_dir, pdb_path, args))
 
         self.assertTrue(ok)
         self.assertTrue(did_work)
@@ -1591,9 +1513,7 @@ class TestDumpSymbols(unittest.TestCase):
             first_result = object()
             health_result = object()
             second_result = object()
-            fake_session.call_tool = AsyncMock(
-                side_effect=[first_result, health_result, second_result]
-            )
+            fake_session.call_tool = AsyncMock(side_effect=[first_result, health_result, second_result])
             fake_context = MagicMock()
             fake_context.__aenter__ = AsyncMock(return_value=fake_session)
             fake_context.__aexit__ = AsyncMock()
@@ -1605,9 +1525,7 @@ class TestDumpSymbols(unittest.TestCase):
                     return_value=24567,
                     create=True,
                 ),
-                patch.object(
-                    dump_symbols, "start_idalib_mcp", return_value=fake_process
-                ) as mock_start,
+                patch.object(dump_symbols, "start_idalib_mcp", return_value=fake_process) as mock_start,
                 patch.object(
                     dump_symbols,
                     "open_ida_mcp_session",
@@ -1664,9 +1582,7 @@ class TestDumpSymbols(unittest.TestCase):
         restarted_process.poll.return_value = None
         first_context = MagicMock()
         first_context.__aenter__ = AsyncMock(
-            side_effect=dump_symbols.McpDatabaseUnavailableError(
-                "inactive or unreachable"
-            )
+            side_effect=dump_symbols.McpDatabaseUnavailableError("inactive or unreachable")
         )
         first_context.__aexit__ = AsyncMock()
         recovered_result = object()
@@ -1725,9 +1641,7 @@ class TestDumpSymbols(unittest.TestCase):
         process.poll.return_value = None
         first_context = MagicMock()
         first_context.__aenter__ = AsyncMock(
-            side_effect=dump_symbols.McpDatabaseUnavailableError(
-                "inactive or unreachable"
-            )
+            side_effect=dump_symbols.McpDatabaseUnavailableError("inactive or unreachable")
         )
         first_context.__aexit__ = AsyncMock()
         recovered_result = object()
@@ -1763,7 +1677,9 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertEqual(1, session.recovery_budget.remaining_restarts)
         process.terminate.assert_not_called()
 
-    def test_lazy_idalib_session_shares_one_restart_budget_across_failures(self) -> None:
+    def test_lazy_idalib_session_shares_one_restart_budget_across_failures(
+        self,
+    ) -> None:
         session = dump_symbols.LazyIdalibSession(Path("/tmp/ntoskrnl.exe"))
         session.port = 24567
         original_process = MagicMock()
@@ -1779,9 +1695,7 @@ class TestDumpSymbols(unittest.TestCase):
         session.session_context = stale_context
 
         recovered_session = AsyncMock()
-        recovered_session.call_tool = AsyncMock(
-            side_effect=RuntimeError("worker lost again")
-        )
+        recovered_session.call_tool = AsyncMock(side_effect=RuntimeError("worker lost again"))
         recovered_context = MagicMock()
         recovered_context.__aenter__ = AsyncMock(return_value=recovered_session)
         recovered_context.__aexit__ = AsyncMock()
@@ -1908,11 +1822,7 @@ class TestDumpSymbols(unittest.TestCase):
             expected_binary=binary_path,
             auto_started=True,
         )
-        printed_messages = [
-            c.args[0]
-            for c in mock_print.call_args_list
-            if c.args and isinstance(c.args[0], str)
-        ]
+        printed_messages = [c.args[0] for c in mock_print.call_args_list if c.args and isinstance(c.args[0], str)]
         self.assertIn(
             f"[debug] allocating lazy MCP session for {binary_path}",
             printed_messages,
@@ -1922,7 +1832,9 @@ class TestDumpSymbols(unittest.TestCase):
             printed_messages,
         )
 
-    def test_lazy_idalib_session_close_without_startup_does_not_log_closing(self) -> None:
+    def test_lazy_idalib_session_close_without_startup_does_not_log_closing(
+        self,
+    ) -> None:
         session = dump_symbols.LazyIdalibSession(
             binary_path=Path("/tmp/ntoskrnl.exe"),
             debug=True,
@@ -1931,17 +1843,15 @@ class TestDumpSymbols(unittest.TestCase):
         with patch("builtins.print") as mock_print:
             asyncio.run(session.close())
 
-        printed_messages = [
-            c.args[0]
-            for c in mock_print.call_args_list
-            if c.args and isinstance(c.args[0], str)
-        ]
+        printed_messages = [c.args[0] for c in mock_print.call_args_list if c.args and isinstance(c.args[0], str)]
         self.assertNotIn(
             "[debug] closing lazy MCP session for /tmp/ntoskrnl.exe",
             printed_messages,
         )
 
-    def test_lazy_idalib_session_cleans_up_after_session_selection_failure(self) -> None:
+    def test_lazy_idalib_session_cleans_up_after_session_selection_failure(
+        self,
+    ) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             binary_path = binary_dir / "ntoskrnl.exe"
@@ -1950,9 +1860,7 @@ class TestDumpSymbols(unittest.TestCase):
             fake_process = MagicMock()
             fake_process.poll.return_value = None
             fake_context = MagicMock()
-            fake_context.__aenter__ = AsyncMock(
-                side_effect=RuntimeError("MCP session target mismatch")
-            )
+            fake_context.__aenter__ = AsyncMock(side_effect=RuntimeError("MCP session target mismatch"))
             fake_context.__aexit__ = AsyncMock()
 
             with (
@@ -1997,7 +1905,9 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertIsNone(lazy_session.session)
         self.assertIsNone(lazy_session.session_context)
 
-    def test_lazy_idalib_session_startup_cleanup_wait_failure_keeps_selection_error(self) -> None:
+    def test_lazy_idalib_session_startup_cleanup_wait_failure_keeps_selection_error(
+        self,
+    ) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             binary_path = binary_dir / "ntoskrnl.exe"
@@ -2007,9 +1917,7 @@ class TestDumpSymbols(unittest.TestCase):
             fake_process.poll.return_value = None
             fake_process.wait.side_effect = subprocess.TimeoutExpired(cmd="wait", timeout=1)
             fake_context = MagicMock()
-            fake_context.__aenter__ = AsyncMock(
-                side_effect=RuntimeError("MCP session target mismatch")
-            )
+            fake_context.__aenter__ = AsyncMock(side_effect=RuntimeError("MCP session target mismatch"))
             fake_context.__aexit__ = AsyncMock()
 
             with (
@@ -2041,7 +1949,9 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertIsNone(lazy_session.session)
         self.assertIsNone(lazy_session.session_context)
 
-    def test_lazy_idalib_session_startup_failure_after_process_start_cleans_up_process(self) -> None:
+    def test_lazy_idalib_session_startup_failure_after_process_start_cleans_up_process(
+        self,
+    ) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             binary_path = binary_dir / "ntoskrnl.exe"
@@ -2106,9 +2016,7 @@ class TestDumpSymbols(unittest.TestCase):
 
         fake_session = AsyncMock()
         fake_session.binding = SimpleNamespace(should_auto_quit=True)
-        fake_session.call_tool = AsyncMock(
-            side_effect=lambda **kwargs: events.append("qexit")
-        )
+        fake_session.call_tool = AsyncMock(side_effect=lambda **kwargs: events.append("qexit"))
         fake_context = MagicMock()
         fake_context.__aexit__ = AsyncMock(side_effect=lambda *_: events.append("session_exit"))
 
@@ -2188,7 +2096,9 @@ class TestDumpSymbols(unittest.TestCase):
         fake_process.wait.assert_called_once_with(timeout=10)
         fake_process.kill.assert_not_called()
 
-    def test_lazy_idalib_session_close_qexit_timeout_still_runs_cleanup_and_fallback(self) -> None:
+    def test_lazy_idalib_session_close_qexit_timeout_still_runs_cleanup_and_fallback(
+        self,
+    ) -> None:
         session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
 
         fake_process = MagicMock()
@@ -2226,9 +2136,7 @@ class TestDumpSymbols(unittest.TestCase):
 
         fake_session = AsyncMock()
         fake_session.binding = SimpleNamespace(should_auto_quit=True)
-        fake_session.call_tool = AsyncMock(
-            side_effect=asyncio.CancelledError("Cancelled via cancel scope abc")
-        )
+        fake_session.call_tool = AsyncMock(side_effect=asyncio.CancelledError("Cancelled via cancel scope abc"))
         fake_context = MagicMock()
         fake_context.__aexit__ = AsyncMock()
 
@@ -2350,9 +2258,7 @@ class TestDumpSymbols(unittest.TestCase):
         binary_path = Path("/tmp/ntoskrnl.exe")
 
         with (
-            patch.object(
-                dump_symbols.subprocess, "Popen", return_value=fake_process
-            ) as mock_popen,
+            patch.object(dump_symbols.subprocess, "Popen", return_value=fake_process) as mock_popen,
             patch.object(dump_symbols, "_wait_for_port", return_value=True),
         ):
             process = dump_symbols.start_idalib_mcp(binary_path, host="127.0.0.1", port=13337)
@@ -2615,7 +2521,9 @@ class TestDumpSymbols(unittest.TestCase):
         )
         self.assertEqual(5, mock_print.call_count)
 
-    def test_main_scans_multiple_arches_from_comma_separated_arch_argument(self) -> None:
+    def test_main_scans_multiple_arches_from_comma_separated_arch_argument(
+        self,
+    ) -> None:
         args = SimpleNamespace(
             symboldir="symbols",
             arch="amd64,arm64",
