@@ -12,6 +12,8 @@ uv run dump_symbols.py [-symboldir="path/to/symbols"] [-configyaml="config.yaml"
 
 The script scans `<symboldir>/<arch>/<file>.<version>/<sha256>/`, resolves symbols into `{symbol}.yaml`, and writes them next to the corresponding PE and PDB files.
 
+When `-symboldir` is omitted, the script uses `symbols` under the current working directory. `KPHTOOLS_SYMBOLDIR`, including values loaded from `.env`, takes precedence over the command-line option.
+
 ## Agent runner
 
 Claude, Codex, and OpenCode use the same non-interactive runner. Before starting a skill, the runner checks that `ida-pro-mcp` is listed, then enforces the same timeout, output validation, and retry budget for every CLI.

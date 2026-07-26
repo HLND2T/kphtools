@@ -29,6 +29,47 @@ HASH_XML_TEXT = """
 """
 
 
+class TestUpdateSymbolsDotenv(unittest.TestCase):
+    def test_loads_dotenv_without_overriding_process_environment(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            env_path = Path(temp_dir) / ".env"
+            env_path.write_text(
+                "\n".join(
+                    [
+                        "KPHTOOLS_XML=dotenv.xml",
+                        "KPHTOOLS_SYMBOLDIR='dotenv-symbols'",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            environ = {"KPHTOOLS_XML": "process.xml"}
+
+            update_symbols._load_dotenv_file(env_path, environ)
+
+        self.assertEqual("process.xml", environ["KPHTOOLS_XML"])
+        self.assertEqual("dotenv-symbols", environ["KPHTOOLS_SYMBOLDIR"])
+
+    def test_main_loads_dotenv_before_parsing_arguments(self) -> None:
+        events = []
+
+        def load_dotenv():
+            events.append("dotenv")
+
+        def parse_arguments(argv):
+            events.append("arguments")
+            raise RuntimeError("stop after argument parsing")
+
+        with (
+            patch.object(update_symbols, "_load_dotenv_file", side_effect=load_dotenv),
+            patch.object(update_symbols, "parse_args", side_effect=parse_arguments),
+            self.assertRaisesRegex(RuntimeError, "stop after argument parsing"),
+        ):
+            update_symbols.main([])
+
+        self.assertEqual(["dotenv", "arguments"], events)
+
+
 class TestUpdateSymbols(unittest.TestCase):
     @staticmethod
     def _build_config() -> SimpleNamespace:

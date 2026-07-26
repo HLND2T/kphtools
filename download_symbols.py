@@ -17,6 +17,8 @@ Usage:
     The symbol_server can also be set via KPHTOOLS_SYMBOL_SERVER environment variable.
     If KPHTOOLS_SYMBOL_SERVER is set, it takes precedence over -symbol_server argument.
 
+    Environment variables are automatically loaded from the .env file next to this script.
+
 Requirements:
     Run `uv sync` in the repository root to install project dependencies.
 """
@@ -44,6 +46,34 @@ DEFAULT_SYMBOL_DIR = "symbols"
 
 # Global variable for symbol server URL (set by parse_args)
 SYMBOL_SERVER_URL = DEFAULT_SYMBOL_SERVER_URL
+
+
+def _load_dotenv_file(path=None, environ=None):
+    """Load environment variables from .env without overriding existing values."""
+    environ = os.environ if environ is None else environ
+    env_path = (
+        Path(path) if path is not None else Path(__file__).resolve().with_name(".env")
+    )
+    if not env_path.is_file():
+        return
+
+    try:
+        lines = env_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key or key in environ:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1]
+        environ[key] = value
 
 
 class DownloadStatus(Enum):
@@ -105,8 +135,8 @@ def parse_args(argv=None):
     
     # Check symbol directory environment variable first, then fallback to command line argument
     symbol_dir = os.getenv("KPHTOOLS_SYMBOLDIR")
-    if symbol_dir:
-        # Environment variable takes precedence
+    if symbol_dir is not None:
+        # Environment variable takes precedence, including an empty value
         args.symboldir = symbol_dir
     
     if not args.symboldir:
@@ -475,6 +505,7 @@ def process_entry(entry, symbol_dir, fast_mode=False):
 
 def main():
     """Main entry point."""
+    _load_dotenv_file()
     args = parse_args()
 
     xml_path = args.xml

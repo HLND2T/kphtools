@@ -3,6 +3,7 @@ import os
 import tempfile
 import unittest
 from io import BytesIO, StringIO
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -65,7 +66,63 @@ class RecordingStorage:
         return True, "File uploaded successfully", 200
 
 
+class TestDotenvLoading(unittest.TestCase):
+    def test_loads_dotenv_without_overriding_process_environment(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            env_path = Path(temp_dir) / ".env"
+            env_path.write_text(
+                "\n".join(
+                    [
+                        "# Server configuration",
+                        "KPHTOOLS_SERVER_STORAGE=oss",
+                        "KPHTOOLS_SERVER_OSS_REGION='cn-hangzhou'",
+                        "KPHTOOLS_SERVER_PORT=9000",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            environ = {"KPHTOOLS_SERVER_PORT": "8000"}
+
+            upload_server._load_dotenv_file(env_path, environ)
+
+        self.assertEqual("oss", environ["KPHTOOLS_SERVER_STORAGE"])
+        self.assertEqual("cn-hangzhou", environ["KPHTOOLS_SERVER_OSS_REGION"])
+        self.assertEqual("8000", environ["KPHTOOLS_SERVER_PORT"])
+
+    def test_main_loads_dotenv_before_parsing_arguments(self):
+        events = []
+
+        def load_dotenv():
+            events.append("dotenv")
+
+        def parse_arguments():
+            events.append("arguments")
+            raise RuntimeError("stop after argument parsing")
+
+        with (
+            patch.object(upload_server, "_load_dotenv_file", side_effect=load_dotenv),
+            patch.object(upload_server, "parse_args", side_effect=parse_arguments),
+            self.assertRaisesRegex(RuntimeError, "stop after argument parsing"),
+        ):
+            upload_server.main()
+
+        self.assertEqual(["dotenv", "arguments"], events)
+
+
 class TestStorageConfiguration(unittest.TestCase):
+    def test_parse_args_defaults_to_symbols(self):
+        with patch.dict(os.environ, {}, clear=True):
+            args = upload_server.parse_args([])
+
+        self.assertEqual("symbols", args.symboldir)
+
+    def test_parse_args_prefers_environment_symboldir(self):
+        with patch.dict(os.environ, {"KPHTOOLS_SYMBOLDIR": "env-symbols"}, clear=True):
+            args = upload_server.parse_args(["-symboldir", "cli-symbols"])
+
+        self.assertEqual("env-symbols", args.symboldir)
+
     def test_storage_mode_defaults_to_disk_and_is_case_insensitive(self):
         self.assertEqual("disk", upload_server.get_storage_mode({}))
         self.assertEqual(

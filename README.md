@@ -8,7 +8,6 @@ Install the [requirements](docs/requirements.md), then run the main symbol pipel
 
 ```bash
 curl -O https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml
-uv sync
 uv run download_symbols.py -fast
 uv run dump_symbols.py
 uv run update_symbols.py
@@ -27,6 +26,8 @@ The default symbol layout is:
 ```text
 symbols/<arch>/<file>.<version>/<sha256>/
 ```
+
+All four scripts use `symbols` under the current working directory by default. Set `KPHTOOLS_SYMBOLDIR` to override that directory; the environment variable takes precedence over `-symboldir`.
 
 ## Documentation
 

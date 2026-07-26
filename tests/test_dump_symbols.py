@@ -129,13 +129,20 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertTrue(args.force)
 
     def test_parse_args_uses_default_arches_and_symboldir(self) -> None:
-        args = dump_symbols.parse_args([])
+        with patch.dict(os.environ, {}, clear=True):
+            args = dump_symbols.parse_args([])
 
         self.assertEqual("symbols", args.symboldir)
         self.assertEqual("amd64,arm64", args.arch)
         self.assertEqual(["amd64", "arm64"], args.arches)
         self.assertIsNone(args.version)
         self.assertIsNone(args.skill)
+
+    def test_parse_args_prefers_environment_symboldir(self) -> None:
+        with patch.dict(os.environ, {"KPHTOOLS_SYMBOLDIR": "env-symbols"}, clear=True):
+            args = dump_symbols.parse_args(["-symboldir", "cli-symbols"])
+
+        self.assertEqual("env-symbols", args.symboldir)
 
     def test_parse_args_uses_kptools_llm_env_fallbacks(self) -> None:
         with patch.dict(

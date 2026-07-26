@@ -12,13 +12,16 @@ Optional features:
     - X-File-Compressed: gzip header to indicate gzip-compressed file
 
 Usage:
-    uv run python upload_server.py -symboldir=C:/Symbols [-port=8000] [-debug]
+    uv run python upload_server.py [-symboldir=C:/Symbols] [-port=8000] [-debug]
 
     Or:
-    uv run python upload_server.py -symboldir C:/Symbols -port 8000 -debug
+    uv run python upload_server.py [-symboldir C:/Symbols] -port 8000 -debug
 
     OSS storage:
-    KPHTOOLS_SERVER_STORAGE=oss uv run python upload_server.py [-port=8000]
+    set KPHTOOLS_SERVER_STORAGE=oss
+    uv run python upload_server.py [-port=8000]
+
+    Environment variables are automatically loaded from the .env file next to this script.
 
     Upload example:
     curl -X POST -H "Content-Type: application/octet-stream" --data-binary "@ntoskrnl.exe" http://localhost:8000/upload
@@ -44,6 +47,7 @@ import http.server
 import json
 import re
 from io import BytesIO
+from pathlib import Path
 from typing import Protocol
 from urllib.parse import urlparse, parse_qs
 import gzip
@@ -76,6 +80,7 @@ except Exception as e:
 
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
 UPLOAD_DIR = 'uploads'
+DEFAULT_SYMBOL_DIR = 'symbols'
 ALLOW_FILENAME = ['ntoskrnl.exe', 'ntkrnlmp.exe', 'ntkrla57.exe']
 ALLOW_FILEDESC = ['NT Kernel & System']
 ALLOW_ARCH = ['x86', 'amd64', 'arm64']
@@ -241,6 +246,34 @@ class OssStorage:
         return (True, "File uploaded successfully", 200)
 
 
+def _load_dotenv_file(path=None, environ=None):
+    """Load environment variables from .env without overriding existing values."""
+    environ = os.environ if environ is None else environ
+    env_path = (
+        Path(path) if path is not None else Path(__file__).resolve().with_name(".env")
+    )
+    if not env_path.is_file():
+        return
+
+    try:
+        lines = env_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key or key in environ:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1]
+        environ[key] = value
+
+
 def get_storage_mode(environ=None):
     """Read and validate the configured server storage mode."""
     environ = os.environ if environ is None else environ
@@ -263,10 +296,7 @@ def create_storage_backend(
 
     if storage_mode == 'disk':
         if not symboldir:
-            raise ValueError(
-                "symboldir must be provided either via KPHTOOLS_SYMBOLDIR "
-                "environment variable or -symboldir command line argument"
-            )
+            raise ValueError("symboldir cannot be empty")
         os.makedirs(symboldir, exist_ok=True)
         return DiskStorage(symboldir)
 
@@ -395,15 +425,18 @@ def check_file_exists(storage, arch, filename, fileversion, sha256):
     return result
 
 
-def parse_args():
+def parse_args(argv=None):
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         description="HTTP server that handles file uploads, validates PE files and digital signatures"
     )
     parser.add_argument(
         "-symboldir",
-        required=False,
-        help="Directory to store uploaded files in disk mode (can also be set via KPHTOOLS_SYMBOLDIR environment variable)"
+        default=DEFAULT_SYMBOL_DIR,
+        help=(
+            f"Directory to store uploaded files in disk mode (default: {DEFAULT_SYMBOL_DIR}; "
+            "can be overridden by KPHTOOLS_SYMBOLDIR)"
+        ),
     )
     parser.add_argument(
         "-port",
@@ -417,7 +450,13 @@ def parse_args():
         help="Enable debug mode (includes HTTP request logging)"
     )
     
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+
+    env_symboldir = os.environ.get('KPHTOOLS_SYMBOLDIR')
+    if env_symboldir is not None:
+        args.symboldir = env_symboldir
+    if not args.symboldir:
+        parser.error("-symboldir cannot be empty")
     
     return args
 
@@ -893,6 +932,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
 
 def main():
     """Main entry point."""
+    _load_dotenv_file()
     args = parse_args()
 
     try:
@@ -912,7 +952,7 @@ def main():
     else:
         port = args.port
 
-    symboldir = os.environ.get('KPHTOOLS_SYMBOLDIR') or args.symboldir
+    symboldir = args.symboldir
     try:
         storage = create_storage_backend(storage_mode, symboldir=symboldir)
     except (ValueError, RuntimeError, OSError) as error:
