@@ -33,7 +33,8 @@ Disk storage remains the default when `KPHTOOLS_SERVER_STORAGE` is unset:
 
 ```bash
 export KPHTOOLS_SERVER_STORAGE=disk
-export KPHTOOLS_SYMBOLDIR="/srv/kphtools/symbols"
+export KPHTOOLS_SYMBOLDIR="$HOME/kphtools/symbols"
+cd "$HOME/kphtools"
 uv run python upload_server.py [-port=8000]
 ```
 
@@ -47,6 +48,7 @@ export KPHTOOLS_SERVER_OSS_ENDPOINT="oss-cn-hangzhou-internal.aliyuncs.com"
 export KPHTOOLS_SERVER_OSS_PREFIX="symbols"
 export OSS_ACCESS_KEY_ID="your-access-key-id"
 export OSS_ACCESS_KEY_SECRET="your-access-key-secret"
+cd "$HOME/kphtools"
 uv run python upload_server.py [-port=8000]
 ```
 
