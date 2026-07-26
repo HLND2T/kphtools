@@ -1,6 +1,7 @@
 settings.local.json
 .venv
 .env
+.ruff_cache
 __pycache__
 output
 symbols
