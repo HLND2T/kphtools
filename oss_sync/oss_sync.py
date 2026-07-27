@@ -1,17 +1,18 @@
-import os
-import hashlib
-import time
 import argparse
+import hashlib
 import logging
+import mimetypes
+import os
 import sys
-from logging.handlers import RotatingFileHandler
-from datetime import datetime
-from pathlib import Path
-import oss2
-from oss2 import Auth, Bucket
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 import threading
+import time
+from datetime import datetime
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
+
+import alibabacloud_oss_v2 as oss
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 logger = logging.getLogger("aliyun_oss_sync")
 DEFAULT_SYMBOL_DIR = 'symbols'
@@ -50,6 +51,8 @@ def load_config_from_environment(direction):
     return {
         'access_key_id': _get_required_env('OSS_ACCESS_KEY_ID'),
         'access_key_secret': _get_required_env('OSS_ACCESS_KEY_SECRET'),
+        'security_token': os.getenv('OSS_SESSION_TOKEN', '').strip() or None,
+        'region': _get_required_env('KPHTOOLS_SERVER_OSS_REGION'),
         'endpoint': _get_required_env('KPHTOOLS_SERVER_OSS_ENDPOINT'),
         'bucket_name': _get_required_env('KPHTOOLS_SERVER_OSS_BUCKET'),
         'local_path': local_path,
@@ -122,11 +125,17 @@ class OSSSync:
             raise
 
         # OSS 客户端初始化
-        self.auth = Auth(config['access_key_id'], config['access_key_secret'])
-        self.bucket = Bucket(self.auth, config['endpoint'], config['bucket_name'])
-        
-        # 设置跨平台路径处理
-        self.os_adapt_sep = '\\' if os.name == 'nt' else '/'
+        credentials_provider = oss.credentials.StaticCredentialsProvider(
+            config['access_key_id'],
+            config['access_key_secret'],
+            config.get('security_token'),
+        )
+        sdk_config = oss.config.load_default()
+        sdk_config.credentials_provider = credentials_provider
+        sdk_config.region = config['region']
+        sdk_config.endpoint = config['endpoint']
+        self.client = oss.Client(sdk_config)
+        self.bucket_name = config['bucket_name']
         
         # 用于存储上次检查时的OSS文件状态
         self.last_oss_files = {}
@@ -135,7 +144,40 @@ class OSSSync:
 
     def _convert_path(self, path):
         """统一路径格式为OSS风格"""
-        return str(path).replace(self.os_adapt_sep, '/')
+        return str(path).replace('\\', '/')
+
+    def _object_key(self, relative_path):
+        """构造规范化的 OSS object key。"""
+        relative_path = self._convert_path(relative_path).lstrip('/')
+        if self.config['oss_path']:
+            return f"{self.config['oss_path']}/{relative_path}"
+        return relative_path
+
+    def _object_prefix(self):
+        """返回用于列举对象的目录前缀。"""
+        if self.config['oss_path']:
+            return f"{self.config['oss_path']}/"
+        return None
+
+    def _relative_object_path(self, object_key):
+        """从 OSS object key 提取同步目录内的相对路径。"""
+        object_key = self._convert_path(object_key).lstrip('/')
+        prefix = self._object_prefix()
+        if prefix:
+            if not object_key.startswith(prefix):
+                return None
+            return object_key[len(prefix):]
+        return object_key
+
+    def _iter_oss_objects(self):
+        """分页遍历同步前缀下的 OSS 对象。"""
+        paginator = self.client.list_objects_v2_paginator(limit=100)
+        request = oss.ListObjectsV2Request(
+            bucket=self.bucket_name,
+            prefix=self._object_prefix(),
+        )
+        for page in paginator.iter_page(request):
+            yield from page.contents or []
 
     def _get_relative_path(self, full_path):
         """获取相对于本地根目录的相对路径"""
@@ -217,25 +259,16 @@ class OSSSync:
 
         # 扫描OSS文件
         oss_files = {}
-        # oss_file_iterator = self.bucket.list_objects_v2(prefix=self.config['oss_path'])
-        oss_file_iterator = oss2.ObjectIterator(self.bucket, prefix=self.config['oss_path'])
-        for obj in oss_file_iterator:
+        for obj in self._iter_oss_objects():
             logger.info(f"OSS object key: {obj.key}")
             logger.info(f"OSS path: {self.config['oss_path']}")
-            # 修改路径处理逻辑
-            if self.config['oss_path']:
-                rel_path = obj.key[len(self.config['oss_path']):]
-            else:
-                rel_path = obj.key
-            # 移除开头的斜杠
-            if rel_path.startswith('/'):
-                rel_path = rel_path[1:]
+            rel_path = self._relative_object_path(obj.key)
             logger.info(f"Calculated relative path: {rel_path}")
             if not rel_path or self._should_ignore(rel_path):
                 continue
             
             oss_files[rel_path] = {
-                'mtime': obj.last_modified,
+                'mtime': obj.last_modified.timestamp(),
                 'size': obj.size,
                 'hash': obj.etag.strip('"'),
             }
@@ -339,26 +372,75 @@ class OSSSync:
     def _upload_file(self, rel_path):
         """上传文件到OSS"""
         local_full = self.config['local_path'] / rel_path
-        oss_key = f"{self.config['oss_path']}/{rel_path}"
+        oss_key = self._object_key(rel_path)
+        content_type = mimetypes.guess_type(str(local_full))[0]
         
         try:
-            self.bucket.put_object_from_file(oss_key, str(local_full))
+            self.client.put_object_from_file(
+                oss.PutObjectRequest(
+                    bucket=self.bucket_name,
+                    key=oss_key,
+                    content_type=content_type,
+                ),
+                str(local_full),
+            )
             logger.info(f"Uploaded: {rel_path}")
         except Exception as e:
             logger.error(f"Upload failed: {rel_path} - {str(e)}")
 
     def _download_file(self, rel_path):
         """从OSS下载文件"""
-        # 确保oss_key不会以斜杠开头
-        oss_key = f"{self.config['oss_path']}/{rel_path}".lstrip('/')
+        oss_key = self._object_key(rel_path)
         local_full = self.config['local_path'] / rel_path
         
         try:
             local_full.parent.mkdir(parents=True, exist_ok=True)
-            self.bucket.get_object_to_file(oss_key, str(local_full))
+            self.client.get_object_to_file(
+                oss.GetObjectRequest(
+                    bucket=self.bucket_name,
+                    key=oss_key,
+                ),
+                str(local_full),
+            )
             logger.info(f"Downloaded: {rel_path}")
         except Exception as e:
             logger.error(f"Download failed: {rel_path} - {str(e)}")
+
+    def _delete_file(self, rel_path):
+        """删除 OSS 上的文件。"""
+        try:
+            self.client.delete_object(
+                oss.DeleteObjectRequest(
+                    bucket=self.bucket_name,
+                    key=self._object_key(rel_path),
+                )
+            )
+            logger.info(f"Deleted on OSS: {rel_path}")
+        except Exception as e:
+            logger.error(f"Delete failed: {rel_path} - {str(e)}")
+
+    def _move_file(self, src_rel_path, dst_rel_path):
+        """通过复制并删除源对象在 OSS 上移动文件。"""
+        src_oss_key = self._object_key(src_rel_path)
+        dst_oss_key = self._object_key(dst_rel_path)
+        try:
+            self.client.copy_object(
+                oss.CopyObjectRequest(
+                    bucket=self.bucket_name,
+                    key=dst_oss_key,
+                    source_bucket=self.bucket_name,
+                    source_key=src_oss_key,
+                )
+            )
+            self.client.delete_object(
+                oss.DeleteObjectRequest(
+                    bucket=self.bucket_name,
+                    key=src_oss_key,
+                )
+            )
+            logger.info(f"Moved on OSS: {src_rel_path} -> {dst_rel_path}")
+        except Exception as e:
+            logger.error(f"Move failed: {src_rel_path} -> {dst_rel_path} - {str(e)}")
 
     def start_continuous_sync(self):
         """启动持续同步线程"""
@@ -387,21 +469,15 @@ class OSSSync:
     def _check_oss_changes(self):
         """检查OSS文件变化"""
         current_oss_files = {}
-        oss_file_iterator = oss2.ObjectIterator(self.bucket, prefix=self.config['oss_path'])
         
-        for obj in oss_file_iterator:
-            if self.config['oss_path']:
-                rel_path = obj.key[len(self.config['oss_path']):]
-            else:
-                rel_path = obj.key
-            if rel_path.startswith('/'):
-                rel_path = rel_path[1:]
+        for obj in self._iter_oss_objects():
+            rel_path = self._relative_object_path(obj.key)
             
             if not rel_path or self._should_ignore(rel_path):
                 continue
             
             current_oss_files[rel_path] = {
-                'mtime': obj.last_modified,
+                'mtime': obj.last_modified.timestamp(),
                 'hash': obj.etag.strip('"')
             }
 
@@ -458,29 +534,15 @@ class SyncEventHandler(FileSystemEventHandler):
         
         elif event.event_type == 'deleted':
             if self.sync_client.config['sync_direction'] in ['local2oss', 'both']:
-                oss_key = f"{self.sync_client.config['oss_path']}/{rel_path}"
-                try:
-                    self.sync_client.bucket.delete_object(oss_key)
-                    logger.info(f"Deleted on OSS: {rel_path}")
-                except Exception as e:
-                    logger.error(f"Delete failed: {rel_path} - {str(e)}")
+                self.sync_client._delete_file(rel_path)
         
         elif event.event_type == 'moved':
-            try:
-                dst_path = Path(event.dest_path)
-                dst_rel_path = self.sync_client._get_relative_path(dst_path)
-                if not dst_rel_path or self.sync_client._should_ignore(dst_rel_path):
-                    return
-                if self.sync_client.config['sync_direction'] in ['local2oss', 'both']:
-                    src_oss_key = f"{self.sync_client.config['oss_path']}/{rel_path}"
-                    dst_oss_key = f"{self.sync_client.config['oss_path']}/{dst_rel_path}"
-                    # 复制文件
-                    self.sync_client.bucket.copy_object(self.sync_client.bucket.bucket_name, src_oss_key, dst_oss_key)
-                    # 删除原文件
-                    self.sync_client.bucket.delete_object(src_oss_key)
-                    logger.info(f"Moved on OSS: {rel_path} -> {dst_rel_path}")
-            except Exception as e:
-                logger.error(f"Delete failed: {rel_path} - {str(e)}")
+            dst_path = Path(event.dest_path)
+            dst_rel_path = self.sync_client._get_relative_path(dst_path)
+            if not dst_rel_path or self.sync_client._should_ignore(dst_rel_path):
+                return
+            if self.sync_client.config['sync_direction'] in ['local2oss', 'both']:
+                self.sync_client._move_file(rel_path, dst_rel_path)
         else:
             logger.info(f"Unknown event type: {event.event_type}")
 

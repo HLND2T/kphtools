@@ -10,7 +10,6 @@ dependencies = [
     "httpx",
     "mcp",
     "openai",
-    "oss2>=2.19.1",
     "pefile",
     "pyyaml",
     "requests",

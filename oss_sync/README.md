@@ -20,11 +20,13 @@ uv sync
 
 ## 后台同步配置
 
-OSS 连接配置与 `upload_server.py` 使用相同的环境变量：
+OSS 同步使用 `alibabacloud-oss-v2`，连接配置与 `upload_server.py` 使用相同的环境变量：
 
 - `KPHTOOLS_SYMBOLDIR`：本地符号目录，可选，默认为 `symbols`（与 `upload_server.py` 一致）
 - `OSS_ACCESS_KEY_ID`：阿里云 AccessKey ID，必填
 - `OSS_ACCESS_KEY_SECRET`：阿里云 AccessKey Secret，必填
+- `OSS_SESSION_TOKEN`：STS 临时凭据的 session token，可选
+- `KPHTOOLS_SERVER_OSS_REGION`：OSS region，必填，例如 `cn-hangzhou`
 - `KPHTOOLS_SERVER_OSS_ENDPOINT`：OSS endpoint，必填
 - `KPHTOOLS_SERVER_OSS_BUCKET`：OSS bucket 名称，必填
 - `KPHTOOLS_SERVER_OSS_PREFIX`：OSS 路径前缀，可选，默认为空
