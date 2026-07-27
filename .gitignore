@@ -2,6 +2,7 @@ settings.local.json
 .venv
 .env
 .ruff_cache
+.pytest_cache
 __pycache__
 output
 symbols

@@ -1,0 +1,438 @@
+import os
+import hashlib
+import time
+import argparse
+import logging
+import sys
+from logging.handlers import RotatingFileHandler
+from datetime import datetime
+from pathlib import Path
+import oss2
+from oss2 import Auth, Bucket
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+import threading
+
+logger = logging.getLogger("aliyun_oss_sync")
+DEFAULT_SYMBOL_DIR = 'symbols'
+
+
+def _get_required_env(name):
+    """读取必需的环境变量。"""
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        raise ValueError(f"Missing required environment variable: {name}")
+    return value.strip()
+
+
+def _get_env_list(name, default=''):
+    """读取英文逗号分隔的环境变量列表。"""
+    return [item.strip() for item in os.getenv(name, default).split(',') if item.strip()]
+
+
+def load_config_from_environment(direction):
+    """从 KPHTOOL_* 环境变量构造单个同步配置。"""
+    check_interval_value = os.getenv('KPHTOOL_OSS_SYNC_CHECK_INTERVAL', '60')
+    try:
+        check_interval = int(check_interval_value)
+    except ValueError as exc:
+        raise ValueError("KPHTOOL_OSS_SYNC_CHECK_INTERVAL must be an integer") from exc
+    if check_interval <= 0:
+        raise ValueError("KPHTOOL_OSS_SYNC_CHECK_INTERVAL must be greater than 0")
+
+    local_path = os.getenv('KPHTOOLS_SYMBOLDIR', DEFAULT_SYMBOL_DIR).strip()
+    if not local_path:
+        raise ValueError("KPHTOOLS_SYMBOLDIR cannot be empty")
+
+    return {
+        'access_key_id': _get_required_env('KPHTOOL_ACCESS_KEY_ID'),
+        'access_key_secret': _get_required_env('KPHTOOL_ACCESS_KEY_SECRET'),
+        'endpoint': _get_required_env('KPHTOOL_ENDPOINT'),
+        'bucket_name': _get_required_env('KPHTOOL_BUCKET_NAME'),
+        'local_path': local_path,
+        'oss_path': os.getenv('KPHTOOL_OSS_PATH', ''),
+        'direction': direction,
+        'check_interval': check_interval,
+        'exclude': _get_env_list('KPHTOOL_OSS_SYNC_EXCLUDE', '.git/,.DS_Store'),
+        'exclude_extension': _get_env_list(
+            'KPHTOOL_OSS_SYNC_EXCLUDE_EXTENSION',
+            '.mdmp,.dmp'
+        )
+    }
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='OSS Sync Tool')
+    parser.add_argument(
+        '--direction',
+        choices=['local2oss', 'oss2local', 'both'],
+        default='local2oss',
+        help='Sync direction (default: local2oss)'
+    )
+    return parser.parse_args()
+
+
+def setup_logging():
+    # 设置日志文件名
+    log_file = "aliyun_oss_sync.log"
+    
+    # 创建一个logger
+    logger.setLevel(logging.INFO)  # 设置日志级别
+
+    # 创建一个RotatingFileHandler
+    # maxBytes=10*1024*1024 表示每个日志文件的最大大小为10MB
+    # backupCount=5 表示保留5个备份文件
+    handler = RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5)
+    
+    # 设置日志格式
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    
+    # 将handler添加到logger中
+    logger.addHandler(handler)
+    return logger
+
+
+class OSSSync:
+    def __init__(self, config):
+        # 处理路径中的日期替换
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        local_path = config['local_path'].format(current_date=current_date)
+        oss_path = config['oss_path'].format(current_date=current_date)
+        
+        # 初始化配置
+        self.config = {
+            'local_path': Path(local_path).resolve(),
+            'oss_path': oss_path.strip('/'),
+            'exclude': set(config.get('exclude', [])),
+            'exclude_extension': set(config.get('exclude_extension', [])),
+            'sync_direction': config.get('direction', 'local2oss'),
+            'check_interval': config.get('check_interval', 60)  # 默认60秒检查一次
+        }
+
+        # 确保本地目录存在
+        try:
+            self.config['local_path'].mkdir(parents=True, exist_ok=True)
+            logger.info(f"Created local directory: {self.config['local_path']}")
+        except Exception as e:
+            logger.error(f"Failed to create local directory: {str(e)}")
+            raise
+
+        # OSS 客户端初始化
+        self.auth = Auth(config['access_key_id'], config['access_key_secret'])
+        self.bucket = Bucket(self.auth, config['endpoint'], config['bucket_name'])
+        
+        # 设置跨平台路径处理
+        self.os_adapt_sep = '\\' if os.name == 'nt' else '/'
+        
+        # 用于存储上次检查时的OSS文件状态
+        self.last_oss_files = {}
+        self.running = True
+        self.check_thread = None
+
+    def _convert_path(self, path):
+        """统一路径格式为OSS风格"""
+        return str(path).replace(self.os_adapt_sep, '/')
+
+    def _get_relative_path(self, full_path):
+        """获取相对于本地根目录的相对路径"""
+        try:
+            return Path(full_path).relative_to(self.config['local_path'])
+        except ValueError:
+            return None
+
+    def _should_ignore(self, path):
+        """检查是否在排除列表中"""
+        path_str = self._convert_path(path)
+        # 检查路径是否在排除列表中
+        if any(path_str.startswith(p) for p in self.config['exclude']):
+            return True
+        # 检查文件扩展名是否在排除列表中
+        if self.config['exclude_extension']:
+            file_ext = Path(path_str).suffix.lower()
+            if file_ext in self.config['exclude_extension']:
+                return True
+        return False
+
+    def _calculate_file_hash(self, file_path):
+        """计算文件哈希值(MD5)"""
+        md5 = hashlib.md5()
+        with open(file_path, 'rb') as f:
+            for chunk in iter(lambda: f.read(8192), b''):
+                md5.update(chunk)
+        return md5.hexdigest()
+
+    def initial_sync(self):
+        """初始同步：对比并同步差异"""
+        logger.info("Starting initial synchronization...")
+        
+        # 扫描本地文件
+        local_files = {}
+        for root, _, files in os.walk(self.config['local_path']):
+            for file in files:
+                full_path = Path(root) / file
+
+                rel_path = self._get_relative_path(full_path)
+                if not rel_path or self._should_ignore(rel_path):
+                    continue
+                
+                local_files[self._convert_path(rel_path)] = {
+                    'mtime': full_path.stat().st_mtime,
+                    'hash': self._calculate_file_hash(full_path)
+                }
+
+        logger.info("Local files scanned...")
+
+        # 扫描OSS文件
+        oss_files = {}
+        # oss_file_iterator = self.bucket.list_objects_v2(prefix=self.config['oss_path'])
+        oss_file_iterator = oss2.ObjectIterator(self.bucket, prefix=self.config['oss_path'])
+        for obj in oss_file_iterator:
+            logger.info(f"OSS object key: {obj.key}")
+            logger.info(f"OSS path: {self.config['oss_path']}")
+            # 修改路径处理逻辑
+            if self.config['oss_path']:
+                rel_path = obj.key[len(self.config['oss_path']):]
+            else:
+                rel_path = obj.key
+            # 移除开头的斜杠
+            if rel_path.startswith('/'):
+                rel_path = rel_path[1:]
+            logger.info(f"Calculated relative path: {rel_path}")
+            if not rel_path or self._should_ignore(rel_path):
+                continue
+            
+            oss_files[rel_path] = {
+                'mtime': obj.last_modified,
+                'hash': obj.etag.strip('"')
+            }
+
+        logger.info("OSS files scanned...")
+
+        # 同步策略
+        if self.config['sync_direction'] in ['local2oss', 'both']:
+            # 上传本地新增/修改文件
+            for rel_path in set(local_files) - set(oss_files):
+                self._upload_file(rel_path)
+            
+            # 对比相同文件
+            for rel_path in set(local_files) & set(oss_files):
+                if (local_files[rel_path]['hash'].lower() != oss_files[rel_path]['hash'].lower() or
+                    local_files[rel_path]['mtime'] > oss_files[rel_path]['mtime']):
+                    self._upload_file(rel_path)
+
+        if self.config['sync_direction'] in ['oss2local', 'both']:
+            # 下载OSS新增/修改文件
+            for rel_path in set(oss_files) - set(local_files):
+                self._download_file(rel_path)
+            
+            # 对比相同文件
+            for rel_path in set(local_files) & set(oss_files):
+                if (local_files[rel_path]['hash'] != oss_files[rel_path]['hash'] or
+                    local_files[rel_path]['mtime'] < oss_files[rel_path]['mtime']):
+                    self._download_file(rel_path)
+
+        logger.info("Initial synchronization completed")
+
+    def _upload_file(self, rel_path):
+        """上传文件到OSS"""
+        local_full = self.config['local_path'] / rel_path
+        oss_key = f"{self.config['oss_path']}/{rel_path}"
+        
+        try:
+            self.bucket.put_object_from_file(oss_key, str(local_full))
+            logger.info(f"Uploaded: {rel_path}")
+        except Exception as e:
+            logger.error(f"Upload failed: {rel_path} - {str(e)}")
+
+    def _download_file(self, rel_path):
+        """从OSS下载文件"""
+        # 确保oss_key不会以斜杠开头
+        oss_key = f"{self.config['oss_path']}/{rel_path}".lstrip('/')
+        local_full = self.config['local_path'] / rel_path
+        
+        try:
+            local_full.parent.mkdir(parents=True, exist_ok=True)
+            self.bucket.get_object_to_file(oss_key, str(local_full))
+            logger.info(f"Downloaded: {rel_path}")
+        except Exception as e:
+            logger.error(f"Download failed: {rel_path} - {str(e)}")
+
+    def start_continuous_sync(self):
+        """启动持续同步线程"""
+        if self.config['sync_direction'] in ['oss2local', 'both']:
+            self.check_thread = threading.Thread(target=self._continuous_sync_loop)
+            self.check_thread.daemon = True
+            self.check_thread.start()
+            logger.info("Started continuous sync thread")
+
+    def stop_continuous_sync(self):
+        """停止持续同步"""
+        self.running = False
+        if self.check_thread:
+            self.check_thread.join()
+            logger.info("Stopped continuous sync thread")
+
+    def _continuous_sync_loop(self):
+        """持续同步循环"""
+        while self.running:
+            try:
+                self._check_oss_changes()
+            except Exception as e:
+                logger.error(f"Error in continuous sync loop: {str(e)}")
+            time.sleep(self.config['check_interval'])
+
+    def _check_oss_changes(self):
+        """检查OSS文件变化"""
+        current_oss_files = {}
+        oss_file_iterator = oss2.ObjectIterator(self.bucket, prefix=self.config['oss_path'])
+        
+        for obj in oss_file_iterator:
+            if self.config['oss_path']:
+                rel_path = obj.key[len(self.config['oss_path']):]
+            else:
+                rel_path = obj.key
+            if rel_path.startswith('/'):
+                rel_path = rel_path[1:]
+            
+            if not rel_path or self._should_ignore(rel_path):
+                continue
+            
+            current_oss_files[rel_path] = {
+                'mtime': obj.last_modified,
+                'hash': obj.etag.strip('"')
+            }
+
+        # 检查新增或修改的文件
+        for rel_path in set(current_oss_files) - set(self.last_oss_files):
+            local_file = self.config['local_path'] / rel_path
+            # 如果本地文件存在，检查哈希值
+            if local_file.exists():
+                local_hash = self._calculate_file_hash(local_file)
+                if local_hash.lower() == current_oss_files[rel_path]['hash'].lower():
+                    logger.info(f"Skipping download of {rel_path} - local file hash matches")
+                    continue
+            self._download_file(rel_path)
+        
+        # 检查修改的文件
+        for rel_path in set(current_oss_files) & set(self.last_oss_files):
+            if (current_oss_files[rel_path]['hash'] != self.last_oss_files[rel_path]['hash'] or
+                current_oss_files[rel_path]['mtime'] > self.last_oss_files[rel_path]['mtime']):
+                local_file = self.config['local_path'] / rel_path
+                # 如果本地文件存在，检查哈希值
+                if local_file.exists():
+                    local_hash = self._calculate_file_hash(local_file)
+                    if local_hash.lower() == current_oss_files[rel_path]['hash'].lower():
+                        logger.info(f"Skipping download of {rel_path} - local file hash matches")
+                        continue
+                self._download_file(rel_path)
+
+        self.last_oss_files = current_oss_files
+
+class SyncEventHandler(FileSystemEventHandler):
+    """文件系统事件处理器"""
+    def __init__(self, sync_client):
+        self.sync_client = sync_client
+        self.last_trigger = 0
+        
+    def _process_event(self, event):
+        """处理事件（不加防抖处理）"""
+        # if time.time() - self.last_trigger < 1:  # 1秒防抖
+        #     return
+        
+        if event.is_directory:
+            return
+            
+        src_path = Path(event.src_path)
+        rel_path = self.sync_client._get_relative_path(src_path)
+        
+        if not rel_path or self.sync_client._should_ignore(rel_path):
+            return
+        
+        # 处理不同事件类型
+        if event.event_type in ['created', 'modified']:
+            if self.sync_client.config['sync_direction'] in ['local2oss', 'both']:
+                self.sync_client._upload_file(rel_path)
+        
+        elif event.event_type == 'deleted':
+            if self.sync_client.config['sync_direction'] in ['local2oss', 'both']:
+                oss_key = f"{self.sync_client.config['oss_path']}/{rel_path}"
+                try:
+                    self.sync_client.bucket.delete_object(oss_key)
+                    logger.info(f"Deleted on OSS: {rel_path}")
+                except Exception as e:
+                    logger.error(f"Delete failed: {rel_path} - {str(e)}")
+        
+        elif event.event_type == 'moved':
+            try:
+                dst_path = Path(event.dest_path)
+                dst_rel_path = self.sync_client._get_relative_path(dst_path)
+                if not dst_rel_path or self.sync_client._should_ignore(dst_rel_path):
+                    return
+                if self.sync_client.config['sync_direction'] in ['local2oss', 'both']:
+                    src_oss_key = f"{self.sync_client.config['oss_path']}/{rel_path}"
+                    dst_oss_key = f"{self.sync_client.config['oss_path']}/{dst_rel_path}"
+                    # 复制文件
+                    self.sync_client.bucket.copy_object(self.sync_client.bucket.bucket_name, src_oss_key, dst_oss_key)
+                    # 删除原文件
+                    self.sync_client.bucket.delete_object(src_oss_key)
+                    logger.info(f"Moved on OSS: {rel_path} -> {dst_rel_path}")
+            except Exception as e:
+                logger.error(f"Delete failed: {rel_path} - {str(e)}")
+        else:
+            logger.info(f"Unknown event type: {event.event_type}")
+
+        self.last_trigger = time.time()
+
+    def on_any_event(self, event):
+        self._process_event(event)
+
+
+def main():
+    setup_logging()
+    args = parse_args()
+    observer_list = []
+    sync_clients = []
+
+    try:
+        config = load_config_from_environment(args.direction)
+        sync_client = OSSSync(config)
+        sync_clients.append(sync_client)
+
+        # 执行初始同步
+        sync_client.initial_sync()
+
+        # 启动文件监控
+        event_handler = SyncEventHandler(sync_client)
+        observer = Observer()
+        observer.schedule(
+            event_handler,
+            path=str(sync_client.config['local_path']),
+            recursive=True
+        )
+        observer.start()
+        observer_list.append(observer)
+
+        # 启动持续同步
+        sync_client.start_continuous_sync()
+
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+    except Exception:
+        logger.exception("Error:")
+        return 1
+    finally:
+        for observer in observer_list:
+            observer.stop()
+        for sync_client in sync_clients:
+            sync_client.stop_continuous_sync()
+        for observer in observer_list:
+            observer.join()
+
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

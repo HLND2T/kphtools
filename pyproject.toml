@@ -10,10 +10,12 @@ dependencies = [
     "httpx",
     "mcp",
     "openai",
+    "oss2>=2.19.1",
     "pefile",
     "pyyaml",
     "requests",
     "signify",
+    "watchdog>=6.0.0",
 ]
 
 [tool.uv]
