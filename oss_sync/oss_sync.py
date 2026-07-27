@@ -53,10 +53,10 @@ def load_config_from_environment(direction):
         'oss_path': os.getenv('KPHTOOLS_SERVER_OSS_PREFIX', ''),
         'direction': direction,
         'check_interval': check_interval,
-        'exclude': _get_env_list('KPHTOOLS_OSS_SYNC_EXCLUDE', '.git/,.DS_Store'),
+        'exclude': _get_env_list('KPHTOOLS_OSS_SYNC_EXCLUDE', '.git/,.stfolder'),
         'exclude_extension': _get_env_list(
             'KPHTOOLS_OSS_SYNC_EXCLUDE_EXTENSION',
-            '.mdmp,.dmp'
+            '.txt,.stignore'
         )
     }
 

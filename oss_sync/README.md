@@ -36,9 +36,9 @@ OSS 连接配置与 `upload_server.py` 使用相同的环境变量：
 同步方向通过命令行参数设置：
 
 ```bash
-uv run oss_sync/oss_sync.py --direction local2oss
-uv run oss_sync/oss_sync.py --direction oss2local
-uv run oss_sync/oss_sync.py --direction both
+uv run --env-file .env "oss_sync/oss_sync.py" --direction local2oss
+uv run --env-file .env "oss_sync/oss_sync.py" --direction oss2local
+uv run --env-file .env "oss_sync/oss_sync.py" --direction both
 ```
 
 ## 一次性同步命令 TODO
