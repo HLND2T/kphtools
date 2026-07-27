@@ -31,31 +31,31 @@ def _get_env_list(name, default=''):
 
 
 def load_config_from_environment(direction):
-    """从 KPHTOOL_* 环境变量构造单个同步配置。"""
-    check_interval_value = os.getenv('KPHTOOL_OSS_SYNC_CHECK_INTERVAL', '60')
+    """从环境变量构造单个同步配置。"""
+    check_interval_value = os.getenv('KPHTOOLS_OSS_SYNC_CHECK_INTERVAL', '60')
     try:
         check_interval = int(check_interval_value)
     except ValueError as exc:
-        raise ValueError("KPHTOOL_OSS_SYNC_CHECK_INTERVAL must be an integer") from exc
+        raise ValueError("KPHTOOLS_OSS_SYNC_CHECK_INTERVAL must be an integer") from exc
     if check_interval <= 0:
-        raise ValueError("KPHTOOL_OSS_SYNC_CHECK_INTERVAL must be greater than 0")
+        raise ValueError("KPHTOOLS_OSS_SYNC_CHECK_INTERVAL must be greater than 0")
 
     local_path = os.getenv('KPHTOOLS_SYMBOLDIR', DEFAULT_SYMBOL_DIR).strip()
     if not local_path:
         raise ValueError("KPHTOOLS_SYMBOLDIR cannot be empty")
 
     return {
-        'access_key_id': _get_required_env('KPHTOOL_ACCESS_KEY_ID'),
-        'access_key_secret': _get_required_env('KPHTOOL_ACCESS_KEY_SECRET'),
-        'endpoint': _get_required_env('KPHTOOL_ENDPOINT'),
-        'bucket_name': _get_required_env('KPHTOOL_BUCKET_NAME'),
+        'access_key_id': _get_required_env('OSS_ACCESS_KEY_ID'),
+        'access_key_secret': _get_required_env('OSS_ACCESS_KEY_SECRET'),
+        'endpoint': _get_required_env('KPHTOOLS_SERVER_OSS_ENDPOINT'),
+        'bucket_name': _get_required_env('KPHTOOLS_SERVER_OSS_BUCKET'),
         'local_path': local_path,
-        'oss_path': os.getenv('KPHTOOL_OSS_PATH', ''),
+        'oss_path': os.getenv('KPHTOOLS_SERVER_OSS_PREFIX', ''),
         'direction': direction,
         'check_interval': check_interval,
-        'exclude': _get_env_list('KPHTOOL_OSS_SYNC_EXCLUDE', '.git/,.DS_Store'),
+        'exclude': _get_env_list('KPHTOOLS_OSS_SYNC_EXCLUDE', '.git/,.DS_Store'),
         'exclude_extension': _get_env_list(
-            'KPHTOOL_OSS_SYNC_EXCLUDE_EXTENSION',
+            'KPHTOOLS_OSS_SYNC_EXCLUDE_EXTENSION',
             '.mdmp,.dmp'
         )
     }

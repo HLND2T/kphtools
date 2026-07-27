@@ -19,21 +19,19 @@
 uv sync
 ```
 
-也可以运行 `install_deps.bat` 或 `install_deps.sh`，脚本内部同样调用 `uv sync`。
-
 ## 后台同步配置
 
-同步配置通过 `KPHTOOL_*` / `KPHTOOLS_*` 环境变量提供：
+OSS 连接配置与 `upload_server.py` 使用相同的环境变量：
 
-- `KPHTOOL_ACCESS_KEY_ID`：阿里云 AccessKey ID，必填
-- `KPHTOOL_ACCESS_KEY_SECRET`：阿里云 AccessKey Secret，必填
-- `KPHTOOL_ENDPOINT`：OSS endpoint，必填
-- `KPHTOOL_BUCKET_NAME`：OSS bucket 名称，必填
 - `KPHTOOLS_SYMBOLDIR`：本地符号目录，可选，默认为 `symbols`（与 `upload_server.py` 一致）
-- `KPHTOOL_OSS_PATH`：OSS 路径前缀，可选，默认为空
-- `KPHTOOL_OSS_SYNC_CHECK_INTERVAL`：OSS 检查间隔（秒），可选，默认为 `60`
-- `KPHTOOL_OSS_SYNC_EXCLUDE`：排除路径，使用英文逗号分隔，可选，默认为 `.git/,.DS_Store`
-- `KPHTOOL_OSS_SYNC_EXCLUDE_EXTENSION`：排除扩展名，使用英文逗号分隔，可选，默认为 `.mdmp,.dmp`
+- `OSS_ACCESS_KEY_ID`：阿里云 AccessKey ID，必填
+- `OSS_ACCESS_KEY_SECRET`：阿里云 AccessKey Secret，必填
+- `KPHTOOLS_SERVER_OSS_ENDPOINT`：OSS endpoint，必填
+- `KPHTOOLS_SERVER_OSS_BUCKET`：OSS bucket 名称，必填
+- `KPHTOOLS_SERVER_OSS_PREFIX`：OSS 路径前缀，可选，默认为空
+- `KPHTOOLS_OSS_SYNC_CHECK_INTERVAL`：OSS 检查间隔（秒），可选，默认为 `60`
+- `KPHTOOLS_OSS_SYNC_EXCLUDE`：排除路径，使用英文逗号分隔，可选，默认为 `.git/,.DS_Store`
+- `KPHTOOLS_OSS_SYNC_EXCLUDE_EXTENSION`：排除扩展名，使用英文逗号分隔，可选，默认为 `.mdmp,.dmp`
 
 同步方向通过命令行参数设置：
 
