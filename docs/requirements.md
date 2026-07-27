@@ -37,25 +37,6 @@ Using PowerShell:
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml" -OutFile "kphdyn.xml"
 ```
 
-## Extra Linux dependencies
+## Linux dependencies
 
-Ubuntu or Debian:
-
-```bash
-sudo apt-get update
-sudo apt-get install -y libssl-dev
-```
-
-CentOS, RHEL, or Fedora:
-
-```bash
-sudo yum install -y openssl-devel
-```
-
-On newer distributions, use `sudo dnf install -y openssl-devel` instead.
-
-If oscrypto reports `Error detecting the version of libcrypto`, install its current Git version:
-
-```bash
-pip install -I "git+https://github.com/wbond/oscrypto.git" --break-system-packages
-```
+The upload server uses the published LIEF and cryptography wheels and does not require OpenSSL development headers or an `oscrypto` source workaround. Install the declared Python dependencies with `uv sync` on Ubuntu 24.04 or other supported platforms.

@@ -1,6 +1,6 @@
 # 项目概览
 
-最后核对日期：2026-05-04。
+最后核对日期：2026-07-27。
 
 ## 项目目的
 
@@ -19,7 +19,7 @@ kphtools 是面向 SystemInformer `kphdyn.xml` 的 KPH Dynamic Data 工具集。
 
 - Python `>=3.10`。
 - `uv` 管理依赖，`pyproject.toml` 中 `package = false`，不是可安装 package 项目。
-- 声明依赖：`anthropic`、`httpx`、`mcp`、`openai`、`pefile`、`pyyaml`、`requests`、`signify`。
+- 声明依赖包括 `anthropic`、`httpx`、`mcp`、`openai`、`pefile`、`pyyaml`、`requests`、`alibabacloud-oss-v2`，以及 upload server 使用的 `lief>=0.17.6,<0.18`、`asn1crypto>=1.5.1,<2`、`cryptography>=47,<48`。
 - 测试使用标准库 `unittest`、`unittest.mock`、`IsolatedAsyncioTestCase`，测试文件位于 `tests/`。
 - 配置和数据：`config.yaml` 是模块、skill、symbol inventory；`kphdyn.xml` 和 `kphdyn.official.xml` 是本地/忽略的 XML 输入输出文件。
 
@@ -29,7 +29,7 @@ kphtools 是面向 SystemInformer `kphdyn.xml` 的 KPH Dynamic Data 工具集。
 - `llvm-pdbutil`：PDB type/public symbol 解析。
 - `idalib-mcp`、IDA/Hex-Rays：IDA MCP fallback、reference YAML 生成、反汇编/伪代码导出。
 - OpenAI-compatible API：`LLM_DECOMPILE` fallback，可通过 `KPHTOOLS_LLM_*` 环境变量或 CLI 参数配置。
-- Linux 运行 `signify` 相关 upload server 时需要 OpenSSL development libraries；README 中列出 Debian/Ubuntu 和 RHEL/Fedora 安装方式。
+- Upload server 已迁移到 LIEF wheel；Ubuntu 24.04 使用 `uv sync --frozen` 可直接安装，不再需要 `oscrypto` source workaround 或 OpenSSL development headers。生产唯一 trust source 是仓库内 `ca/windows_code_signing.pem`。
 
 ## 注意事项
 

@@ -2,9 +2,7 @@
 
 [Back to README](../README.md)
 
-`upload_server.py` accepts file uploads, validates PE files and digital signatures, and stores accepted files on local disk or Alibaba Cloud OSS.
-
-On Linux, install the OpenSSL development libraries described in [Requirements](requirements.md) before running the server.
+`upload_server.py` accepts file uploads, validates PE files and Authenticode signatures, and stores accepted files on local disk or Alibaba Cloud OSS.
 
 ## Behavior
 
@@ -13,13 +11,47 @@ The server will:
 - Accept POST requests at `/upload`.
 - Validate that uploaded files are PE files.
 - Verify that `FileDescription` is `NT Kernel & System`.
-- Verify the Authenticode signature. The signer must be `Microsoft Windows` and the issuer must be `Microsoft Windows Production PCA 2011`.
+- Preflight the raw PE certificate table before invoking LIEF, then verify each Authenticode signature. The PE authentihash, CMS signer signature, authenticated attributes, countersignature, and RFC 3161 timestamp must be valid.
+- Require the actual signer certificate subject CN to be exactly `Microsoft Windows` and its issuer CN to be exactly `Microsoft Windows Production PCA 2011`.
+- Build the signer and timestamp certificate chains using only `ca/windows_code_signing.pem` as the trust-anchor source.
 - Extract `OriginalFilename` and `FileVersion` from `FileResource`.
 - Determine the `x86`, `amd64`, or `arm64` architecture from the PE header.
 - Select the storage backend with `KPHTOOLS_SERVER_STORAGE=disk|oss`.
 - Store files using `{arch}/{FileName}.{FileVersion}/{FileSHA256}/{FileName}` as the backend-relative path.
 
 Clients must provide the HTTP POST upload request. Use nginx or a CDN when HTTPS support is required.
+
+## Authenticode trust policy
+
+The only production trust source is:
+
+```text
+ca/windows_code_signing.pem
+```
+
+The path is resolved relative to `upload_server.py`, not the current working directory. The server never merges this bundle with system CAs, the Windows certificate store, `certifi`, environment-selected CA files, LIEF defaults, or certificates downloaded over AIA, HTTP, or LDAP.
+
+Certificates embedded in a PE may be used as intermediates, but an embedded certificate is never a trust anchor unless the same DER certificate is present in the repository bundle. Multi-signature files are evaluated one signature at a time; one completely valid and policy-compliant signature is sufficient. There is no fallback to the first embedded certificate when the signer cannot be identified.
+
+LIEF `0.17.6` performs the per-signature Authenticode integrity and authentihash checks. `asn1crypto` exposes timestamp CMS fields and `cryptography` verifies the timestamp signature, message imprint, RFC 3161 `SigningCertificate`/`SigningCertificateV2` binding, timestamp certificate profile, historical validity, and certificate path. This supplemental check is required because LIEF 0.17.x does not fail all Microsoft countersignature cryptographic errors by itself.
+
+The code-signing leaf must be an end-entity certificate whose EKU includes `codeSigning`; when KeyUsage is present it must permit a digital signature or content commitment. RFC 3161 and PKCS#9 timestamp certificates must be end entities with a critical, timestamp-only EKU; a present KeyUsage must permit signing. CA path building enforces BasicConstraints, path length, CA KeyUsage, CA EKU restrictions, AKI/SKI matching, bounded public-key sizes, and rejects critical extensions that the verifier does not implement.
+
+All parsing, integrity, identity, timestamp, and trust errors fail closed. Production rejection logs contain the uploaded SHA-256, signature index, and a bounded error category; they do not contain uploaded bytes, PEM blocks, or full certificate structures.
+
+Verification is resource-bounded before and after LIEF parsing. The current policy limits the PE certificate table to 8 MiB, an individual signature to 4 MiB, all signature DER to 8 MiB, total signatures to 16, nested depth to 4, embedded certificates per signature to 64, timestamp values per signature to 16, and certificate-chain search through per-upload shared budgets. Exceeding a limit rejects the upload before storage.
+
+Known policy boundaries remain intentional for this migration: revocation/Windows Disallowed CTL checks are offline and are not performed, and the existing CA bundle still contains multiple public roots. Microsoft identity continues to use the exact signer and issuer CN policy from the previous implementation rather than pinning a Microsoft intermediate fingerprint. CA minimization or fingerprint pinning requires a separate security review.
+
+## CA startup preflight
+
+The CA bundle is loaded once before storage initialization or port binding. Startup validates every PEM certificate block, rejects truncated/non-certificate/invalid blocks, deduplicates certificates by DER SHA-256, and logs only:
+
+- the normalized bundle path;
+- the PEM block and unique-certificate counts;
+- the bundle SHA-256.
+
+If the file is missing, unreadable, empty, or malformed, the process exits with status 1 and never starts listening. There is no empty-bundle or system-trust fallback.
 
 For example, with disk storage, `-symboldir="C:/Symbols"`, `arch=amd64`, `FileName=ntoskrnl.exe`, and `FileVersion=10.0.22621.741`, the file is stored at:
 
@@ -37,6 +69,8 @@ export KPHTOOLS_SYMBOLDIR="$HOME/kphtools/symbols"
 cd "$HOME/kphtools"
 uv run python upload_server.py [-port=8000]
 ```
+
+Run the service from a complete Git checkout or deployment copy that contains both `upload_server.py` and `ca/windows_code_signing.pem`. The repository currently does not build a separate upload-server release artifact; the tag workflow only publishes `kphdyn.xml`.
 
 Disk storage uses `symbols` under the current working directory by default. Use `-symboldir` to select another directory; `KPHTOOLS_SYMBOLDIR` takes precedence when set.
 
@@ -84,6 +118,17 @@ set KPHTOOLS_SERVER_PORT=8000
 ```
 
 Invalid storage modes or missing mode-specific variables cause the server to exit before listening.
+
+## Updating the CA bundle
+
+`ca/windows_code_signing.pem` is a security boundary. Every update must receive a dedicated review that lists each added or removed certificate's subject, issuer, serial number, validity interval, and SHA-256 fingerprint, along with the source and operational reason.
+
+Before merging a CA update:
+
+1. Confirm that no unintended end-entity code-signing certificate was added as a trust anchor.
+2. Run the CA loader, valid-chain, unknown-root, signer/issuer, timestamp, and real Microsoft PE tests.
+3. Record the new bundle SHA-256 in the deployment review.
+4. Deploy the updated `ca/` directory together with `upload_server.py`; do not synchronize trust from the system or network at runtime.
 
 ## OSS behavior and permissions
 
@@ -138,3 +183,14 @@ curl "http://localhost:8000/"
 ```json
 {"status": "healthy"}
 ```
+
+## Authenticode verification tests
+
+The unit test suite covers CA parsing, trust paths, signer identity, LIEF flags, multi-signature decisions, timestamp integrity, and fail-closed exceptions. A real Microsoft-signed PE smoke test is opt-in:
+
+```powershell
+$env:KPHTOOLS_AUTHENTICODE_TEST_PE = "C:\Windows\System32\ntoskrnl.exe"
+uv run python -m unittest tests.test_upload_server.TestRealAuthenticodeSmoke -v
+```
+
+The smoke test accepts the original PE, rejects PE-content, certificate-table, and signer-identity tampering, and confirms rejected uploads are not handed to storage.

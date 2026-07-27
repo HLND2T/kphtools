@@ -1,6 +1,6 @@
 # 任务完成检查
 
-最后核对日期：2026-05-04。
+最后核对日期：2026-07-27。
 
 ## 默认原则
 
@@ -11,7 +11,7 @@
 ## 常用准备命令
 
 - 安装依赖：`uv sync`。
-- Linux 上运行 `upload_server.py`/`signify` 相关逻辑前，按 README 安装 OpenSSL development libraries。
+- Upload server 使用 LIEF wheel；Ubuntu 24.04 不需要 `oscrypto` workaround 或 OpenSSL development headers。确认 `ca/windows_code_signing.pem` 随完整 checkout/deployment copy 发布。
 - 涉及 PDB 解析前确认 `llvm-pdbutil` 可执行。
 - 涉及 IDA MCP/reference/LLM_DECOMPILE 前确认 `idalib-mcp`、IDA/Hex-Rays、端口和 `KPHTOOLS_LLM_*` 或 CLI LLM 参数。
 
@@ -35,7 +35,7 @@
 - IDA MCP/LLM resolver：运行 `tests.test_ida_mcp_resolver`、`tests.test_ida_reference_export`、`tests.test_generate_reference_yaml`；测试应 mock MCP/LLM。
 - `ida_preprocessor_scripts/` 下 finder 或 generic 脚本：运行对应 generic/extractor 测试、`tests.test_ida_skill_preprocessor` 和 `tests.test_ida_preprocessor_common`。
 - `download_symbols.py`：运行 `tests.test_download_symbols`；真实下载需要网络和 symbol server，不应作为默认验证。
-- `upload_server.py`：如有专门测试则运行相关测试；手动 smoke 需要真实 PE/signature 或 `/health`，不要默认启动长期 server。
+- `upload_server.py`：运行 `uv run python -m unittest tests.test_upload_server -v`；签名/信任改动还应设置 `KPHTOOLS_AUTHENTICODE_TEST_PE` 运行真实 Microsoft PE 与篡改 smoke，并执行 `/health` 短生命周期 smoke。依赖迁移时补 `uv tree`、Ubuntu 24.04 `uv sync --frozen` 和禁止 trust fallback 搜索。
 
 ## 工作流级 smoke 建议
 

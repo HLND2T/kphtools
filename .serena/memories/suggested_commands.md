@@ -1,19 +1,12 @@
 # 常用命令
 
-最后核对日期：2026-05-04。
+最后核对日期：2026-07-27。
 
 ## 安装依赖
 
 - `uv sync`
 
-Linux 上运行 `upload_server.py`/`signify` 相关功能前，按 README 安装 OpenSSL development libraries：
-
-- Debian/Ubuntu：`sudo apt-get update && sudo apt-get install -y libssl-dev`
-- RHEL/CentOS/Fedora：`sudo yum install -y openssl-devel` 或 `sudo dnf install -y openssl-devel`
-
-如遇 `oscrypto` 的 `Error detecting the version of libcrypto`，README 建议：
-
-- `uv pip install -I "git+https://github.com/wbond/oscrypto.git"`
+Upload server 使用 LIEF、asn1crypto 和 cryptography 的发布 wheel。Ubuntu 24.04 直接运行 `uv sync --frozen`；不要恢复 `oscrypto` Git workaround 或为该服务安装 OpenSSL development headers。
 
 ## 获取 kphdyn.xml
 
@@ -102,6 +95,7 @@ LLM_DECOMPILE 相关参数：
 ## 启动上传服务
 
 - `uv run python upload_server.py -symboldir="C:/Symbols" [-port=8000]`
+- 启动前必须存在仓库相对的 `ca/windows_code_signing.pem`；CA preflight 失败会在 storage 初始化和端口监听前退出。
 
 相关环境变量：
 
@@ -120,6 +114,8 @@ LLM_DECOMPILE 相关参数：
 
 按本工作区规则，未被用户明确要求时不要自行运行 test/build；需要验证时优先运行最小相关集合。
 
+- Upload server 定向测试：`uv run python -m unittest tests.test_upload_server -v`
+- 真实 Microsoft PE smoke：设置 `KPHTOOLS_AUTHENTICODE_TEST_PE` 后运行 `uv run python -m unittest tests.test_upload_server.TestRealAuthenticodeSmoke -v`
 - 单个测试文件：`uv run python -m unittest tests.test_symbol_config -v`
 - 多个测试文件：`uv run python -m unittest tests.test_dump_symbols tests.test_update_symbols -v`
 - 单个测试类/方法：`uv run python -m unittest tests.test_update_symbols.TestUpdateSymbols.test_name -v`

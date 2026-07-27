@@ -7,13 +7,15 @@ requires-python = ">=3.10"
 dependencies = [
     "alibabacloud-oss-v2",
     "anthropic",
+    "asn1crypto>=1.5.1,<2",
+    "cryptography>=47,<48",
     "httpx",
+    "lief>=0.17.6,<0.18",
     "mcp",
     "openai",
     "pefile",
     "pyyaml",
     "requests",
-    "signify",
     "watchdog>=6.0.0",
 ]
 
