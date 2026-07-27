@@ -186,7 +186,7 @@ class OSSSync:
                 file_stat = full_path.stat()
                 local_files[self._convert_path(rel_path)] = {
                     'mtime': file_stat.st_mtime,
-                    'hash': self._calculate_file_hash(full_path)
+                    'size': file_stat.st_size,
                 }
 
                 scanned_file_count += 1
@@ -198,18 +198,18 @@ class OSSSync:
                 ):
                     elapsed_seconds = current_time - local_scan_started_at
                     logger.info(
-                        "Local scan progress: %d files hashed, %.2f GiB processed "
-                        "in %.1f seconds (%.2f MiB/s)",
+                        "Local scan progress: %d files scanned, %.2f GiB discovered "
+                        "in %.1f seconds (%.1f files/s)",
                         scanned_file_count,
                         scanned_bytes / BYTES_PER_GIB,
                         elapsed_seconds,
-                        scanned_bytes / BYTES_PER_MIB / elapsed_seconds,
+                        scanned_file_count / elapsed_seconds,
                     )
                     last_progress_logged_at = current_time
 
         local_scan_elapsed_seconds = time.monotonic() - local_scan_started_at
         logger.info(
-            "Local files scanned: %d files, %.2f GiB hashed in %.1f seconds",
+            "Local files scanned: %d files, %.2f GiB discovered in %.1f seconds",
             scanned_file_count,
             scanned_bytes / BYTES_PER_GIB,
             local_scan_elapsed_seconds,
@@ -236,33 +236,103 @@ class OSSSync:
             
             oss_files[rel_path] = {
                 'mtime': obj.last_modified,
-                'hash': obj.etag.strip('"')
+                'size': obj.size,
+                'hash': obj.etag.strip('"'),
             }
 
         logger.info("OSS files scanned...")
 
+        last_hash_progress_logged_at = None
+        hashed_file_count = 0
+        hashed_bytes = 0
+        hashing_elapsed_seconds = 0.0
+
+        def get_local_hash(rel_path):
+            """按需计算并缓存本地文件哈希。"""
+            nonlocal last_hash_progress_logged_at
+            nonlocal hashed_file_count
+            nonlocal hashed_bytes
+            nonlocal hashing_elapsed_seconds
+
+            local_file = local_files[rel_path]
+            if 'hash' in local_file:
+                return local_file['hash']
+
+            hash_started_at = time.monotonic()
+            if last_hash_progress_logged_at is None:
+                last_hash_progress_logged_at = hash_started_at
+            local_file['hash'] = self._calculate_file_hash(
+                self.config['local_path'] / rel_path
+            )
+            hash_completed_at = time.monotonic()
+            hashed_file_count += 1
+            hashed_bytes += local_file['size']
+            hashing_elapsed_seconds += hash_completed_at - hash_started_at
+
+            if (
+                hash_completed_at - last_hash_progress_logged_at
+                >= LOCAL_SCAN_PROGRESS_INTERVAL_SECONDS
+            ):
+                hashing_seconds_for_rate = max(
+                    hashing_elapsed_seconds,
+                    sys.float_info.epsilon,
+                )
+                logger.info(
+                    "Local hash progress: %d files hashed, %.2f GiB processed "
+                    "in %.1f hashing seconds (%.2f MiB/s)",
+                    hashed_file_count,
+                    hashed_bytes / BYTES_PER_GIB,
+                    hashing_elapsed_seconds,
+                    hashed_bytes / BYTES_PER_MIB / hashing_seconds_for_rate,
+                )
+                last_hash_progress_logged_at = hash_completed_at
+
+            return local_file['hash']
+
+        local_paths = set(local_files)
+        oss_paths = set(oss_files)
+        common_paths = local_paths & oss_paths
+
         # 同步策略
         if self.config['sync_direction'] in ['local2oss', 'both']:
             # 上传本地新增/修改文件
-            for rel_path in set(local_files) - set(oss_files):
+            for rel_path in local_paths - oss_paths:
                 self._upload_file(rel_path)
             
             # 对比相同文件
-            for rel_path in set(local_files) & set(oss_files):
-                if (local_files[rel_path]['hash'].lower() != oss_files[rel_path]['hash'].lower() or
-                    local_files[rel_path]['mtime'] > oss_files[rel_path]['mtime']):
+            for rel_path in common_paths:
+                local_file = local_files[rel_path]
+                oss_file = oss_files[rel_path]
+                if (
+                    local_file['size'] != oss_file['size']
+                    or local_file['mtime'] > oss_file['mtime']
+                    or get_local_hash(rel_path).lower() != oss_file['hash'].lower()
+                ):
                     self._upload_file(rel_path)
 
         if self.config['sync_direction'] in ['oss2local', 'both']:
             # 下载OSS新增/修改文件
-            for rel_path in set(oss_files) - set(local_files):
+            for rel_path in oss_paths - local_paths:
                 self._download_file(rel_path)
             
             # 对比相同文件
-            for rel_path in set(local_files) & set(oss_files):
-                if (local_files[rel_path]['hash'] != oss_files[rel_path]['hash'] or
-                    local_files[rel_path]['mtime'] < oss_files[rel_path]['mtime']):
+            for rel_path in common_paths:
+                local_file = local_files[rel_path]
+                oss_file = oss_files[rel_path]
+                if (
+                    local_file['size'] != oss_file['size']
+                    or local_file['mtime'] < oss_file['mtime']
+                    or get_local_hash(rel_path) != oss_file['hash']
+                ):
                     self._download_file(rel_path)
+
+        if hashed_file_count:
+            logger.info(
+                "Local hashing completed: %d files, %.2f GiB hashed in %.1f seconds",
+                hashed_file_count,
+                hashed_bytes / BYTES_PER_GIB,
+                hashing_elapsed_seconds,
+            )
 
         logger.info("Initial synchronization completed")
 
