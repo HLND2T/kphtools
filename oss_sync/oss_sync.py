@@ -15,6 +15,9 @@ import threading
 
 logger = logging.getLogger("aliyun_oss_sync")
 DEFAULT_SYMBOL_DIR = 'symbols'
+LOCAL_SCAN_PROGRESS_INTERVAL_SECONDS = 10
+BYTES_PER_MIB = 1024 * 1024
+BYTES_PER_GIB = 1024 * BYTES_PER_MIB
 
 
 def _get_required_env(name):
@@ -56,7 +59,7 @@ def load_config_from_environment(direction):
         'exclude': _get_env_list('KPHTOOLS_OSS_SYNC_EXCLUDE', '.git/,.stfolder'),
         'exclude_extension': _get_env_list(
             'KPHTOOLS_OSS_SYNC_EXCLUDE_EXTENSION',
-            '.txt,.stignore'
+            '.txt,.yaml,.stignore'
         )
     }
 
@@ -168,6 +171,10 @@ class OSSSync:
         
         # 扫描本地文件
         local_files = {}
+        local_scan_started_at = time.monotonic()
+        last_progress_logged_at = local_scan_started_at
+        scanned_file_count = 0
+        scanned_bytes = 0
         for root, _, files in os.walk(self.config['local_path']):
             for file in files:
                 full_path = Path(root) / file
@@ -175,13 +182,38 @@ class OSSSync:
                 rel_path = self._get_relative_path(full_path)
                 if not rel_path or self._should_ignore(rel_path):
                     continue
-                
+
+                file_stat = full_path.stat()
                 local_files[self._convert_path(rel_path)] = {
-                    'mtime': full_path.stat().st_mtime,
+                    'mtime': file_stat.st_mtime,
                     'hash': self._calculate_file_hash(full_path)
                 }
 
-        logger.info("Local files scanned...")
+                scanned_file_count += 1
+                scanned_bytes += file_stat.st_size
+                current_time = time.monotonic()
+                if (
+                    current_time - last_progress_logged_at
+                    >= LOCAL_SCAN_PROGRESS_INTERVAL_SECONDS
+                ):
+                    elapsed_seconds = current_time - local_scan_started_at
+                    logger.info(
+                        "Local scan progress: %d files hashed, %.2f GiB processed "
+                        "in %.1f seconds (%.2f MiB/s)",
+                        scanned_file_count,
+                        scanned_bytes / BYTES_PER_GIB,
+                        elapsed_seconds,
+                        scanned_bytes / BYTES_PER_MIB / elapsed_seconds,
+                    )
+                    last_progress_logged_at = current_time
+
+        local_scan_elapsed_seconds = time.monotonic() - local_scan_started_at
+        logger.info(
+            "Local files scanned: %d files, %.2f GiB hashed in %.1f seconds",
+            scanned_file_count,
+            scanned_bytes / BYTES_PER_GIB,
+            local_scan_elapsed_seconds,
+        )
 
         # 扫描OSS文件
         oss_files = {}
