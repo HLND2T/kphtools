@@ -69,6 +69,7 @@ except Exception as e:
     if 'libcrypto' in error_str or 'LibraryNotFoundError' in error_type:
         print("=" * 70)
         print("Error: OpenSSL library (libcrypto) detection failed.")
+        print(error_str)
         print("=" * 70)
         print("")
     else:

@@ -57,5 +57,5 @@ On newer distributions, use `sudo dnf install -y openssl-devel` instead.
 If oscrypto reports `Error detecting the version of libcrypto`, install its current Git version:
 
 ```bash
-uv pip install -I "git+https://github.com/wbond/oscrypto.git"
+pip install -I "git+https://github.com/wbond/oscrypto.git" --break-system-packages
 ```
