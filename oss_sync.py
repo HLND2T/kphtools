@@ -546,7 +546,7 @@ class OSSSync:
         logger.info("Initial synchronization completed")
 
     def is_synchronized(self):
-        """检查未排除的本地文件和 OSS 对象是否完全一致。"""
+        """检查同步方向要求的文件是否存在且内容一致。"""
         verification_started_at = time.monotonic()
         logger.info("Starting synchronization verification...")
 
@@ -599,19 +599,19 @@ class OSSSync:
 
         local_paths = set(local_files)
         oss_paths = set(oss_files)
-        total_file_count = len(local_paths)
-        total_bytes = sum(item['size'] for item in local_files.values())
+        local_total_bytes = sum(item['size'] for item in local_files.values())
         logger.info(
             "Synchronization verification inventory: %d local files, %d OSS objects, "
             "%.2f GiB",
-            total_file_count,
+            len(local_paths),
             len(oss_paths),
-            total_bytes / BYTES_PER_GIB,
+            local_total_bytes / BYTES_PER_GIB,
         )
 
         missing_on_oss = local_paths - oss_paths
         missing_locally = oss_paths - local_paths
-        if missing_on_oss or missing_locally:
+        allow_local_only = self.config['sync_direction'] == 'oss2local'
+        if missing_locally or (missing_on_oss and not allow_local_only):
             logger.error(
                 "Synchronization verification failed: %d local-only and %d OSS-only files",
                 len(missing_on_oss),
@@ -619,10 +619,19 @@ class OSSSync:
             )
             return False
 
+        if missing_on_oss:
+            logger.info(
+                "Synchronization verification allows %d local-only files for oss2local",
+                len(missing_on_oss),
+            )
+
+        paths_to_verify = oss_paths if allow_local_only else local_paths
+        total_file_count = len(paths_to_verify)
+        total_bytes = sum(local_files[path]['size'] for path in paths_to_verify)
         verified_file_count = 0
         verified_bytes = 0
         last_progress_logged_at = verification_started_at
-        for rel_path in sorted(local_paths):
+        for rel_path in sorted(paths_to_verify):
             local_file = local_files[rel_path]
             oss_file = oss_files[rel_path]
             if local_file['size'] != oss_file['size']:

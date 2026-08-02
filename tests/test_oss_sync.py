@@ -334,6 +334,31 @@ class TestInitialSyncProgress(unittest.TestCase):
 
             self.assertTrue(sync_client.is_synchronized())
 
+    def test_oss2local_verification_allows_local_only_file(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            local_path = Path(temp_dir)
+            matching_file = local_path / "matching.bin"
+            matching_file.write_bytes(b"matching content")
+            (local_path / "local-only.bin").write_bytes(b"local-only content")
+
+            sync_client = self._make_sync_client(
+                local_path,
+                direction="oss2local",
+            )
+            expected_crc64 = sync_client._calculate_file_crc64(matching_file)
+            sync_client.client.get_object_meta.return_value = Mock(
+                content_length=matching_file.stat().st_size,
+                etag='"multipart-etag-2"',
+                hash_crc64=expected_crc64,
+            )
+            sync_client._iter_oss_objects = Mock(return_value=[Mock(
+                key="symbols/matching.bin",
+                size=matching_file.stat().st_size,
+                etag='"multipart-etag-2"',
+            )])
+
+            self.assertTrue(sync_client.is_synchronized())
+
     def test_verification_reuses_initial_sync_crc64_and_oss_metadata(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             local_path = Path(temp_dir)
