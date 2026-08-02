@@ -610,8 +610,13 @@ class OSSSync:
 
         missing_on_oss = local_paths - oss_paths
         missing_locally = oss_paths - local_paths
-        allow_local_only = self.config['sync_direction'] == 'oss2local'
-        if missing_locally or (missing_on_oss and not allow_local_only):
+        sync_direction = self.config['sync_direction']
+        allow_local_only = sync_direction == 'oss2local'
+        allow_oss_only = sync_direction == 'local2oss'
+        if (
+            (missing_on_oss and not allow_local_only)
+            or (missing_locally and not allow_oss_only)
+        ):
             logger.error(
                 "Synchronization verification failed: %d local-only and %d OSS-only files",
                 len(missing_on_oss),
@@ -623,6 +628,12 @@ class OSSSync:
             logger.info(
                 "Synchronization verification allows %d local-only files for oss2local",
                 len(missing_on_oss),
+            )
+
+        if missing_locally:
+            logger.info(
+                "Synchronization verification allows %d OSS-only files for local2oss",
+                len(missing_locally),
             )
 
         paths_to_verify = oss_paths if allow_local_only else local_paths

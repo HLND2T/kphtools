@@ -481,10 +481,41 @@ class TestInitialSyncProgress(unittest.TestCase):
             '\n'.join(captured_logs.output),
         )
 
-    def test_reports_unsynchronized_when_an_oss_only_file_exists(self):
+    def test_local2oss_verification_allows_oss_only_file(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             local_path = Path(temp_dir)
-            sync_client = self._make_sync_client(local_path)
+            matching_file = local_path / "matching.bin"
+            matching_file.write_bytes(b"matching content")
+
+            sync_client = self._make_sync_client(
+                local_path,
+                direction="local2oss",
+            )
+            expected_crc64 = sync_client._calculate_file_crc64(matching_file)
+            sync_client.client.get_object_meta.return_value = Mock(
+                content_length=matching_file.stat().st_size,
+                etag='"multipart-etag-2"',
+                hash_crc64=expected_crc64,
+            )
+            sync_client._iter_oss_objects = Mock(return_value=[
+                Mock(
+                    key="symbols/matching.bin",
+                    size=matching_file.stat().st_size,
+                    etag='"multipart-etag-2"',
+                ),
+                Mock(
+                    key="symbols/remote-only.bin",
+                    size=1,
+                    etag='"9dd4e461268c8034f5c8564e155c67a6"',
+                ),
+            ])
+
+            self.assertTrue(sync_client.is_synchronized())
+
+    def test_both_reports_unsynchronized_when_an_oss_only_file_exists(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            local_path = Path(temp_dir)
+            sync_client = self._make_sync_client(local_path, direction="both")
             sync_client._iter_oss_objects = Mock(return_value=[Mock(
                 key="symbols/remote-only.bin",
                 size=1,
