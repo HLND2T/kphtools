@@ -12,9 +12,7 @@ FUNC_XREFS = [
         "xref_gvs": [],
         "xref_signatures": [
             "04 00 00 C0",
-            "9A 00 00 C0",
             "41 B8 41 52 46 54",
-            "23 00 00 C0",
             "02 00 00 C0",
         ],
         "xref_funcs": [],
