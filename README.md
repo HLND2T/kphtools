@@ -36,5 +36,6 @@ All four scripts use `symbols` under the current working directory by default. S
 - [Dump YAML artifacts](docs/dump_symbols.md)
 - [Generate reference YAML for `LLM_DECOMPILE`](docs/reference_yaml.md)
 - [Export YAML artifacts to `kphdyn.xml`](docs/update_symbols.md)
+- [Synchronize symbol files with OSS](docs/oss_sync.md)
 - [Run the upload server](docs/upload_server.md)
 - [Run the reference Jenkins workflow on Windows](docs/jenkins_windows.md)

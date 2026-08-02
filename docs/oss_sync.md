@@ -39,13 +39,13 @@ OSS 同步使用 `alibabacloud-oss-v2`，连接配置与 `upload_server.py` 使�
 同步方向通过命令行参数设置：
 
 ```bash
-uv run --env-file .env "oss_sync/oss_sync.py" --direction local2oss
-uv run --env-file .env "oss_sync/oss_sync.py" --direction oss2local
-uv run --env-file .env "oss_sync/oss_sync.py" --direction both
+uv run --env-file .env oss_sync.py --direction local2oss
+uv run --env-file .env oss_sync.py --direction oss2local
+uv run --env-file .env oss_sync.py --direction both
 ```
 
 在 CI 或批处理任务中使用 `--once`，以同步结果决定进程退出码：
 
 ```bash
-uv run --env-file .env "oss_sync/oss_sync.py" --direction local2oss --once
+uv run --env-file .env oss_sync.py --direction local2oss --once
 ```
