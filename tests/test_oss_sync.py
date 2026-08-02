@@ -20,6 +20,7 @@ class TestInitialSyncProgress(unittest.TestCase):
         }
         sync_client.client = Mock()
         sync_client.bucket_name = "test-bucket"
+        sync_client._verification_state = None
         sync_client._download_tracking_lock = oss_sync_module.threading.Lock()
         sync_client._download_suppression_until = {}
         return sync_client
@@ -42,7 +43,7 @@ class TestInitialSyncProgress(unittest.TestCase):
 
             sync_client = self._make_sync_client(local_path)
             sync_client._iter_oss_objects = Mock(return_value=[])
-            sync_client._upload_file = Mock()
+            sync_client._upload_file = Mock(return_value=False)
 
             with (
                 patch.object(
@@ -58,20 +59,38 @@ class TestInitialSyncProgress(unittest.TestCase):
         self.assertIn("Local scan progress: 1 files scanned", log_output)
         self.assertIn("Local files scanned: 2 files", log_output)
 
-    def test_does_not_checksum_when_remote_key_is_missing(self):
+    def test_caches_checksum_after_uploading_new_file(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             local_path = Path(temp_dir)
             (local_path / "new.bin").write_bytes(b"new file")
 
             sync_client = self._make_sync_client(local_path)
             sync_client._iter_oss_objects = Mock(return_value=[])
-            sync_client._calculate_file_crc64 = Mock()
-            sync_client._upload_file = Mock()
+            sync_client._calculate_file_crc64 = Mock(return_value="123456789")
+            sync_client._upload_file = Mock(return_value=True)
+            sync_client.client.get_object_meta.return_value = Mock(
+                content_length=(local_path / "new.bin").stat().st_size,
+                etag='"uploaded-etag"',
+                hash_crc64="123456789",
+            )
 
             sync_client.initial_sync()
 
-        sync_client._calculate_file_crc64.assert_not_called()
+        sync_client._calculate_file_crc64.assert_called_once_with(
+            local_path / "new.bin"
+        )
         sync_client._upload_file.assert_called_once_with("new.bin")
+        verification_state = sync_client._verification_state
+        if verification_state is None:
+            self.fail("initial_sync did not create verification state")
+        self.assertEqual(
+            "123456789",
+            verification_state['local_files']['new.bin']['crc64'],
+        )
+        self.assertEqual(
+            "123456789",
+            verification_state['oss_files']['new.bin']['crc64'],
+        )
 
     def test_local2oss_uploads_when_crc64_differs(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -82,10 +101,18 @@ class TestInitialSyncProgress(unittest.TestCase):
 
             sync_client = self._make_sync_client(local_path)
             sync_client._calculate_file_crc64 = Mock(return_value="111")
-            sync_client.client.get_object_meta.return_value = Mock(
-                content_length=local_stat.st_size,
-                hash_crc64="222",
-            )
+            sync_client.client.get_object_meta.side_effect = [
+                Mock(
+                    content_length=local_stat.st_size,
+                    etag='"remote-etag"',
+                    hash_crc64="222",
+                ),
+                Mock(
+                    content_length=local_stat.st_size,
+                    etag='"uploaded-etag"',
+                    hash_crc64="111",
+                ),
+            ]
             sync_client._upload_file = Mock(return_value=True)
             remote_object = Mock(
                 key="symbols/existing.bin",
@@ -103,7 +130,7 @@ class TestInitialSyncProgress(unittest.TestCase):
         sync_client._calculate_file_crc64.assert_called_once_with(local_file)
         sync_client._upload_file.assert_called_once_with("existing.bin")
 
-    def test_local2oss_skips_checksum_when_size_differs(self):
+    def test_local2oss_caches_checksum_after_uploading_size_difference(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             local_path = Path(temp_dir)
             local_file = local_path / "changed.bin"
@@ -111,8 +138,13 @@ class TestInitialSyncProgress(unittest.TestCase):
             local_stat = local_file.stat()
 
             sync_client = self._make_sync_client(local_path)
-            sync_client._calculate_file_crc64 = Mock()
-            sync_client._upload_file = Mock()
+            sync_client._calculate_file_crc64 = Mock(return_value="123456789")
+            sync_client._upload_file = Mock(return_value=True)
+            sync_client.client.get_object_meta.return_value = Mock(
+                content_length=local_stat.st_size,
+                etag='"uploaded-etag"',
+                hash_crc64="123456789",
+            )
             remote_object = Mock(
                 key="symbols/changed.bin",
                 last_modified=datetime.fromtimestamp(
@@ -126,8 +158,8 @@ class TestInitialSyncProgress(unittest.TestCase):
 
             sync_client.initial_sync()
 
-        sync_client.client.get_object_meta.assert_not_called()
-        sync_client._calculate_file_crc64.assert_not_called()
+        sync_client.client.get_object_meta.assert_called_once()
+        sync_client._calculate_file_crc64.assert_called_once_with(local_file)
         sync_client._upload_file.assert_called_once_with("changed.bin")
 
     def test_local2oss_skips_upload_when_size_and_crc64_match(self):
@@ -141,6 +173,7 @@ class TestInitialSyncProgress(unittest.TestCase):
             sync_client._calculate_file_crc64 = Mock(return_value="123456789")
             sync_client.client.get_object_meta.return_value = Mock(
                 content_length=local_stat.st_size,
+                etag='"multipart-etag-2"',
                 hash_crc64="123456789",
             )
             sync_client._upload_file = Mock()
@@ -167,10 +200,18 @@ class TestInitialSyncProgress(unittest.TestCase):
 
             sync_client = self._make_sync_client(local_path, direction="both")
             sync_client._calculate_file_crc64 = Mock(return_value="111")
-            sync_client.client.get_object_meta.return_value = Mock(
-                content_length=local_file.stat().st_size,
-                hash_crc64="222",
-            )
+            sync_client.client.get_object_meta.side_effect = [
+                Mock(
+                    content_length=local_file.stat().st_size,
+                    etag='"multipart-etag-2"',
+                    hash_crc64="222",
+                ),
+                Mock(
+                    content_length=local_file.stat().st_size,
+                    etag='"uploaded-etag"',
+                    hash_crc64="111",
+                ),
+            ]
             sync_client._upload_file = Mock(return_value=True)
             sync_client._download_file = Mock()
             sync_client._iter_oss_objects = Mock(return_value=[Mock(
@@ -195,6 +236,7 @@ class TestInitialSyncProgress(unittest.TestCase):
             sync_client._calculate_file_crc64 = Mock(return_value="123456789")
             sync_client.client.get_object_meta.return_value = Mock(
                 content_length=local_file.stat().st_size,
+                etag='"multipart-etag-2"',
                 hash_crc64="123456789"
             )
             sync_client._download_file = Mock()
@@ -224,9 +266,10 @@ class TestInitialSyncProgress(unittest.TestCase):
             sync_client._calculate_file_crc64 = Mock(return_value="111")
             sync_client.client.get_object_meta.return_value = Mock(
                 content_length=local_file.stat().st_size,
+                etag='"multipart-etag-2"',
                 hash_crc64="222",
             )
-            sync_client._download_file = Mock()
+            sync_client._download_file = Mock(return_value=False)
             sync_client._iter_oss_objects = Mock(return_value=[Mock(
                 key="symbols/changed.bin",
                 last_modified=datetime.now(timezone.utc),
@@ -246,7 +289,7 @@ class TestInitialSyncProgress(unittest.TestCase):
 
             sync_client = self._make_sync_client(local_path, direction="oss2local")
             sync_client._calculate_file_crc64 = Mock()
-            sync_client._download_file = Mock()
+            sync_client._download_file = Mock(return_value=False)
             sync_client._iter_oss_objects = Mock(return_value=[Mock(
                 key="symbols/changed.bin",
                 last_modified=datetime.now(timezone.utc),
@@ -280,6 +323,7 @@ class TestInitialSyncProgress(unittest.TestCase):
             expected_crc64 = sync_client._calculate_file_crc64(local_file)
             sync_client.client.get_object_meta.return_value = Mock(
                 content_length=local_file.stat().st_size,
+                etag='"multipart-etag-2"',
                 hash_crc64=expected_crc64
             )
             sync_client._iter_oss_objects = Mock(return_value=[Mock(
@@ -289,6 +333,128 @@ class TestInitialSyncProgress(unittest.TestCase):
             )])
 
             self.assertTrue(sync_client.is_synchronized())
+
+    def test_verification_reuses_initial_sync_crc64_and_oss_metadata(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            local_path = Path(temp_dir)
+            local_file = local_path / "matching.bin"
+            local_file.write_bytes(b"matching content")
+            remote_object = Mock(
+                key="symbols/matching.bin",
+                last_modified=datetime.now(timezone.utc),
+                size=local_file.stat().st_size,
+                etag='"multipart-etag-2"',
+            )
+
+            sync_client = self._make_sync_client(
+                local_path,
+                direction="oss2local",
+            )
+            sync_client._calculate_file_crc64 = Mock(return_value="123456789")
+            sync_client.client.get_object_meta.return_value = Mock(
+                content_length=local_file.stat().st_size,
+                etag='"multipart-etag-2"',
+                hash_crc64="123456789",
+            )
+            sync_client._download_file = Mock()
+            sync_client._iter_oss_objects = Mock(return_value=[remote_object])
+
+            sync_client.initial_sync()
+            self.assertTrue(sync_client.is_synchronized())
+
+        sync_client._calculate_file_crc64.assert_called_once_with(local_file)
+        sync_client.client.get_object_meta.assert_called_once()
+
+    def test_verification_recalculates_crc64_when_local_mtime_changes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            local_path = Path(temp_dir)
+            local_file = local_path / "changed.bin"
+            local_file.write_bytes(b"content")
+            local_stat = local_file.stat()
+
+            sync_client = self._make_sync_client(local_path)
+            sync_client._verification_state = {
+                'local_files': {
+                    'changed.bin': {
+                        'size': local_stat.st_size,
+                        'mtime_ns': local_stat.st_mtime_ns - 1,
+                        'crc64': 'stale-crc64',
+                    },
+                },
+                'oss_files': {
+                    'changed.bin': {
+                        'size': local_stat.st_size,
+                        'etag': 'remote-etag',
+                        'crc64': 'current-crc64',
+                    },
+                },
+            }
+            sync_client._calculate_file_crc64 = Mock(
+                return_value='current-crc64'
+            )
+            sync_client._iter_oss_objects = Mock(return_value=[Mock(
+                key='symbols/changed.bin',
+                size=local_stat.st_size,
+                etag='"remote-etag"',
+            )])
+
+            self.assertTrue(sync_client.is_synchronized())
+
+        sync_client._calculate_file_crc64.assert_called_once_with(local_file)
+        sync_client.client.get_object_meta.assert_not_called()
+
+    def test_verification_logs_periodic_progress(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            local_path = Path(temp_dir)
+            remote_objects = []
+            cached_local_files = {}
+            cached_oss_files = {}
+            for file_name in ('first.bin', 'second.bin'):
+                local_file = local_path / file_name
+                local_file.write_bytes(file_name.encode())
+                local_stat = local_file.stat()
+                crc64 = f'{file_name}-crc64'
+                etag = f'{file_name}-etag'
+                cached_local_files[file_name] = {
+                    'size': local_stat.st_size,
+                    'mtime_ns': local_stat.st_mtime_ns,
+                    'crc64': crc64,
+                }
+                cached_oss_files[file_name] = {
+                    'size': local_stat.st_size,
+                    'etag': etag,
+                    'crc64': crc64,
+                }
+                remote_objects.append(Mock(
+                    key=f'symbols/{file_name}',
+                    size=local_stat.st_size,
+                    etag=f'"{etag}"',
+                ))
+
+            sync_client = self._make_sync_client(local_path)
+            sync_client._verification_state = {
+                'local_files': cached_local_files,
+                'oss_files': cached_oss_files,
+            }
+            sync_client._iter_oss_objects = Mock(return_value=remote_objects)
+
+            with (
+                patch.object(
+                    oss_sync_module.time,
+                    'monotonic',
+                    side_effect=[100.0, 111.0, 112.0, 113.0],
+                ),
+                self.assertLogs(
+                    'aliyun_oss_sync',
+                    level='INFO',
+                ) as captured_logs,
+            ):
+                self.assertTrue(sync_client.is_synchronized())
+
+        self.assertIn(
+            'Synchronization verification progress: 1/2 files',
+            '\n'.join(captured_logs.output),
+        )
 
     def test_reports_unsynchronized_when_an_oss_only_file_exists(self):
         with tempfile.TemporaryDirectory() as temp_dir:

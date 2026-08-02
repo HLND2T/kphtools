@@ -146,6 +146,7 @@ class OSSSync:
         self.last_oss_files = {}
         self.running = True
         self.check_thread = None
+        self._verification_state = None
         self._download_tracking_lock = threading.Lock()
         self._download_suppression_until = {}
 
@@ -240,10 +241,17 @@ class OSSSync:
             crc64 = str(crc64).strip()
         return {
             'size': getattr(result, 'content_length', None),
+            'etag': str(getattr(result, 'etag', '') or '').strip('"') or None,
             'crc64': crc64,
         }
 
-    def _local_file_matches_oss(self, rel_path, oss_size=None, local_crc64=None):
+    def _local_file_matches_oss(
+        self,
+        rel_path,
+        oss_size=None,
+        local_crc64=None,
+        oss_file=None,
+    ):
         """按文件大小和 CRC64 判断本地文件是否与 OSS 对象一致。"""
         local_file = self.config['local_path'] / rel_path
         if not local_file.is_file():
@@ -254,7 +262,8 @@ class OSSSync:
             if oss_size is not None and local_size != oss_size:
                 return False
 
-            oss_file = self._get_oss_file_info(rel_path)
+            if oss_file is None:
+                oss_file = self._get_oss_file_info(rel_path)
             if oss_file is None or oss_file['crc64'] is None:
                 return False
             if oss_file['size'] is not None and local_size != oss_file['size']:
@@ -330,6 +339,7 @@ class OSSSync:
                 file_stat = full_path.stat()
                 local_files[self._convert_path(rel_path)] = {
                     'size': file_stat.st_size,
+                    'mtime_ns': file_stat.st_mtime_ns,
                 }
 
                 scanned_file_count += 1
@@ -370,6 +380,7 @@ class OSSSync:
             
             oss_files[rel_path] = {
                 'size': obj.size,
+                'etag': obj.etag.strip('"'),
             }
 
         logger.info("OSS files scanned...")
@@ -421,6 +432,45 @@ class OSSSync:
 
             return local_file['crc64']
 
+        def get_oss_file_info(rel_path, force=False):
+            """按需读取并缓存 OSS 对象元数据。"""
+            oss_file = oss_files[rel_path]
+            if force or 'crc64' not in oss_file:
+                remote_info = self._get_oss_file_info(rel_path)
+                if remote_info is None:
+                    oss_file['crc64'] = None
+                else:
+                    if remote_info['size'] is not None:
+                        oss_file['size'] = remote_info['size']
+                    if remote_info['etag'] is not None:
+                        oss_file['etag'] = remote_info['etag']
+                    oss_file['crc64'] = remote_info['crc64']
+            return oss_file
+
+        def record_uploaded_file(rel_path):
+            """记录成功上传后的本地与 OSS 校验状态。"""
+            local_file = local_files[rel_path]
+            local_crc64 = get_local_crc64(rel_path)
+            oss_files.setdefault(rel_path, {
+                'size': local_file['size'],
+                'etag': None,
+            })
+            oss_file = get_oss_file_info(rel_path, force=True)
+            if oss_file['crc64'] is None:
+                oss_file['size'] = local_file['size']
+                oss_file['crc64'] = local_crc64
+
+        def record_downloaded_file(rel_path):
+            """记录成功下载后的本地与 OSS 校验状态。"""
+            local_file_path = self.config['local_path'] / rel_path
+            local_stat = local_file_path.stat()
+            local_files[rel_path] = {
+                'size': local_stat.st_size,
+                'mtime_ns': local_stat.st_mtime_ns,
+            }
+            get_local_crc64(rel_path)
+            get_oss_file_info(rel_path, force=True)
+
         local_paths = set(local_files)
         oss_paths = set(oss_files)
         common_paths = local_paths & oss_paths
@@ -433,10 +483,16 @@ class OSSSync:
                 if local_file['size'] != oss_file['size']:
                     match_cache[rel_path] = False
                 else:
+                    oss_file = get_oss_file_info(rel_path)
                     match_cache[rel_path] = self._local_file_matches_oss(
                         rel_path,
                         oss_file['size'],
-                        get_local_crc64(rel_path),
+                        (
+                            get_local_crc64(rel_path)
+                            if oss_file['crc64'] is not None
+                            else None
+                        ),
+                        oss_file,
                     )
             return match_cache[rel_path]
 
@@ -444,7 +500,8 @@ class OSSSync:
         if self.config['sync_direction'] in ['local2oss', 'both']:
             # 上传本地新增/修改文件
             for rel_path in local_paths - oss_paths:
-                self._upload_file(rel_path)
+                if self._upload_file(rel_path):
+                    record_uploaded_file(rel_path)
             
             # 对比相同文件
             for rel_path in common_paths:
@@ -454,17 +511,21 @@ class OSSSync:
                     )
                     continue
                 if self._upload_file(rel_path):
+                    record_uploaded_file(rel_path)
                     match_cache[rel_path] = True
 
         if self.config['sync_direction'] in ['oss2local', 'both']:
             # 下载OSS新增/修改文件
             for rel_path in oss_paths - local_paths:
-                self._download_file(rel_path)
+                if self._download_file(rel_path):
+                    record_downloaded_file(rel_path)
             
             # 对比相同文件
             for rel_path in common_paths:
                 if not local_matches_oss(rel_path):
-                    self._download_file(rel_path)
+                    if self._download_file(rel_path):
+                        record_downloaded_file(rel_path)
+                        match_cache[rel_path] = True
                 else:
                     logger.info(
                         f"Skipping download of {rel_path} - local file CRC64 matches"
@@ -478,10 +539,21 @@ class OSSSync:
                 hashing_elapsed_seconds,
             )
 
+        self._verification_state = {
+            'local_files': local_files,
+            'oss_files': oss_files,
+        }
         logger.info("Initial synchronization completed")
 
     def is_synchronized(self):
         """检查未排除的本地文件和 OSS 对象是否完全一致。"""
+        verification_started_at = time.monotonic()
+        logger.info("Starting synchronization verification...")
+
+        cached_state = getattr(self, '_verification_state', None) or {}
+        cached_local_files = cached_state.get('local_files', {})
+        cached_oss_files = cached_state.get('oss_files', {})
+
         local_files = {}
         for root, _, files in os.walk(self.config['local_path']):
             for file in files:
@@ -489,19 +561,54 @@ class OSSSync:
                 rel_path = self._get_relative_path(full_path)
                 if not rel_path or self._should_ignore(rel_path):
                     continue
-                local_files[self._convert_path(rel_path)] = full_path
+                rel_path = self._convert_path(rel_path)
+                local_stat = full_path.stat()
+                local_file = {
+                    'path': full_path,
+                    'size': local_stat.st_size,
+                    'mtime_ns': local_stat.st_mtime_ns,
+                }
+                cached_local_file = cached_local_files.get(rel_path)
+                if (
+                    cached_local_file is not None
+                    and cached_local_file.get('size') == local_file['size']
+                    and cached_local_file.get('mtime_ns') == local_file['mtime_ns']
+                    and cached_local_file.get('crc64') is not None
+                ):
+                    local_file['crc64'] = cached_local_file['crc64']
+                local_files[rel_path] = local_file
 
         oss_files = {}
         for obj in self._iter_oss_objects():
             rel_path = self._relative_object_path(obj.key)
             if not rel_path or self._should_ignore(rel_path):
                 continue
-            oss_files[rel_path] = {
+            oss_file = {
                 'size': obj.size,
+                'etag': obj.etag.strip('"'),
             }
+            cached_oss_file = cached_oss_files.get(rel_path)
+            if (
+                cached_oss_file is not None
+                and cached_oss_file.get('size') == oss_file['size']
+                and cached_oss_file.get('etag') == oss_file['etag']
+                and cached_oss_file.get('crc64') is not None
+            ):
+                oss_file['crc64'] = cached_oss_file['crc64']
+            oss_files[rel_path] = oss_file
 
         local_paths = set(local_files)
         oss_paths = set(oss_files)
+        total_file_count = len(local_paths)
+        total_bytes = sum(item['size'] for item in local_files.values())
+        logger.info(
+            "Synchronization verification inventory: %d local files, %d OSS objects, "
+            "%.2f GiB",
+            total_file_count,
+            len(oss_paths),
+            total_bytes / BYTES_PER_GIB,
+        )
+
         missing_on_oss = local_paths - oss_paths
         missing_locally = oss_paths - local_paths
         if missing_on_oss or missing_locally:
@@ -512,23 +619,84 @@ class OSSSync:
             )
             return False
 
-        for rel_path in local_paths:
+        verified_file_count = 0
+        verified_bytes = 0
+        last_progress_logged_at = verification_started_at
+        for rel_path in sorted(local_paths):
             local_file = local_files[rel_path]
             oss_file = oss_files[rel_path]
-            if local_file.stat().st_size != oss_file['size']:
+            if local_file['size'] != oss_file['size']:
                 logger.error(
                     "Synchronization verification failed: size differs for %s",
                     rel_path,
                 )
                 return False
-            if not self._local_file_matches_oss(rel_path, oss_file['size']):
+
+            if oss_file.get('crc64') is None:
+                remote_info = self._get_oss_file_info(rel_path)
+                if remote_info is None or remote_info['crc64'] is None:
+                    logger.error(
+                        "Synchronization verification failed: OSS CRC64 unavailable for %s",
+                        rel_path,
+                    )
+                    return False
+                if (
+                    remote_info['size'] is not None
+                    and remote_info['size'] != local_file['size']
+                ):
+                    logger.error(
+                        "Synchronization verification failed: size differs for %s",
+                        rel_path,
+                    )
+                    return False
+                if remote_info['size'] is not None:
+                    oss_file['size'] = remote_info['size']
+                if remote_info['etag'] is not None:
+                    oss_file['etag'] = remote_info['etag']
+                oss_file['crc64'] = remote_info['crc64']
+
+            if local_file.get('crc64') is None:
+                local_file['crc64'] = self._calculate_file_crc64(
+                    local_file['path']
+                )
+
+            if local_file['crc64'] != oss_file['crc64']:
                 logger.error(
                     "Synchronization verification failed: content differs for %s",
                     rel_path,
                 )
                 return False
 
-        logger.info("Synchronization verification completed: local and OSS files match")
+            verified_file_count += 1
+            verified_bytes += local_file['size']
+            current_time = time.monotonic()
+            if (
+                current_time - last_progress_logged_at
+                >= LOCAL_SCAN_PROGRESS_INTERVAL_SECONDS
+            ):
+                logger.info(
+                    "Synchronization verification progress: %d/%d files, "
+                    "%.2f/%.2f GiB checked in %.1f seconds",
+                    verified_file_count,
+                    total_file_count,
+                    verified_bytes / BYTES_PER_GIB,
+                    total_bytes / BYTES_PER_GIB,
+                    current_time - verification_started_at,
+                )
+                last_progress_logged_at = current_time
+
+        verification_elapsed_seconds = time.monotonic() - verification_started_at
+        self._verification_state = {
+            'local_files': local_files,
+            'oss_files': oss_files,
+        }
+        logger.info(
+            "Synchronization verification completed: %d files, %.2f GiB matched "
+            "in %.1f seconds",
+            verified_file_count,
+            verified_bytes / BYTES_PER_GIB,
+            verification_elapsed_seconds,
+        )
         return True
 
     def _upload_file(self, rel_path):
