@@ -67,7 +67,7 @@ def load_config_from_environment(direction):
     }
 
 
-def parse_args():
+def parse_args(argv=None):
     parser = argparse.ArgumentParser(description='OSS Sync Tool')
     parser.add_argument(
         '--direction',
@@ -75,7 +75,12 @@ def parse_args():
         default='local2oss',
         help='Sync direction (default: local2oss)'
     )
-    return parser.parse_args()
+    parser.add_argument(
+        '--once',
+        action='store_true',
+        help='Synchronize once, verify local and OSS files match, then exit'
+    )
+    return parser.parse_args(argv)
 
 
 def setup_logging():
@@ -369,6 +374,58 @@ class OSSSync:
 
         logger.info("Initial synchronization completed")
 
+    def is_synchronized(self):
+        """检查未排除的本地文件和 OSS 对象是否完全一致。"""
+        local_files = {}
+        for root, _, files in os.walk(self.config['local_path']):
+            for file in files:
+                full_path = Path(root) / file
+                rel_path = self._get_relative_path(full_path)
+                if not rel_path or self._should_ignore(rel_path):
+                    continue
+                local_files[self._convert_path(rel_path)] = full_path
+
+        oss_files = {}
+        for obj in self._iter_oss_objects():
+            rel_path = self._relative_object_path(obj.key)
+            if not rel_path or self._should_ignore(rel_path):
+                continue
+            oss_files[rel_path] = {
+                'size': obj.size,
+                'hash': obj.etag.strip('"'),
+            }
+
+        local_paths = set(local_files)
+        oss_paths = set(oss_files)
+        missing_on_oss = local_paths - oss_paths
+        missing_locally = oss_paths - local_paths
+        if missing_on_oss or missing_locally:
+            logger.error(
+                "Synchronization verification failed: %d local-only and %d OSS-only files",
+                len(missing_on_oss),
+                len(missing_locally),
+            )
+            return False
+
+        for rel_path in local_paths:
+            local_file = local_files[rel_path]
+            oss_file = oss_files[rel_path]
+            if local_file.stat().st_size != oss_file['size']:
+                logger.error(
+                    "Synchronization verification failed: size differs for %s",
+                    rel_path,
+                )
+                return False
+            if self._calculate_file_hash(local_file).lower() != oss_file['hash'].lower():
+                logger.error(
+                    "Synchronization verification failed: content differs for %s",
+                    rel_path,
+                )
+                return False
+
+        logger.info("Synchronization verification completed: local and OSS files match")
+        return True
+
     def _upload_file(self, rel_path):
         """上传文件到OSS"""
         local_full = self.config['local_path'] / rel_path
@@ -565,6 +622,12 @@ def main():
 
         # 执行初始同步
         sync_client.initial_sync()
+
+        if args.once:
+            if sync_client.is_synchronized():
+                return 0
+            logger.error("One-shot synchronization did not converge")
+            return 1
 
         # 启动文件监控
         event_handler = SyncEventHandler(sync_client)

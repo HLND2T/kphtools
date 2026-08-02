@@ -113,6 +113,88 @@ class TestInitialSyncProgress(unittest.TestCase):
         sync_client._calculate_file_hash.assert_not_called()
         sync_client._upload_file.assert_called_once_with("changed.bin")
 
+    def test_reports_synchronized_when_file_sets_and_contents_match(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            local_path = Path(temp_dir)
+            local_file = local_path / "matching.bin"
+            local_file.write_bytes(b"matching content")
+
+            sync_client = self._make_sync_client(local_path)
+            sync_client._iter_oss_objects = Mock(return_value=[Mock(
+                key="symbols/matching.bin",
+                size=local_file.stat().st_size,
+                etag=f'"{oss_sync_module.hashlib.md5(local_file.read_bytes()).hexdigest()}"',
+            )])
+
+            self.assertTrue(sync_client.is_synchronized())
+
+    def test_reports_unsynchronized_when_an_oss_only_file_exists(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            local_path = Path(temp_dir)
+            sync_client = self._make_sync_client(local_path)
+            sync_client._iter_oss_objects = Mock(return_value=[Mock(
+                key="symbols/remote-only.bin",
+                size=1,
+                etag='"9dd4e461268c8034f5c8564e155c67a6"',
+            )])
+
+            self.assertFalse(sync_client.is_synchronized())
+
+
+class TestOneShotSync(unittest.TestCase):
+    def test_parse_args_accepts_once(self):
+        args = oss_sync_module.parse_args(["--once"])
+
+        self.assertTrue(args.once)
+
+    def test_main_exits_zero_without_starting_watchers_when_synchronized(self):
+        args = Mock(direction="local2oss", once=True)
+        with (
+            patch.object(oss_sync_module, "setup_logging"),
+            patch.object(oss_sync_module, "parse_args", return_value=args),
+            patch.object(
+                oss_sync_module,
+                "load_config_from_environment",
+                return_value={},
+            ),
+            patch.object(oss_sync_module, "OSSSync") as sync_type,
+            patch.object(oss_sync_module, "Observer") as observer_type,
+        ):
+            sync_client = sync_type.return_value
+            sync_client.is_synchronized.return_value = True
+
+            exit_code = oss_sync_module.main()
+
+        self.assertEqual(0, exit_code)
+        sync_client.initial_sync.assert_called_once_with()
+        sync_client.is_synchronized.assert_called_once_with()
+        sync_client.start_continuous_sync.assert_not_called()
+        observer_type.assert_not_called()
+
+    def test_main_exits_one_when_synchronization_does_not_converge(self):
+        args = Mock(direction="local2oss", once=True)
+        with (
+            patch.object(oss_sync_module, "setup_logging"),
+            patch.object(oss_sync_module, "parse_args", return_value=args),
+            patch.object(
+                oss_sync_module,
+                "load_config_from_environment",
+                return_value={},
+            ),
+            patch.object(oss_sync_module, "OSSSync") as sync_type,
+            patch.object(oss_sync_module, "Observer") as observer_type,
+        ):
+            sync_client = sync_type.return_value
+            sync_client.is_synchronized.return_value = False
+
+            exit_code = oss_sync_module.main()
+
+        self.assertEqual(1, exit_code)
+        sync_client.initial_sync.assert_called_once_with()
+        sync_client.is_synchronized.assert_called_once_with()
+        sync_client.start_continuous_sync.assert_not_called()
+        observer_type.assert_not_called()
+
 
 class TestOssV2Migration(unittest.TestCase):
     def test_loads_region_and_optional_session_token_from_environment(self):
