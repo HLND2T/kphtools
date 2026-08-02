@@ -24,6 +24,16 @@ class TestInitialSyncProgress(unittest.TestCase):
         sync_client._download_suppression_until = {}
         return sync_client
 
+    def test_excludes_dotfile_name_listed_as_extension(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            sync_client = self._make_sync_client(Path(temp_dir))
+            sync_client.config['exclude_extension'] = {'.stignore', '.txt'}
+
+            self.assertTrue(sync_client._should_ignore('.stignore'))
+            self.assertTrue(sync_client._should_ignore('nested/.stignore'))
+            self.assertTrue(sync_client._should_ignore('notes.txt'))
+            self.assertFalse(sync_client._should_ignore('stignore'))
+
     def test_logs_local_scan_progress_and_summary(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             local_path = Path(temp_dir)

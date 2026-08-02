@@ -201,8 +201,13 @@ class OSSSync:
             return True
         # 检查文件扩展名是否在排除列表中
         if self.config['exclude_extension']:
-            file_ext = Path(path_str).suffix.lower()
-            if file_ext in self.config['exclude_extension']:
+            file_path = Path(path_str)
+            file_ext = file_path.suffix.lower()
+            file_name = file_path.name.lower()
+            if (
+                file_ext in self.config['exclude_extension']
+                or file_name in self.config['exclude_extension']
+            ):
                 return True
         return False
 
