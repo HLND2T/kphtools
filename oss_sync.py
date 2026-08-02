@@ -1,5 +1,4 @@
 import argparse
-import hashlib
 import logging
 import mimetypes
 import os
@@ -17,6 +16,8 @@ from watchdog.observers import Observer
 logger = logging.getLogger("aliyun_oss_sync")
 DEFAULT_SYMBOL_DIR = 'symbols'
 LOCAL_SCAN_PROGRESS_INTERVAL_SECONDS = 10
+LOCAL_EVENT_DEBOUNCE_SECONDS = 1.0
+DOWNLOAD_EVENT_SUPPRESSION_SECONDS = 2.0
 BYTES_PER_MIB = 1024 * 1024
 BYTES_PER_GIB = 1024 * BYTES_PER_MIB
 
@@ -145,6 +146,8 @@ class OSSSync:
         self.last_oss_files = {}
         self.running = True
         self.check_thread = None
+        self._download_tracking_lock = threading.Lock()
+        self._download_suppression_until = {}
 
     def _convert_path(self, path):
         """统一路径格式为OSS风格"""
@@ -203,13 +206,103 @@ class OSSSync:
                 return True
         return False
 
-    def _calculate_file_hash(self, file_path):
-        """计算文件哈希值(MD5)"""
-        md5 = hashlib.md5()
+    def _calculate_file_crc64(self, file_path):
+        """计算与 OSS x-oss-hash-crc64ecma 兼容的 CRC64。"""
+        crc64 = oss.crc.Crc64(0)
         with open(file_path, 'rb') as f:
-            for chunk in iter(lambda: f.read(8192), b''):
-                md5.update(chunk)
-        return md5.hexdigest()
+            for chunk in iter(lambda: f.read(BYTES_PER_MIB), b''):
+                crc64.update(chunk)
+        return str(crc64.sum64())
+
+    def _get_oss_file_info(self, rel_path):
+        """读取 OSS 对象大小和 CRC64；无法获取时返回 None。"""
+        try:
+            result = self.client.get_object_meta(
+                oss.GetObjectMetaRequest(
+                    bucket=self.bucket_name,
+                    key=self._object_key(rel_path),
+                )
+            )
+        except Exception as e:
+            logger.warning(f"Failed to get OSS metadata: {rel_path} - {str(e)}")
+            return None
+
+        crc64 = getattr(result, 'hash_crc64', None)
+        if crc64 is None or not str(crc64).strip():
+            logger.warning(f"OSS CRC64 is unavailable: {rel_path}")
+            crc64 = None
+        else:
+            crc64 = str(crc64).strip()
+        return {
+            'size': getattr(result, 'content_length', None),
+            'crc64': crc64,
+        }
+
+    def _local_file_matches_oss(self, rel_path, oss_size=None, local_crc64=None):
+        """按文件大小和 CRC64 判断本地文件是否与 OSS 对象一致。"""
+        local_file = self.config['local_path'] / rel_path
+        if not local_file.is_file():
+            return False
+
+        try:
+            local_size = local_file.stat().st_size
+            if oss_size is not None and local_size != oss_size:
+                return False
+
+            oss_file = self._get_oss_file_info(rel_path)
+            if oss_file is None or oss_file['crc64'] is None:
+                return False
+            if oss_file['size'] is not None and local_size != oss_file['size']:
+                return False
+            if oss_size is None and oss_file['size'] is None:
+                return False
+
+            if local_crc64 is None:
+                local_crc64 = self._calculate_file_crc64(local_file)
+            return local_crc64 == oss_file['crc64']
+        except OSError as e:
+            logger.warning(f"Failed to verify local file: {rel_path} - {str(e)}")
+            return False
+
+    def _upload_file_if_changed(self, rel_path):
+        """仅在本地文件与 OSS 对象不一致时上传。"""
+        local_file = self.config['local_path'] / rel_path
+        if not local_file.is_file():
+            return False
+        if self._local_file_matches_oss(rel_path):
+            logger.info(
+                f"Skipping upload of {rel_path} - remote file CRC64 matches"
+            )
+            return True
+        return self._upload_file(rel_path)
+
+    def _set_download_in_progress(self, rel_path):
+        path_key = self._convert_path(rel_path)
+        with self._download_tracking_lock:
+            self._download_suppression_until[path_key] = None
+
+    def _finish_download(self, rel_path, succeeded):
+        path_key = self._convert_path(rel_path)
+        with self._download_tracking_lock:
+            if succeeded:
+                self._download_suppression_until[path_key] = (
+                    time.monotonic() + DOWNLOAD_EVENT_SUPPRESSION_SECONDS
+                )
+            else:
+                self._download_suppression_until.pop(path_key, None)
+
+    def is_download_event_suppressed(self, rel_path):
+        """判断本地事件是否由正在进行或刚完成的 OSS 下载产生。"""
+        path_key = self._convert_path(rel_path)
+        current_time = time.monotonic()
+        with self._download_tracking_lock:
+            suppression_until = self._download_suppression_until.get(path_key)
+            if suppression_until is None:
+                return path_key in self._download_suppression_until
+            if current_time <= suppression_until:
+                return True
+            self._download_suppression_until.pop(path_key, None)
+            return False
 
     def initial_sync(self):
         """初始同步：对比并同步差异"""
@@ -231,7 +324,6 @@ class OSSSync:
 
                 file_stat = full_path.stat()
                 local_files[self._convert_path(rel_path)] = {
-                    'mtime': file_stat.st_mtime,
                     'size': file_stat.st_size,
                 }
 
@@ -272,9 +364,7 @@ class OSSSync:
                 continue
             
             oss_files[rel_path] = {
-                'mtime': obj.last_modified.timestamp(),
                 'size': obj.size,
-                'hash': obj.etag.strip('"'),
             }
 
         logger.info("OSS files scanned...")
@@ -284,21 +374,21 @@ class OSSSync:
         hashed_bytes = 0
         hashing_elapsed_seconds = 0.0
 
-        def get_local_hash(rel_path):
-            """按需计算并缓存本地文件哈希。"""
+        def get_local_crc64(rel_path):
+            """按需计算并缓存本地文件 CRC64。"""
             nonlocal last_hash_progress_logged_at
             nonlocal hashed_file_count
             nonlocal hashed_bytes
             nonlocal hashing_elapsed_seconds
 
             local_file = local_files[rel_path]
-            if 'hash' in local_file:
-                return local_file['hash']
+            if 'crc64' in local_file:
+                return local_file['crc64']
 
             hash_started_at = time.monotonic()
             if last_hash_progress_logged_at is None:
                 last_hash_progress_logged_at = hash_started_at
-            local_file['hash'] = self._calculate_file_hash(
+            local_file['crc64'] = self._calculate_file_crc64(
                 self.config['local_path'] / rel_path
             )
             hash_completed_at = time.monotonic()
@@ -315,7 +405,7 @@ class OSSSync:
                     sys.float_info.epsilon,
                 )
                 logger.info(
-                    "Local hash progress: %d files hashed, %.2f GiB processed "
+                    "Local checksum progress: %d files hashed, %.2f GiB processed "
                     "in %.1f hashing seconds (%.2f MiB/s)",
                     hashed_file_count,
                     hashed_bytes / BYTES_PER_GIB,
@@ -324,11 +414,26 @@ class OSSSync:
                 )
                 last_hash_progress_logged_at = hash_completed_at
 
-            return local_file['hash']
+            return local_file['crc64']
 
         local_paths = set(local_files)
         oss_paths = set(oss_files)
         common_paths = local_paths & oss_paths
+        match_cache = {}
+
+        def local_matches_oss(rel_path):
+            if rel_path not in match_cache:
+                local_file = local_files[rel_path]
+                oss_file = oss_files[rel_path]
+                if local_file['size'] != oss_file['size']:
+                    match_cache[rel_path] = False
+                else:
+                    match_cache[rel_path] = self._local_file_matches_oss(
+                        rel_path,
+                        oss_file['size'],
+                        get_local_crc64(rel_path),
+                    )
+            return match_cache[rel_path]
 
         # 同步策略
         if self.config['sync_direction'] in ['local2oss', 'both']:
@@ -338,14 +443,13 @@ class OSSSync:
             
             # 对比相同文件
             for rel_path in common_paths:
-                local_file = local_files[rel_path]
-                oss_file = oss_files[rel_path]
-                if (
-                    local_file['size'] != oss_file['size']
-                    or local_file['mtime'] > oss_file['mtime']
-                    or get_local_hash(rel_path).lower() != oss_file['hash'].lower()
-                ):
-                    self._upload_file(rel_path)
+                if local_matches_oss(rel_path):
+                    logger.info(
+                        f"Skipping upload of {rel_path} - remote file CRC64 matches"
+                    )
+                    continue
+                if self._upload_file(rel_path):
+                    match_cache[rel_path] = True
 
         if self.config['sync_direction'] in ['oss2local', 'both']:
             # 下载OSS新增/修改文件
@@ -354,17 +458,16 @@ class OSSSync:
             
             # 对比相同文件
             for rel_path in common_paths:
-                local_file = local_files[rel_path]
-                oss_file = oss_files[rel_path]
-                if (
-                    local_file['size'] != oss_file['size']
-                    or get_local_hash(rel_path) != oss_file['hash']
-                ):
+                if not local_matches_oss(rel_path):
                     self._download_file(rel_path)
+                else:
+                    logger.info(
+                        f"Skipping download of {rel_path} - local file CRC64 matches"
+                    )
 
         if hashed_file_count:
             logger.info(
-                "Local hashing completed: %d files, %.2f GiB hashed in %.1f seconds",
+                "Local checksum completed: %d files, %.2f GiB processed in %.1f seconds",
                 hashed_file_count,
                 hashed_bytes / BYTES_PER_GIB,
                 hashing_elapsed_seconds,
@@ -390,7 +493,6 @@ class OSSSync:
                 continue
             oss_files[rel_path] = {
                 'size': obj.size,
-                'hash': obj.etag.strip('"'),
             }
 
         local_paths = set(local_files)
@@ -414,7 +516,7 @@ class OSSSync:
                     rel_path,
                 )
                 return False
-            if self._calculate_file_hash(local_file).lower() != oss_file['hash'].lower():
+            if not self._local_file_matches_oss(rel_path, oss_file['size']):
                 logger.error(
                     "Synchronization verification failed: content differs for %s",
                     rel_path,
@@ -440,14 +542,18 @@ class OSSSync:
                 str(local_full),
             )
             logger.info(f"Uploaded: {rel_path}")
+            return True
         except Exception as e:
             logger.error(f"Upload failed: {rel_path} - {str(e)}")
+            return False
 
     def _download_file(self, rel_path):
         """从OSS下载文件"""
         oss_key = self._object_key(rel_path)
         local_full = self.config['local_path'] / rel_path
-        
+        succeeded = False
+        self._set_download_in_progress(rel_path)
+
         try:
             local_full.parent.mkdir(parents=True, exist_ok=True)
             self.client.get_object_to_file(
@@ -458,8 +564,13 @@ class OSSSync:
                 str(local_full),
             )
             logger.info(f"Downloaded: {rel_path}")
+            succeeded = True
+            return True
         except Exception as e:
             logger.error(f"Download failed: {rel_path} - {str(e)}")
+            return False
+        finally:
+            self._finish_download(rel_path, succeeded)
 
     def _delete_file(self, rel_path):
         """删除 OSS 上的文件。"""
@@ -533,31 +644,39 @@ class OSSSync:
             
             current_oss_files[rel_path] = {
                 'mtime': obj.last_modified.timestamp(),
-                'hash': obj.etag.strip('"')
+                'size': obj.size,
+                'etag': obj.etag.strip('"'),
             }
 
         # 检查新增或修改的文件
         for rel_path in set(current_oss_files) - set(self.last_oss_files):
-            local_file = self.config['local_path'] / rel_path
-            # 如果本地文件存在，检查哈希值
-            if local_file.exists():
-                local_hash = self._calculate_file_hash(local_file)
-                if local_hash.lower() == current_oss_files[rel_path]['hash'].lower():
-                    logger.info(f"Skipping download of {rel_path} - local file hash matches")
-                    continue
+            if self._local_file_matches_oss(
+                rel_path,
+                current_oss_files[rel_path]['size'],
+            ):
+                logger.info(
+                    f"Skipping download of {rel_path} - local file CRC64 matches"
+                )
+                continue
             self._download_file(rel_path)
         
         # 检查修改的文件
         for rel_path in set(current_oss_files) & set(self.last_oss_files):
-            if (current_oss_files[rel_path]['hash'] != self.last_oss_files[rel_path]['hash'] or
-                current_oss_files[rel_path]['mtime'] > self.last_oss_files[rel_path]['mtime']):
-                local_file = self.config['local_path'] / rel_path
-                # 如果本地文件存在，检查哈希值
-                if local_file.exists():
-                    local_hash = self._calculate_file_hash(local_file)
-                    if local_hash.lower() == current_oss_files[rel_path]['hash'].lower():
-                        logger.info(f"Skipping download of {rel_path} - local file hash matches")
-                        continue
+            remote_changed = (
+                current_oss_files[rel_path]['etag']
+                != self.last_oss_files[rel_path]['etag']
+                or current_oss_files[rel_path]['mtime']
+                > self.last_oss_files[rel_path]['mtime']
+            )
+            if remote_changed:
+                if self._local_file_matches_oss(
+                    rel_path,
+                    current_oss_files[rel_path]['size'],
+                ):
+                    logger.info(
+                        f"Skipping download of {rel_path} - local file CRC64 matches"
+                    )
+                    continue
                 self._download_file(rel_path)
 
         self.last_oss_files = current_oss_files
@@ -566,13 +685,80 @@ class SyncEventHandler(FileSystemEventHandler):
     """文件系统事件处理器"""
     def __init__(self, sync_client):
         self.sync_client = sync_client
-        self.last_trigger = 0
-        
+        self._pending_uploads = {}
+        self._pending_upload_lock = threading.Lock()
+        self._upload_execution_lock = threading.Lock()
+        self._next_upload_generation = 0
+        self._closed = False
+
+    def _cancel_pending_upload(self, rel_path):
+        path_key = self.sync_client._convert_path(rel_path)
+        with self._pending_upload_lock:
+            pending_upload = self._pending_uploads.pop(path_key, None)
+        if pending_upload:
+            pending_upload[1].cancel()
+
+    def _schedule_upload(self, rel_path):
+        """按相对路径合并事件，并在文件稳定后校验上传。"""
+        path_key = self.sync_client._convert_path(rel_path)
+        with self._pending_upload_lock:
+            if self._closed:
+                return
+            previous_upload = self._pending_uploads.get(path_key)
+            if previous_upload:
+                previous_upload[1].cancel()
+
+            self._next_upload_generation += 1
+            generation = self._next_upload_generation
+            timer = threading.Timer(
+                LOCAL_EVENT_DEBOUNCE_SECONDS,
+                self._process_pending_upload,
+                args=(path_key, generation),
+            )
+            timer.daemon = True
+            self._pending_uploads[path_key] = (generation, timer)
+        timer.start()
+
+    def _process_pending_upload(self, path_key, generation):
+        with self._pending_upload_lock:
+            pending_upload = self._pending_uploads.get(path_key)
+            if (
+                self._closed
+                or pending_upload is None
+                or pending_upload[0] != generation
+            ):
+                return
+            self._pending_uploads.pop(path_key, None)
+        with self._upload_execution_lock:
+            with self._pending_upload_lock:
+                newer_upload = self._pending_uploads.get(path_key)
+                if (
+                    self._closed
+                    or (
+                        newer_upload is not None
+                        and newer_upload[0] > generation
+                    )
+                ):
+                    return
+            self.sync_client._upload_file_if_changed(path_key)
+
+    def close(self):
+        """取消尚未触发的上传任务。"""
+        with self._pending_upload_lock:
+            self._closed = True
+            timers = [item[1] for item in self._pending_uploads.values()]
+            self._pending_uploads.clear()
+        for timer in timers:
+            timer.cancel()
+        # 等待已经开始的上传校验结束后再完成关闭。
+        with self._upload_execution_lock:
+            pass
+
     def _process_event(self, event):
-        """处理事件（不加防抖处理）"""
-        # if time.time() - self.last_trigger < 1:  # 1秒防抖
-        #     return
-        
+        """处理文件系统事件。"""
+        with self._pending_upload_lock:
+            if self._closed:
+                return
         if event.is_directory:
             return
             
@@ -585,13 +771,20 @@ class SyncEventHandler(FileSystemEventHandler):
         # 处理不同事件类型
         if event.event_type in ['created', 'modified']:
             if self.sync_client.config['sync_direction'] in ['local2oss', 'both']:
-                self.sync_client._upload_file(rel_path)
+                if self.sync_client.is_download_event_suppressed(rel_path):
+                    logger.info(
+                        f"Ignoring local event from OSS download: {rel_path}"
+                    )
+                    return
+                self._schedule_upload(rel_path)
         
         elif event.event_type == 'deleted':
+            self._cancel_pending_upload(rel_path)
             if self.sync_client.config['sync_direction'] in ['local2oss', 'both']:
                 self.sync_client._delete_file(rel_path)
         
         elif event.event_type == 'moved':
+            self._cancel_pending_upload(rel_path)
             dst_path = Path(event.dest_path)
             dst_rel_path = self.sync_client._get_relative_path(dst_path)
             if not dst_rel_path or self.sync_client._should_ignore(dst_rel_path):
@@ -600,8 +793,6 @@ class SyncEventHandler(FileSystemEventHandler):
                 self.sync_client._move_file(rel_path, dst_rel_path)
         else:
             logger.info(f"Unknown event type: {event.event_type}")
-
-        self.last_trigger = time.time()
 
     def on_any_event(self, event):
         self._process_event(event)
@@ -612,6 +803,7 @@ def main():
     setup_logging()
     args = parse_args()
     observer_list = []
+    event_handler_list = []
     sync_clients = []
 
     try:
@@ -630,6 +822,7 @@ def main():
 
         # 启动文件监控
         event_handler = SyncEventHandler(sync_client)
+        event_handler_list.append(event_handler)
         observer = Observer()
         observer.schedule(
             event_handler,
@@ -650,6 +843,8 @@ def main():
         logger.exception("Error:")
         return 1
     finally:
+        for event_handler in event_handler_list:
+            event_handler.close()
         for observer in observer_list:
             observer.stop()
         for sync_client in sync_clients:
