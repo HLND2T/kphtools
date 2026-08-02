@@ -7,7 +7,6 @@ import sys
 import threading
 import time
 from datetime import datetime
-from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import alibabacloud_oss_v2 as oss
@@ -84,23 +83,22 @@ def parse_args(argv=None):
 
 
 def setup_logging():
-    # 设置日志文件名
-    log_file = "aliyun_oss_sync.log"
-    
-    # 创建一个logger
-    logger.setLevel(logging.INFO)  # 设置日志级别
+    """将日志输出到标准输出和标准错误。"""
+    logger.setLevel(logging.INFO)
 
-    # 创建一个RotatingFileHandler
-    # maxBytes=10*1024*1024 表示每个日志文件的最大大小为10MB
-    # backupCount=5 表示保留5个备份文件
-    handler = RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5)
-    
-    # 设置日志格式
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    
-    # 将handler添加到logger中
-    logger.addHandler(handler)
+
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setLevel(logging.INFO)
+    stdout_handler.addFilter(lambda record: record.levelno < logging.WARNING)
+    stdout_handler.setFormatter(formatter)
+
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setLevel(logging.WARNING)
+    stderr_handler.setFormatter(formatter)
+
+    logger.addHandler(stdout_handler)
+    logger.addHandler(stderr_handler)
     return logger
 
 
