@@ -8,35 +8,10 @@ import download_symbols
 
 
 class TestDownloadSymbolsDotenv(unittest.TestCase):
-    def test_loads_dotenv_without_overriding_process_environment(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            env_path = Path(temp_dir) / ".env"
-            env_path.write_text(
-                "\n".join(
-                    [
-                        "KPHTOOLS_XML=dotenv.xml",
-                        "KPHTOOLS_SYMBOLDIR='dotenv-symbols'",
-                        "KPHTOOLS_SYMBOL_SERVER=https://dotenv.invalid/symbols",
-                        "",
-                    ]
-                ),
-                encoding="utf-8",
-            )
-            environ = {"KPHTOOLS_XML": "process.xml"}
-
-            download_symbols._load_dotenv_file(env_path, environ)
-
-        self.assertEqual("process.xml", environ["KPHTOOLS_XML"])
-        self.assertEqual("dotenv-symbols", environ["KPHTOOLS_SYMBOLDIR"])
-        self.assertEqual(
-            "https://dotenv.invalid/symbols",
-            environ["KPHTOOLS_SYMBOL_SERVER"],
-        )
-
     def test_main_loads_dotenv_before_parsing_arguments(self) -> None:
         events = []
 
-        def load_dotenv():
+        def load_dotenv(**_kwargs):
             events.append("dotenv")
 
         def parse_arguments():
@@ -44,13 +19,17 @@ class TestDownloadSymbolsDotenv(unittest.TestCase):
             raise RuntimeError("stop after argument parsing")
 
         with (
-            patch.object(download_symbols, "_load_dotenv_file", side_effect=load_dotenv),
+            patch.object(download_symbols, "load_dotenv", side_effect=load_dotenv) as dotenv_loader,
             patch.object(download_symbols, "parse_args", side_effect=parse_arguments),
             self.assertRaisesRegex(RuntimeError, "stop after argument parsing"),
         ):
             download_symbols.main()
 
         self.assertEqual(["dotenv", "arguments"], events)
+        dotenv_loader.assert_called_once_with(
+            dotenv_path=Path(download_symbols.__file__).resolve().with_name(".env"),
+            override=False,
+        )
 
 
 class TestDownloadSymbolsParseArgs(unittest.TestCase):

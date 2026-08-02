@@ -30,30 +30,10 @@ HASH_XML_TEXT = """
 
 
 class TestUpdateSymbolsDotenv(unittest.TestCase):
-    def test_loads_dotenv_without_overriding_process_environment(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            env_path = Path(temp_dir) / ".env"
-            env_path.write_text(
-                "\n".join(
-                    [
-                        "KPHTOOLS_XML=dotenv.xml",
-                        "KPHTOOLS_SYMBOLDIR='dotenv-symbols'",
-                        "",
-                    ]
-                ),
-                encoding="utf-8",
-            )
-            environ = {"KPHTOOLS_XML": "process.xml"}
-
-            update_symbols._load_dotenv_file(env_path, environ)
-
-        self.assertEqual("process.xml", environ["KPHTOOLS_XML"])
-        self.assertEqual("dotenv-symbols", environ["KPHTOOLS_SYMBOLDIR"])
-
     def test_main_loads_dotenv_before_parsing_arguments(self) -> None:
         events = []
 
-        def load_dotenv():
+        def load_dotenv(**_kwargs):
             events.append("dotenv")
 
         def parse_arguments(argv):
@@ -61,13 +41,17 @@ class TestUpdateSymbolsDotenv(unittest.TestCase):
             raise RuntimeError("stop after argument parsing")
 
         with (
-            patch.object(update_symbols, "_load_dotenv_file", side_effect=load_dotenv),
+            patch.object(update_symbols, "load_dotenv", side_effect=load_dotenv) as dotenv_loader,
             patch.object(update_symbols, "parse_args", side_effect=parse_arguments),
             self.assertRaisesRegex(RuntimeError, "stop after argument parsing"),
         ):
             update_symbols.main([])
 
         self.assertEqual(["dotenv", "arguments"], events)
+        dotenv_loader.assert_called_once_with(
+            dotenv_path=Path(update_symbols.__file__).resolve().with_name(".env"),
+            override=False,
+        )
 
 
 class TestUpdateSymbols(unittest.TestCase):

@@ -46,6 +46,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
+
 from ida_mcp_session import (
     McpConnectionError,
     McpContractError,
@@ -650,6 +652,7 @@ async def run_reference_generation(
 
 
 def main(argv: list[str] | None = None) -> int:
+    load_dotenv(dotenv_path=Path(__file__).resolve().with_name(".env"), override=False)
     try:
         args = parse_args(argv)
         output_path = asyncio.run(run_reference_generation(args))

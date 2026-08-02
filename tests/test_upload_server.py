@@ -467,28 +467,10 @@ class FakeLiefCertificate:
 
 
 class TestDotenvLoading(unittest.TestCase):
-    def test_loads_dotenv_without_overriding_process_environment(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            env_path = Path(temp_dir) / ".env"
-            env_path.write_text(
-                "# Server configuration\n"
-                "KPHTOOLS_SERVER_STORAGE=oss\n"
-                "KPHTOOLS_SERVER_OSS_REGION='cn-hangzhou'\n"
-                "KPHTOOLS_SERVER_PORT=9000\n",
-                encoding="utf-8",
-            )
-            environ = {"KPHTOOLS_SERVER_PORT": "8000"}
-
-            upload_server._load_dotenv_file(env_path, environ)
-
-        self.assertEqual("oss", environ["KPHTOOLS_SERVER_STORAGE"])
-        self.assertEqual("cn-hangzhou", environ["KPHTOOLS_SERVER_OSS_REGION"])
-        self.assertEqual("8000", environ["KPHTOOLS_SERVER_PORT"])
-
     def test_main_loads_dotenv_before_parsing_arguments(self):
         events = []
 
-        def load_dotenv():
+        def load_dotenv(**_kwargs):
             events.append("dotenv")
 
         def parse_arguments():
@@ -496,17 +478,21 @@ class TestDotenvLoading(unittest.TestCase):
             raise RuntimeError("stop after argument parsing")
 
         with (
-            patch.object(upload_server, "_load_dotenv_file", side_effect=load_dotenv),
+            patch.object(upload_server, "load_dotenv", side_effect=load_dotenv) as dotenv_loader,
             patch.object(upload_server, "parse_args", side_effect=parse_arguments),
             self.assertRaisesRegex(RuntimeError, "stop after argument parsing"),
         ):
             upload_server.main()
 
         self.assertEqual(["dotenv", "arguments"], events)
+        dotenv_loader.assert_called_once_with(
+            dotenv_path=Path(upload_server.__file__).resolve().with_name(".env"),
+            override=False,
+        )
 
     def test_main_stops_before_storage_when_ca_preflight_fails(self):
         with (
-            patch.object(upload_server, "_load_dotenv_file"),
+            patch.object(upload_server, "load_dotenv"),
             patch.object(
                 upload_server,
                 "parse_args",

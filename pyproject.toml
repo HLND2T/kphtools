@@ -14,6 +14,7 @@ dependencies = [
     "mcp",
     "openai",
     "pefile",
+    "python-dotenv",
     "pyyaml",
     "requests",
     "watchdog>=6.0.0",

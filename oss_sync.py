@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 import alibabacloud_oss_v2 as oss
+from dotenv import load_dotenv
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
@@ -357,7 +358,6 @@ class OSSSync:
                 oss_file = oss_files[rel_path]
                 if (
                     local_file['size'] != oss_file['size']
-                    or local_file['mtime'] < oss_file['mtime']
                     or get_local_hash(rel_path) != oss_file['hash']
                 ):
                     self._download_file(rel_path)
@@ -608,6 +608,7 @@ class SyncEventHandler(FileSystemEventHandler):
 
 
 def main():
+    load_dotenv(dotenv_path=Path(__file__).resolve().with_name('.env'), override=False)
     setup_logging()
     args = parse_args()
     observer_list = []

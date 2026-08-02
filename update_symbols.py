@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 import xml.etree.ElementTree as ET
 
+from dotenv import load_dotenv
 import pefile
 
 from symbol_artifacts import load_artifact
@@ -38,34 +39,6 @@ from symbol_config import load_config
 
 DEFAULT_XML_PATH = "kphdyn.xml"
 DEFAULT_SYMBOL_DIR = "symbols"
-
-
-def _load_dotenv_file(path=None, environ=None):
-    """Load environment variables from .env without overriding existing values."""
-    environ = os.environ if environ is None else environ
-    env_path = (
-        Path(path) if path is not None else Path(__file__).resolve().with_name(".env")
-    )
-    if not env_path.is_file():
-        return
-
-    try:
-        lines = env_path.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return
-
-    for raw_line in lines:
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        if not key or key in environ:
-            continue
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
-            value = value[1:-1]
-        environ[key] = value
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -533,7 +506,7 @@ def syncfile_main(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    _load_dotenv_file()
+    load_dotenv(dotenv_path=Path(__file__).resolve().with_name(".env"), override=False)
     args = parse_args(argv)
     if args.syncfile:
         return syncfile_main(args)

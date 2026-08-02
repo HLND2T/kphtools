@@ -51,6 +51,8 @@ from pathlib import Path
 from typing import Protocol
 from urllib.parse import parse_qs, urlparse
 
+from dotenv import load_dotenv
+
 try:
     import lief
     import pefile
@@ -340,34 +342,6 @@ class OssStorage:
             self._raise_storage_error("put_object", error)
 
         return (True, "File uploaded successfully", 200)
-
-
-def _load_dotenv_file(path=None, environ=None):
-    """Load environment variables from .env without overriding existing values."""
-    environ = os.environ if environ is None else environ
-    env_path = (
-        Path(path) if path is not None else Path(__file__).resolve().with_name(".env")
-    )
-    if not env_path.is_file():
-        return
-
-    try:
-        lines = env_path.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return
-
-    for raw_line in lines:
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        if not key or key in environ:
-            continue
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
-            value = value[1:-1]
-        environ[key] = value
 
 
 def get_storage_mode(environ=None):
@@ -2245,7 +2219,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
 
 def main():
     """Main entry point."""
-    _load_dotenv_file()
+    load_dotenv(dotenv_path=Path(__file__).resolve().with_name(".env"), override=False)
     args = parse_args()
 
     try:

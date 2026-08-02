@@ -180,36 +180,28 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertEqual("opencode.cmd", args.agent)
         self.assertEqual("openai/gpt-5.4", args.agent_model)
 
-    def test_parse_args_uses_dotenv_file_when_present(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            cwd = os.getcwd()
-            try:
-                os.chdir(temp_dir)
-                Path(".env").write_text(
-                    "\n".join(
-                        [
-                            "KPHTOOLS_LLM_MODEL=dotenv-model",
-                            "KPHTOOLS_LLM_APIKEY=dotenv-key",
-                            "KPHTOOLS_LLM_BASEURL=https://dotenv.invalid/v1",
-                            "KPHTOOLS_LLM_TEMPERATURE=0.7",
-                            "KPHTOOLS_LLM_EFFORT=medium",
-                            "KPHTOOLS_LLM_FAKE_AS=codex",
-                            "",
-                        ]
-                    ),
-                    encoding="utf-8",
-                )
-                with patch.dict(os.environ, {}, clear=True):
-                    args = dump_symbols.parse_args([])
-            finally:
-                os.chdir(cwd)
+    def test_main_loads_dotenv_before_parsing_arguments(self) -> None:
+        events = []
 
-        self.assertEqual("dotenv-model", args.llm_model)
-        self.assertEqual("dotenv-key", args.llm_apikey)
-        self.assertEqual("https://dotenv.invalid/v1", args.llm_baseurl)
-        self.assertEqual(0.7, args.llm_temperature)
-        self.assertEqual("medium", args.llm_effort)
-        self.assertEqual("codex", args.llm_fake_as)
+        def load_dotenv(**_kwargs):
+            events.append("dotenv")
+
+        def parse_arguments(_argv):
+            events.append("arguments")
+            raise RuntimeError("stop after argument parsing")
+
+        with (
+            patch.object(dump_symbols, "load_dotenv", side_effect=load_dotenv) as dotenv_loader,
+            patch.object(dump_symbols, "parse_args", side_effect=parse_arguments),
+            self.assertRaisesRegex(RuntimeError, "stop after argument parsing"),
+        ):
+            dump_symbols.main([])
+
+        self.assertEqual(["dotenv", "arguments"], events)
+        dotenv_loader.assert_called_once_with(
+            dotenv_path=Path(dump_symbols.__file__).resolve().with_name(".env"),
+            override=False,
+        )
 
     def test_process_binary_falls_back_to_agent_after_preprocess_failure(self) -> None:
         with TemporaryDirectory() as temp_dir:

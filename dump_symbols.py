@@ -32,6 +32,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
+
 from agent_runner import DEFAULT_AGENT_MODEL, run_skill
 from ida_mcp_session import McpDatabaseUnavailableError, open_ida_mcp_session
 from ida_skill_preprocessor import (
@@ -417,30 +419,6 @@ def _parse_tool_json_content(result) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
-def _load_dotenv_file(path: str | Path = ".env") -> None:
-    env_path = Path(path)
-    if not env_path.is_file():
-        return
-
-    try:
-        lines = env_path.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return
-
-    for raw_line in lines:
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        if not key or key in os.environ:
-            continue
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
-            value = value[1:-1]
-        os.environ[key] = value
-
-
 def _parse_optional_float(value: Any) -> float | None:
     if value is None:
         return None
@@ -510,7 +488,6 @@ def _parse_py_eval_result_json(result) -> dict[str, Any] | None:
 
 
 def parse_args(argv=None):
-    _load_dotenv_file()
     parser = argparse.ArgumentParser(
         description="Dump kphtools symbols into YAML artifacts",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -1146,6 +1123,7 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
 
 
 def main(argv=None):
+    load_dotenv(dotenv_path=Path(__file__).resolve().with_name(".env"), override=False)
     args = parse_args(argv)
     arches = getattr(args, "arches", _parse_arches(args.arch))
     config = load_config(args.configyaml)

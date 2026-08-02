@@ -150,6 +150,7 @@ class TestOneShotSync(unittest.TestCase):
     def test_main_exits_zero_without_starting_watchers_when_synchronized(self):
         args = Mock(direction="local2oss", once=True)
         with (
+            patch.object(oss_sync_module, "load_dotenv") as dotenv_loader,
             patch.object(oss_sync_module, "setup_logging"),
             patch.object(oss_sync_module, "parse_args", return_value=args),
             patch.object(
@@ -166,6 +167,10 @@ class TestOneShotSync(unittest.TestCase):
             exit_code = oss_sync_module.main()
 
         self.assertEqual(0, exit_code)
+        dotenv_loader.assert_called_once_with(
+            dotenv_path=Path(oss_sync_module.__file__).resolve().with_name(".env"),
+            override=False,
+        )
         sync_client.initial_sync.assert_called_once_with()
         sync_client.is_synchronized.assert_called_once_with()
         sync_client.start_continuous_sync.assert_not_called()

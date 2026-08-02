@@ -30,6 +30,33 @@ def _make_py_eval_result(payload: dict) -> object:
 
 
 class TestGenerateReferenceYaml(unittest.TestCase):
+    def test_main_loads_dotenv_before_parsing_arguments(self) -> None:
+        events = []
+
+        def load_dotenv(**_kwargs):
+            events.append("dotenv")
+
+        def parse_arguments(_argv):
+            events.append("arguments")
+            raise RuntimeError("stop after argument parsing")
+
+        with (
+            patch.object(
+                generate_reference_yaml,
+                "load_dotenv",
+                side_effect=load_dotenv,
+            ) as dotenv_loader,
+            patch.object(generate_reference_yaml, "parse_args", side_effect=parse_arguments),
+            self.assertRaisesRegex(RuntimeError, "stop after argument parsing"),
+        ):
+            generate_reference_yaml.main([])
+
+        self.assertEqual(["dotenv", "arguments"], events)
+        dotenv_loader.assert_called_once_with(
+            dotenv_path=Path(generate_reference_yaml.__file__).resolve().with_name(".env"),
+            override=False,
+        )
+
     def test_parse_args_rejects_auto_start_mcp_without_binary(self) -> None:
         with self.assertRaises(SystemExit):
             generate_reference_yaml.parse_args(
