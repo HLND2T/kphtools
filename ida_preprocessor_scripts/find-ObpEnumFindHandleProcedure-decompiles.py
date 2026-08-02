@@ -18,7 +18,7 @@ LLM_DECOMPILE = [
     },
     {
         "symbol_name": "ObDecodeShift",
-        "prompt_path": "prompt/call_llm_decompile.md",
+        "prompt_path": "prompt/call_llm_decompile_ob_decode_shift.md",
         "reference_yaml_paths": [
             "references/ntoskrnl/ObpEnumFindHandleProcedure.{arch}.yaml",
         ],
