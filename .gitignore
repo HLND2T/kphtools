@@ -1,6 +1,7 @@
 settings.local.json
 .venv
 .env
+.codex/skills
 .ruff_cache
 .pytest_cache
 __pycache__

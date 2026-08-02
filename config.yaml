@@ -362,6 +362,17 @@ modules:
         expected_output:
           - MmPurgeSection.yaml
 
+      - name: find-ExpGetSystemFirmwareTableInformation
+        expected_output:
+          - ExpGetSystemFirmwareTableInformation.yaml
+
+      - name: find-ExpGetSystemFirmwareTableInformation-decompiles
+        expected_output:
+          - ExpFirmwareTableResource.yaml
+          - ExpFirmwareTableProviderListHead.yaml
+        expected_input:
+          - ExpGetSystemFirmwareTableInformation.yaml
+
       - name: find-MiCheckControlArea
         expected_input:
           - MmPurgeSection.yaml
@@ -535,4 +546,10 @@ modules:
         data_type: uint32
       - name: CmpEnumerateCallback
         category: func
+        data_type: uint32
+      - name: ExpFirmwareTableResource
+        category: gv
+        data_type: uint32
+      - name: ExpFirmwareTableProviderListHead
+        category: gv
         data_type: uint32

@@ -1,0 +1,297 @@
+func_name: ExpGetSystemFirmwareTableInformation
+func_va: '0x140ad63fc'
+disasm_code: |-
+  PAGE:0000000140AD63FC                 push    rbx
+  PAGE:0000000140AD63FE                 push    rsi
+  PAGE:0000000140AD63FF                 push    rdi
+  PAGE:0000000140AD6400                 push    r12
+  PAGE:0000000140AD6402                 push    r13
+  PAGE:0000000140AD6404                 push    r14
+  PAGE:0000000140AD6406                 push    r15
+  PAGE:0000000140AD6408                 sub     rsp, 80h
+  PAGE:0000000140AD640F                 mov     rax, cs:__security_cookie
+  PAGE:0000000140AD6416                 xor     rax, rsp
+  PAGE:0000000140AD6419                 mov     [rsp+0B8h+var_48], rax
+  PAGE:0000000140AD641E                 mov     r12, r9
+  PAGE:0000000140AD6421                 mov     r14d, r8d
+  PAGE:0000000140AD6424                 mov     r13b, dl
+  PAGE:0000000140AD6427                 mov     r15, rcx
+  PAGE:0000000140AD642A                 xor     ebx, ebx
+  PAGE:0000000140AD642C                 mov     [rsp+0B8h+var_88], rbx
+  PAGE:0000000140AD6431                 cmp     r8d, 10h
+  PAGE:0000000140AD6435                 jb      loc_140AD6551
+  PAGE:0000000140AD643B                 test    dl, dl
+  PAGE:0000000140AD643D                 jnz     loc_140AD6562
+  PAGE:0000000140AD6443                 mov     rsi, rcx
+  PAGE:0000000140AD6446                 xor     edi, edi
+  PAGE:0000000140AD6448                 lea     eax, [r14-10h]
+  PAGE:0000000140AD644C                 mov     [rsi+0Ch], eax
+  PAGE:0000000140AD644F                 mov     rcx, gs:188h
+  PAGE:0000000140AD6458                 movzx   eax, word ptr [rcx+1E4h]
+  PAGE:0000000140AD645F                 dec     ax
+  PAGE:0000000140AD6462                 mov     [rcx+1E4h], ax
+  PAGE:0000000140AD6469                 ; Wait
+  PAGE:0000000140AD6469                 mov     dl, 1; Wait
+  PAGE:0000000140AD646B                 ; Resource
+  PAGE:0000000140AD646B                 lea     rcx, ExpKeyManipLock.___u56+8; Resource; TARGET GV: ExpFirmwareTableResource
+  PAGE:0000000140AD6472                 call    ExAcquireResourceSharedLite
+  PAGE:0000000140AD6477                 xor     r14d, r14d
+  PAGE:0000000140AD647A                 mov     rcx, cs:ExpKeyManipLock.ThreadListEntry.Blink ; TARGET GV: ExpFirmwareTableProviderListHead
+  PAGE:0000000140AD6481                 add     rcx, 0FFFFFFFFFFFFFFE8h
+  PAGE:0000000140AD6485                 lea     rdx, [rcx+18h]
+  PAGE:0000000140AD6489                 lea     rax, ExpKeyManipLock.ThreadListEntry.Blink ; TARGET GV: ExpFirmwareTableProviderListHead
+  PAGE:0000000140AD6490                 cmp     rax, rdx
+  PAGE:0000000140AD6493                 jz      short loc_140AD64A3
+  PAGE:0000000140AD6495                 mov     eax, [rsi]
+  PAGE:0000000140AD6497                 cmp     [rcx], eax
+  PAGE:0000000140AD6499                 jnz     loc_140AD6590
+  PAGE:0000000140AD649F                 mov     r14, [rcx+8]
+  PAGE:0000000140AD64A3                 test    r14, r14
+  PAGE:0000000140AD64A6                 jnz     loc_140AD659C
+  PAGE:0000000140AD64AC                 ; Resource
+  PAGE:0000000140AD64AC                 lea     rcx, ExpKeyManipLock.___u56+8; Resource; TARGET GV: ExpFirmwareTableResource
+  PAGE:0000000140AD64B3                 call    ExReleaseResourceLite
+  PAGE:0000000140AD64B8                 call    KeLeaveCriticalRegion
+  PAGE:0000000140AD64BD                 test    r14, r14
+  PAGE:0000000140AD64C0                 jnz     short loc_140AD64F3
+  PAGE:0000000140AD64C2                 mov     edi, 0C0000002h
+  PAGE:0000000140AD64C7                 test    rbx, rbx
+  PAGE:0000000140AD64CA                 jnz     loc_140AD65B3
+  PAGE:0000000140AD64D0                 mov     eax, edi
+  PAGE:0000000140AD64D2                 mov     rcx, [rsp+0B8h+var_48]
+  PAGE:0000000140AD64D7                 ; StackCookie
+  PAGE:0000000140AD64D7                 xor     rcx, rsp; StackCookie
+  PAGE:0000000140AD64DA                 call    __security_check_cookie
+  PAGE:0000000140AD64DF                 add     rsp, 80h
+  PAGE:0000000140AD64E6                 pop     r15
+  PAGE:0000000140AD64E8                 pop     r14
+  PAGE:0000000140AD64EA                 pop     r13
+  PAGE:0000000140AD64EC                 pop     r12
+  PAGE:0000000140AD64EE                 pop     rdi
+  PAGE:0000000140AD64EF                 pop     rsi
+  PAGE:0000000140AD64F0                 pop     rbx
+  PAGE:0000000140AD64F1                 retn
+  PAGE:0000000140AD64F3                 test    r13b, r13b
+  PAGE:0000000140AD64F6                 jz      loc_140AD65AE
+  PAGE:0000000140AD64FC                 test    edi, edi
+  PAGE:0000000140AD64FE                 jns     short loc_140AD6524
+  PAGE:0000000140AD6500                 mov     ecx, 80000000h
+  PAGE:0000000140AD6505                 lea     eax, [rdi+rcx]
+  PAGE:0000000140AD6508                 test    ecx, eax
+  PAGE:0000000140AD650A                 jz      short loc_140AD651A
+  PAGE:0000000140AD650C                 lea     rcx, [r15+0Ch]
+  PAGE:0000000140AD6510                 mov     edx, [rbx+0Ch]
+  PAGE:0000000140AD6513                 call    RtlWriteULongToUser
+  PAGE:0000000140AD6518                 jmp     short loc_140AD6537
+  PAGE:0000000140AD651A                 cmp     edi, 0C0000023h
+  PAGE:0000000140AD6520                 jz      short loc_140AD650C
+  PAGE:0000000140AD6522                 jmp     short loc_140AD6537
+  PAGE:0000000140AD6524                 ; Size
+  PAGE:0000000140AD6524                 mov     r8d, [rbx+0Ch]; Size
+  PAGE:0000000140AD6528                 ; Src
+  PAGE:0000000140AD6528                 lea     rdx, [rbx+10h]; Src
+  PAGE:0000000140AD652C                 ; void *
+  PAGE:0000000140AD652C                 lea     rcx, [r15+10h]; void *
+  PAGE:0000000140AD6530                 call    RtlCopyToUser
+  PAGE:0000000140AD6535                 jmp     short loc_140AD6500
+  PAGE:0000000140AD6537                 jmp     short loc_140AD6542
+  PAGE:0000000140AD6539                 mov     edi, eax
+  PAGE:0000000140AD653B                 mov     rbx, [rsp+0B8h+var_88]
+  PAGE:0000000140AD6540                 jmp     short loc_140AD64C7
+  PAGE:0000000140AD6542                 mov     eax, [rbx+0Ch]
+  PAGE:0000000140AD6545                 add     eax, 10h
+  PAGE:0000000140AD6548                 mov     [r12], eax
+  PAGE:0000000140AD654C                 jmp     loc_140AD64C7
+  PAGE:0000000140AD6551                 mov     dword ptr [r9], 10h
+  PAGE:0000000140AD6558                 mov     edi, 0C0000004h
+  PAGE:0000000140AD655D                 jmp     loc_140AD64C7
+  PAGE:0000000140AD6562                 mov     r8d, 54465241h
+  PAGE:0000000140AD6568                 mov     rdx, r14
+  PAGE:0000000140AD656B                 mov     ecx, 101h
+  PAGE:0000000140AD6570                 call    ExAllocatePool2
+  PAGE:0000000140AD6575                 mov     rbx, rax
+  PAGE:0000000140AD6578                 mov     [rsp+0B8h+var_88], rax
+  PAGE:0000000140AD657D                 test    rax, rax
+  PAGE:0000000140AD6580                 jnz     loc_140B9545C
+  PAGE:0000000140AD6586                 mov     edi, 0C000009Ah
+  PAGE:0000000140AD658B                 jmp     loc_140AD64C7
+  PAGE:0000000140AD6590                 mov     rcx, [rdx]
+  PAGE:0000000140AD6593                 sub     rcx, 18h
+  PAGE:0000000140AD6597                 jmp     loc_140AD6485
+  PAGE:0000000140AD659C                 mov     rcx, rsi
+  PAGE:0000000140AD659F                 mov     rax, r14
+  PAGE:0000000140AD65A2                 call    _guard_dispatch_icall_no_overrides
+  PAGE:0000000140AD65A7                 mov     edi, eax
+  PAGE:0000000140AD65A9                 jmp     loc_140AD64AC
+  PAGE:0000000140AD65AE                 mov     eax, [rsi+0Ch]
+  PAGE:0000000140AD65B1                 jmp     short loc_140AD6545
+  PAGE:0000000140AD65B3                 ; Tag
+  PAGE:0000000140AD65B3                 mov     edx, 54465241h; Tag
+  PAGE:0000000140AD65B8                 ; P
+  PAGE:0000000140AD65B8                 mov     rcx, rbx; P
+  PAGE:0000000140AD65BB                 call    ExFreePoolWithTag
+  PAGE:0000000140AD65C0                 jmp     loc_140AD64D0
+  PAGE:0000000140B63F5C                 push    rbp
+  PAGE:0000000140B63F5E                 sub     rsp, 30h
+  PAGE:0000000140B63F62                 mov     rbp, rdx
+  PAGE:0000000140B63F65                 mov     dword ptr [rbp+38h], 1
+  PAGE:0000000140B63F6C                 mov     eax, [rbp+38h]
+  PAGE:0000000140B63F6F                 add     rsp, 30h
+  PAGE:0000000140B63F73                 pop     rbp
+  PAGE:0000000140B63F74                 retn
+  PAGE:0000000140B63F76                 push    rbp
+  PAGE:0000000140B63F78                 sub     rsp, 30h
+  PAGE:0000000140B63F7C                 mov     rbp, rdx
+  PAGE:0000000140B63F7F                 mov     dword ptr [rbp+3Ch], 1
+  PAGE:0000000140B63F86                 mov     eax, [rbp+3Ch]
+  PAGE:0000000140B63F89                 add     rsp, 30h
+  PAGE:0000000140B63F8D                 pop     rbp
+  PAGE:0000000140B63F8E                 retn
+  PAGE:0000000140B9545C                 ; Size
+  PAGE:0000000140B9545C                 mov     r8, r14; Size
+  PAGE:0000000140B9545F                 ; Src
+  PAGE:0000000140B9545F                 mov     rdx, r15; Src
+  PAGE:0000000140B95462                 ; void *
+  PAGE:0000000140B95462                 mov     rcx, rbx; void *
+  PAGE:0000000140B95465                 call    RtlCopyFromUser
+  PAGE:0000000140B9546A                 jmp     short loc_140B95478
+  PAGE:0000000140B9546C                 mov     edi, eax
+  PAGE:0000000140B9546E                 mov     rbx, [rsp+0B8h+var_88]
+  PAGE:0000000140B95473                 jmp     loc_140AD64C7
+  PAGE:0000000140B95478                 mov     rsi, rbx
+  PAGE:0000000140B9547B                 mov     rcx, gs:188h
+  PAGE:0000000140B95484                 mov     rcx, [rcx+0B8h]
+  PAGE:0000000140B9548B                 call    PsIsProcessAppContainer
+  PAGE:0000000140B95490                 test    al, al
+  PAGE:0000000140B95492                 jz      loc_140AD6446
+  PAGE:0000000140B95498                 cmp     dword ptr [rbx], 52534D42h
+  PAGE:0000000140B9549E                 jnz     short loc_140B954AF
+  PAGE:0000000140B954A0                 xor     ecx, ecx
+  PAGE:0000000140B954A2                 call    ExpFirmwareAccessAppContainerCheck
+  PAGE:0000000140B954A7                 test    al, al
+  PAGE:0000000140B954A9                 jnz     loc_140AD6446
+  PAGE:0000000140B954AF                 mov     edi, 0C0000022h
+  PAGE:0000000140B954B4                 mov     eax, cs:dword_140E0A3D8
+  PAGE:0000000140B954BA                 cmp     eax, 5
+  PAGE:0000000140B954BD                 jbe     loc_140AD64C7
+  PAGE:0000000140B954C3                 mov     rdx, 200000000000h
+  PAGE:0000000140B954CD                 lea     rcx, dword_140E0A3D8
+  PAGE:0000000140B954D4                 call    _tlgKeywordOn
+  PAGE:0000000140B954D9                 test    al, al
+  PAGE:0000000140B954DB                 jz      loc_140AD64C7
+  PAGE:0000000140B954E1                 mov     eax, [rbx]
+  PAGE:0000000140B954E3                 mov     dword ptr [rsp+0B8h+var_88], eax
+  PAGE:0000000140B954E7                 lea     rax, [rsp+0B8h+var_88]
+  PAGE:0000000140B954EC                 mov     [rsp+0B8h+var_58], rax
+  PAGE:0000000140B954F1                 mov     [rsp+0B8h+var_50], 4
+  PAGE:0000000140B954FA                 lea     rax, [rsp+0B8h+var_78]
+  PAGE:0000000140B954FF                 mov     [rsp+0B8h+var_90], rax
+  PAGE:0000000140B95504                 mov     [rsp+0B8h+var_98], 3
+  PAGE:0000000140B9550C                 xor     r9d, r9d
+  PAGE:0000000140B9550F                 xor     r8d, r8d
+  PAGE:0000000140B95512                 lea     rdx, word_14005673A
+  PAGE:0000000140B95519                 lea     rcx, dword_140E0A3D8
+  PAGE:0000000140B95520                 call    _tlgWriteTransfer_EtwWriteTransfer
+  PAGE:0000000140B95525                 nop
+  PAGE:0000000140B95526                 jmp     loc_140AD64C7
+procedure: |-
+  __int64 __fastcall ExpGetSystemFirmwareTableInformation(char *Src, char a2, unsigned int a3, _DWORD *a4)
+  {
+    size_t v5; // r14
+    _DWORD *v8; // rbx
+    _DWORD *v9; // rsi
+    int v10; // edi
+    struct _KTHREAD *CurrentThread; // rcx
+    struct _LIST_ENTRY *v12; // r14
+    struct _LIST_ENTRY **i; // rcx
+    int v15; // eax
+    _DWORD *Pool2; // rax
+    _DWORD *v17; // [rsp+30h] [rbp-88h] BYREF
+    char v18[32]; // [rsp+40h] [rbp-78h] BYREF
+    _QWORD *v19; // [rsp+60h] [rbp-58h]
+    __int64 v20; // [rsp+68h] [rbp-50h]
+
+    v5 = a3;
+    v8 = nullptr;
+    v17 = nullptr;
+    if ( a3 < 0x10 )
+    {
+      *a4 = 16;
+      v10 = -1073741820;
+      goto LABEL_12;
+    }
+    if ( a2 )
+    {
+      Pool2 = (_DWORD *)ExAllocatePool2(257, a3, 1413894721);
+      v8 = Pool2;
+      v17 = Pool2;
+      if ( !Pool2 )
+      {
+        v10 = -1073741670;
+        goto LABEL_12;
+      }
+      RtlCopyFromUser(Pool2, Src, v5);
+      v9 = v8;
+      if ( (unsigned __int8)PsIsProcessAppContainer(KeGetCurrentThread()->ApcState.Process)
+        && (*v8 != 1381190978 || !(unsigned __int8)ExpFirmwareAccessAppContainerCheck(0)) )
+      {
+        v10 = -1073741790;
+        if ( (unsigned int)dword_140E0A3D8 > 5 && (unsigned __int8)tlgKeywordOn(&dword_140E0A3D8, 0x200000000000LL) )
+        {
+          LODWORD(v17) = *v8;
+          v19 = &v17;
+          v20 = 4;
+          tlgWriteTransfer_EtwWriteTransfer(&dword_140E0A3D8, word_14005673A, 0, 0, 3, v18, v17);
+        }
+        goto LABEL_12;
+      }
+    }
+    else
+    {
+      v9 = Src;
+    }
+    v10 = 0;
+    v9[3] = v5 - 16;
+    CurrentThread = KeGetCurrentThread();
+    --CurrentThread->KernelApcDisable;
+    ExAcquireResourceSharedLite((PERESOURCE)&ExpKeyManipLock.SchedulerApcFill5[8], 1u); // TARGET GV: ExpFirmwareTableResource
+    v12 = nullptr;
+    for ( i = &ExpKeyManipLock.ThreadListEntry.Blink[-2].Blink; // TARGET GV: ExpFirmwareTableProviderListHead
+          &ExpKeyManipLock.ThreadListEntry.Blink != i + 3; // TARGET GV: ExpFirmwareTableProviderListHead
+          i = &i[3][-2].Blink )
+    {
+      if ( *(_DWORD *)i == *v9 )
+      {
+        v12 = i[1];
+        break;
+      }
+    }
+    if ( v12 )
+      v10 = guard_dispatch_icall_no_overrides(v9);
+    ExReleaseResourceLite((PERESOURCE)&ExpKeyManipLock.SchedulerApcFill5[8]); // TARGET GV: ExpFirmwareTableResource
+    KeLeaveCriticalRegion();
+    if ( v12 )
+    {
+      if ( a2 )
+      {
+        if ( v10 >= 0 )
+          RtlCopyToUser(Src + 16, v8 + 4, (unsigned int)v8[3]);
+        if ( (int)(v10 + 0x80000000) < 0 || v10 == -1073741789 )
+          RtlWriteULongToUser(Src + 12, (unsigned int)v8[3]);
+        v15 = v8[3];
+      }
+      else
+      {
+        v15 = v9[3];
+      }
+      *a4 = v15 + 16;
+    }
+    else
+    {
+      v10 = -1073741822;
+    }
+  LABEL_12:
+    if ( v8 )
+      ExFreePoolWithTag(v8, 0x54465241u);
+    return (unsigned int)v10;
+  }
