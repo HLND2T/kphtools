@@ -653,7 +653,7 @@ class TestIdaSkillPreprocessor(unittest.IsolatedAsyncioTestCase):
             status = await ida_skill_preprocessor.preprocess_single_skill_via_mcp(
                 session=AsyncMock(),
                 skill=SkillSpec(
-                    name="find-ObAttributesShift-AND-ObDecodeShift-AND-HtHandleContentionEvent",
+                    name="find-ObpEnumFindHandleProcedure-decompiles",
                     expected_output=[
                         "ObAttributesShift.yaml",
                         "ObDecodeShift.yaml",

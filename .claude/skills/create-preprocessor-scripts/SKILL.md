@@ -178,7 +178,7 @@ Examples:
 - Function (FUNC_XREFS, xref_unicode_strings + xref_signatures): `ida_preprocessor_scripts/find-AlpcpInitSystem.py`.
 - Single-symbol LLM_DECOMPILE struct offset: `ida_preprocessor_scripts/find-AlpcHandleTableLock.py` (ref: `AlpcAddHandleTableEntry`).
 - Merged LLM_DECOMPILE struct offsets (two targets, same ref): `ida_preprocessor_scripts/find-AlpcHandleTable-AND-AlpcPortContext.py` (ref: `AlpcpCreateClientPort`).
-- Merged LLM struct offsets: `ida_preprocessor_scripts/find-AlpcAttributes-AND-AlpcAttributesFlags-AND-AlpcCommunicationInfo-AND-AlpcOwnerProcess-AND-AlpcConnectionPort-AND-AlpcServerCommunicationPort-AND-AlpcClientCommunicationPort.py`.
+- Merged LLM struct offsets: `ida_preprocessor_scripts/find-AlpcpDeletePort-decompiles.py`.
 
 ### 3. Update config.yaml
 
