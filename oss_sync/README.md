@@ -1,14 +1,16 @@
 # OSS Sync
 
-## 两种上传模式
-- trigger 一次性同步 （未实现）
-- continue 持续同步，类似于服务
-## 参数说明
-- start 持续同步服务启动
-- stop 持续同步服务关闭
-- restart 持续同步服务重启/重新加载配置
-- status 持续同步服务状态查询
-- trigger 一次性同步（未实现）
+## 同步模式
+
+- 默认持续同步：完成初始同步后，持续监控本地文件变更；`oss2local` 和 `both` 还会按配置的间隔轮询 OSS。
+- `--once` 一次性同步：完成初始同步后，重新比对本地与 OSS 中未排除文件的路径、大小和内容哈希；验证完成后立即退出，不会启动文件监控或持续轮询。
+
+`--once` 的退出码：
+
+- `0`：本地与 OSS 中所有未排除文件完全一致。
+- `1`：仍存在内容、大小或文件集合差异，或同步过程中发生未处理错误。
+
+一次性模式不会删除本地或 OSS 中的多余文件。因此一端存在另一端没有的文件时，校验会以 `1` 退出；如需镜像删除，须使用其他明确的清理流程。
 
 ## 安装依赖
 
@@ -40,4 +42,10 @@ OSS 同步使用 `alibabacloud-oss-v2`，连接配置与 `upload_server.py` 使�
 uv run --env-file .env "oss_sync/oss_sync.py" --direction local2oss
 uv run --env-file .env "oss_sync/oss_sync.py" --direction oss2local
 uv run --env-file .env "oss_sync/oss_sync.py" --direction both
+```
+
+在 CI 或批处理任务中使用 `--once`，以同步结果决定进程退出码：
+
+```bash
+uv run --env-file .env "oss_sync/oss_sync.py" --direction local2oss --once
 ```
