@@ -1,0 +1,380 @@
+name: PR Self Runner Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, closed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kphtools-pr-self-runner-${{ github.repository }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    if: >-
+      github.event.action != 'closed' &&
+      github.repository == 'HLND2T/kphtools' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false
+    environment: win64
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 180
+    env:
+      PERSISTED_WORKSPACE: ${{ secrets.PERSISTED_WORKSPACE }}
+      KPHTOOLS_LLM_APIKEY: ${{ secrets.KPHTOOLS_LLM_APIKEY }}
+      KPHTOOLS_LLM_BASEURL: ${{ secrets.KPHTOOLS_LLM_BASEURL }}
+      KPHTOOLS_LLM_MODEL: ${{ secrets.KPHTOOLS_LLM_MODEL }}
+      KPHTOOLS_LLM_EFFORT: ${{ secrets.KPHTOOLS_LLM_EFFORT }}
+      KPHTOOLS_LLM_FAKE_AS: ${{ secrets.KPHTOOLS_LLM_FAKE_AS }}
+      KPHTOOLS_LLM_TEMPERATURE: ${{ secrets.KPHTOOLS_LLM_TEMPERATURE }}
+
+    steps:
+      - name: Prepare PR workspace variables
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $prNumber = "${{ github.event.pull_request.number }}"
+
+          if ($prNumber -notmatch '^\d+$') {
+            throw "Unable to determine a valid pull request number."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:RUNNER_WORKSPACE)) {
+            throw "RUNNER_WORKSPACE is not configured."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:PERSISTED_WORKSPACE)) {
+            throw "PERSISTED_WORKSPACE secret is not configured for the win64 environment."
+          }
+
+          $workspaceRoot = [IO.Path]::GetFullPath($env:RUNNER_WORKSPACE)
+          $workspaceName = "kphtools-pr-$prNumber"
+          $prWorkspace = [IO.Path]::GetFullPath((Join-Path $workspaceRoot $workspaceName))
+          $rootWithSeparator = $workspaceRoot.TrimEnd('\') + '\'
+
+          if ((Split-Path -Leaf $prWorkspace) -ne $workspaceName) {
+            throw "Resolved PR workspace leaf mismatch: $prWorkspace"
+          }
+          if (-not $prWorkspace.StartsWith($rootWithSeparator, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Resolved PR workspace is outside RUNNER_WORKSPACE: $prWorkspace"
+          }
+
+          "PR_NUMBER=$prNumber" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PR_WORKSPACE=$prWorkspace" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "WORKSPACE=$prWorkspace" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Checkout PR merge ref
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $workspaceRoot = [IO.Path]::GetFullPath($env:RUNNER_WORKSPACE)
+          $workspaceName = "kphtools-pr-$env:PR_NUMBER"
+          $prWorkspace = [IO.Path]::GetFullPath($env:PR_WORKSPACE)
+          $rootWithSeparator = $workspaceRoot.TrimEnd('\') + '\'
+
+          if ((Split-Path -Leaf $prWorkspace) -ne $workspaceName) {
+            throw "Refusing to clean unexpected workspace leaf: $prWorkspace"
+          }
+          if (-not $prWorkspace.StartsWith($rootWithSeparator, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Refusing to clean workspace outside RUNNER_WORKSPACE: $prWorkspace"
+          }
+
+          if (Test-Path -LiteralPath $prWorkspace) {
+            $workspaceItem = Get-Item -LiteralPath $prWorkspace -Force
+            if (-not $workspaceItem.PSIsContainer) {
+              throw "PR workspace exists but is not a directory: $prWorkspace"
+            }
+            if ($workspaceItem.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+              throw "Refusing to remove PR workspace because it is a reparse point: $prWorkspace"
+            }
+            Remove-Item -LiteralPath $prWorkspace -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $prWorkspace -Force | Out-Null
+
+          Set-Location $prWorkspace
+          $repoUrl = "https://github.com/${{ github.repository }}.git"
+          $mergeRef = "refs/pull/$env:PR_NUMBER/merge"
+          $localRef = "refs/remotes/origin/pr-$env:PR_NUMBER-merge"
+          $tokenBytes = [Text.Encoding]::ASCII.GetBytes("x-access-token:${{ github.token }}")
+          $basicAuth = [Convert]::ToBase64String($tokenBytes)
+          $authConfig = "http.https://github.com/.extraheader=AUTHORIZATION: basic $basicAuth"
+
+          git init
+          if ($LASTEXITCODE -ne 0) { throw "git init failed." }
+
+          git remote add origin $repoUrl
+          if ($LASTEXITCODE -ne 0) { throw "git remote add failed." }
+
+          git -c $authConfig fetch --prune origin ("+" + $mergeRef + ":" + $localRef)
+          if ($LASTEXITCODE -ne 0) { throw "git fetch $mergeRef failed." }
+
+          git checkout --detach $localRef
+          if ($LASTEXITCODE -ne 0) { throw "git checkout $localRef failed." }
+
+          git -c $authConfig submodule update --init --recursive
+          if ($LASTEXITCODE -ne 0) { throw "git submodule update failed." }
+
+      - name: Sync Python dependencies
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Set-Location $env:WORKSPACE
+          uv sync
+          if ($LASTEXITCODE -ne 0) { throw "uv sync failed." }
+
+      - name: Run complete unittest suite
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Set-Location $env:WORKSPACE
+          uv run python -m unittest discover -s tests -v
+          if ($LASTEXITCODE -ne 0) { throw "Complete unittest suite failed." }
+
+      - name: Download upstream kphdyn.xml
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Set-Location $env:WORKSPACE
+
+          $inputDirectory = Join-Path $env:WORKSPACE "output\pr-validation"
+          $inputXml = Join-Path $inputDirectory "kphdyn.official.xml"
+          New-Item -ItemType Directory -Path $inputDirectory -Force | Out-Null
+
+          Invoke-WebRequest `
+            -Uri "https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml" `
+            -OutFile $inputXml
+
+          if (-not (Test-Path -LiteralPath $inputXml -PathType Leaf)) {
+            throw "Downloaded upstream kphdyn.xml does not exist: $inputXml"
+          }
+          if ((Get-Item -LiteralPath $inputXml).Length -eq 0) {
+            throw "Downloaded upstream kphdyn.xml is empty: $inputXml"
+          }
+          try {
+            [xml](Get-Content -LiteralPath $inputXml -Raw) | Out-Null
+          } catch {
+            throw "Downloaded upstream kphdyn.xml is not valid XML: $($_.Exception.Message)"
+          }
+
+          "PR_INPUT_XML=$inputXml" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Copy isolated symbols without YAML artifacts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Set-Location $env:WORKSPACE
+
+          $version = "10.0.22621.3668"
+          $workspaceRoot = [IO.Path]::GetFullPath($env:WORKSPACE)
+          $workspacePrefix = $workspaceRoot.TrimEnd('\') + '\'
+          $persistedSymbolsRoot = [IO.Path]::GetFullPath((Join-Path $env:PERSISTED_WORKSPACE "symbols"))
+          $sourceVersionDirectory = [IO.Path]::GetFullPath(
+            (Join-Path $persistedSymbolsRoot "amd64\ntoskrnl.exe.$version")
+          )
+          $symbolsRoot = [IO.Path]::GetFullPath((Join-Path $workspaceRoot "symbols"))
+          $targetVersionDirectory = [IO.Path]::GetFullPath(
+            (Join-Path $symbolsRoot "amd64\ntoskrnl.exe.$version")
+          )
+
+          if (-not (Test-Path -LiteralPath $sourceVersionDirectory -PathType Container)) {
+            throw "Persisted symbol source does not exist: $sourceVersionDirectory"
+          }
+          if (-not $symbolsRoot.StartsWith($workspacePrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Resolved symbols root is outside PR workspace: $symbolsRoot"
+          }
+          if (-not $targetVersionDirectory.StartsWith(
+            $symbolsRoot.TrimEnd('\') + '\',
+            [StringComparison]::OrdinalIgnoreCase
+          )) {
+            throw "Resolved target version directory is outside PR symbols root: $targetVersionDirectory"
+          }
+
+          if (Test-Path -LiteralPath $symbolsRoot) {
+            $symbolsItem = Get-Item -LiteralPath $symbolsRoot -Force
+            if (-not $symbolsItem.PSIsContainer) {
+              throw "PR symbols path exists but is not a directory: $symbolsRoot"
+            }
+            if ($symbolsItem.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+              throw "PR symbols directory must be a real directory, not a link: $symbolsRoot"
+            }
+          } else {
+            New-Item -ItemType Directory -Path $symbolsRoot -Force | Out-Null
+          }
+
+          New-Item -ItemType Directory -Path $targetVersionDirectory -Force | Out-Null
+
+          $robocopyArgs = @(
+            $sourceVersionDirectory
+            $targetVersionDirectory
+            "/E"
+            "/COPY:DAT"
+            "/DCOPY:DAT"
+            "/R:2"
+            "/W:5"
+            "/XJ"
+            "/XF"
+            "*.yaml"
+          )
+          robocopy @robocopyArgs
+          $robocopyExitCode = $LASTEXITCODE
+          if ($robocopyExitCode -ge 8) {
+            throw "Failed to copy persisted symbols; robocopy exit code $robocopyExitCode"
+          }
+          $global:LASTEXITCODE = 0
+
+          $targetItem = Get-Item -LiteralPath $targetVersionDirectory -Force
+          if ($targetItem.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+            throw "Copied symbol version directory must not be a reparse point: $targetVersionDirectory"
+          }
+
+          $copiedReparsePoints = @(
+            Get-ChildItem -LiteralPath $targetVersionDirectory -Force -Recurse |
+              Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }
+          )
+          if ($copiedReparsePoints.Count -ne 0) {
+            throw "Copied symbol tree contains reparse points: $($copiedReparsePoints[0].FullName)"
+          }
+
+          $copiedYaml = @(Get-ChildItem -LiteralPath $targetVersionDirectory -Recurse -File -Filter "*.yaml")
+          if ($copiedYaml.Count -ne 0) {
+            throw "YAML artifacts were copied into the isolated PR symbol tree."
+          }
+
+          $copiedBinaries = @(
+            Get-ChildItem -LiteralPath $targetVersionDirectory -Recurse -File -Filter "ntoskrnl.exe"
+          )
+          if ($copiedBinaries.Count -eq 0) {
+            throw "No ntoskrnl.exe binary was copied for version $version."
+          }
+
+          Write-Host "Copied $($copiedBinaries.Count) ntoskrnl.exe binary directory/directories without YAML artifacts."
+
+      - name: Analyze symbols and dump YAML artifacts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Set-Location $env:WORKSPACE
+
+          $symbolsRoot = Join-Path $env:WORKSPACE "symbols"
+          $configYaml = Join-Path $env:WORKSPACE "config.yaml"
+          uv run python dump_symbols.py `
+            "-symboldir=$symbolsRoot" `
+            "-configyaml=$configYaml" `
+            "-arch=amd64" `
+            "-version=10.0.22621.3668" `
+            -debug
+          if ($LASTEXITCODE -ne 0) {
+            throw "Symbol analysis failed for amd64/10.0.22621.3668."
+          }
+
+          $generatedYaml = @(Get-ChildItem -LiteralPath $symbolsRoot -Recurse -File -Filter "*.yaml")
+          if ($generatedYaml.Count -eq 0) {
+            throw "Symbol analysis completed without generating YAML artifacts."
+          }
+          "PR_GENERATED_YAML_COUNT=$($generatedYaml.Count)" |
+            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Update candidate kphdyn.xml from YAML artifacts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Set-Location $env:WORKSPACE
+
+          $symbolsRoot = Join-Path $env:WORKSPACE "symbols"
+          $configYaml = Join-Path $env:WORKSPACE "config.yaml"
+          $candidateXml = Join-Path $env:WORKSPACE "output\pr-validation\kphdyn.candidate.xml"
+
+          uv run python update_symbols.py `
+            "-xml=$env:PR_INPUT_XML" `
+            "-symboldir=$symbolsRoot" `
+            "-configyaml=$configYaml" `
+            "-outxml=$candidateXml"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Candidate kphdyn.xml generation failed."
+          }
+          if (-not (Test-Path -LiteralPath $candidateXml -PathType Leaf)) {
+            throw "Candidate kphdyn.xml was not generated: $candidateXml"
+          }
+          if ((Get-Item -LiteralPath $candidateXml).Length -eq 0) {
+            throw "Candidate kphdyn.xml is empty: $candidateXml"
+          }
+          try {
+            [xml](Get-Content -LiteralPath $candidateXml -Raw) | Out-Null
+          } catch {
+            throw "Candidate kphdyn.xml is not valid XML: $($_.Exception.Message)"
+          }
+
+          "PR_CANDIDATE_XML=$candidateXml" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Write validation summary
+        if: always()
+        shell: pwsh
+        run: |
+          "## PR self-runner validation" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "- Result: ${{ job.status }}" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "- Workspace: ``$env:PR_WORKSPACE``" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "- Version: ``amd64/10.0.22621.3668``" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          if (-not [string]::IsNullOrWhiteSpace($env:PR_GENERATED_YAML_COUNT)) {
+            "- Generated YAML artifacts: $env:PR_GENERATED_YAML_COUNT" |
+              Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          }
+          if (-not [string]::IsNullOrWhiteSpace($env:PR_CANDIDATE_XML)) {
+            "- Candidate XML: ``$env:PR_CANDIDATE_XML``" |
+              Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          }
+
+  finalize-pr-workspace:
+    if: >-
+      github.event.action == 'closed' &&
+      github.repository == 'HLND2T/kphtools' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    environment: win64
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 15
+    steps:
+      - name: Finalize PR workspace
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $prNumber = "${{ github.event.pull_request.number }}"
+          $prWasMerged = "${{ github.event.pull_request.merged }}"
+
+          if ($prNumber -notmatch '^\d+$') {
+            throw "Unable to determine a valid pull request number."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:RUNNER_WORKSPACE)) {
+            throw "RUNNER_WORKSPACE is not configured."
+          }
+
+          $workspaceRoot = [IO.Path]::GetFullPath($env:RUNNER_WORKSPACE)
+          $workspaceName = "kphtools-pr-$prNumber"
+          $prWorkspace = [IO.Path]::GetFullPath((Join-Path $workspaceRoot $workspaceName))
+          $rootWithSeparator = $workspaceRoot.TrimEnd('\') + '\'
+
+          if ((Split-Path -Leaf $prWorkspace) -ne $workspaceName) {
+            throw "Resolved PR workspace leaf mismatch: $prWorkspace"
+          }
+          if (-not $prWorkspace.StartsWith($rootWithSeparator, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Resolved PR workspace is outside RUNNER_WORKSPACE: $prWorkspace"
+          }
+
+          if (-not (Test-Path -LiteralPath $prWorkspace)) {
+            if ($prWasMerged -eq "true") {
+              throw "PR workspace does not exist for merged PR: $prWorkspace"
+            }
+            Write-Host "PR workspace does not exist; nothing to delete: $prWorkspace"
+            exit 0
+          }
+          if (-not (Test-Path -LiteralPath $prWorkspace -PathType Container)) {
+            throw "PR workspace exists but is not a directory: $prWorkspace"
+          }
+
+          $workspaceItem = Get-Item -LiteralPath $prWorkspace -Force
+          if ($workspaceItem.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+            throw "Refusing to remove PR workspace because it is a reparse point: $prWorkspace"
+          }
+
+          Set-Location $workspaceRoot
+          Remove-Item -LiteralPath $prWorkspace -Recurse -Force
+          Write-Host "Removed PR workspace: $prWorkspace"
