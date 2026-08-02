@@ -23,6 +23,7 @@ jobs:
     timeout-minutes: 180
     env:
       PERSISTED_WORKSPACE: ${{ secrets.PERSISTED_WORKSPACE }}
+      UV_PYTHON: "3.12"
       KPHTOOLS_LLM_APIKEY: ${{ secrets.KPHTOOLS_LLM_APIKEY }}
       KPHTOOLS_LLM_BASEURL: ${{ secrets.KPHTOOLS_LLM_BASEURL }}
       KPHTOOLS_LLM_MODEL: ${{ secrets.KPHTOOLS_LLM_MODEL }}
@@ -114,11 +115,18 @@ jobs:
           git -c $authConfig submodule update --init --recursive
           if ($LASTEXITCODE -ne 0) { throw "git submodule update failed." }
 
+          $jobTemp = Join-Path $prWorkspace ".tmp"
+          New-Item -ItemType Directory -Path $jobTemp -Force | Out-Null
+          "TEMP=$jobTemp" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "TMP=$jobTemp" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Sync Python dependencies
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           Set-Location $env:WORKSPACE
+          uv python install $env:UV_PYTHON
+          if ($LASTEXITCODE -ne 0) { throw "Unable to install Python $env:UV_PYTHON." }
           uv sync
           if ($LASTEXITCODE -ne 0) { throw "uv sync failed." }
 
