@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rename Preprocessor Scripts"
+  short_description: "Rename IDA preprocessor finder skills safely"
+  default_prompt: "Use $rename-preprocsesor-scripts to rename an IDA preprocessor finder and update config.yaml."
