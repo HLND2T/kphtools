@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    if: github.repository == 'HLND2T/kphtools' || github.repository == 'hzqst/CS2_VibeSignatures'
+    if: github.repository == 'HLND2T/kphtools'
     environment: win64
     runs-on: [self-hosted, windows, x64]
     env:
@@ -79,7 +79,7 @@ jobs:
         run: |
           uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -syncfile
 
-      - name: Download ntoskrnl exe and pdb
+      - name: Download ntoskrnl exe and pdb from MSDL
         shell: cmd
         run: |
           uv sync
@@ -101,3 +101,9 @@ jobs:
         with:
           name: kphdyn-${{ github.ref_name }}
           files: kphdyn.xml
+
+      - name: Sync symbols back to OSS
+        shell: cmd
+        run: |
+          set "KPHTOOLS_SYMBOLDIR=%WORKSPACE%\symbols"
+          uv run python oss_sync.py --direction local2oss --once
