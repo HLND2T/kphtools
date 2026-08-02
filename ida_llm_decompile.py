@@ -24,6 +24,7 @@ from ida_llm_response import (
 from ida_llm_validation import (
     build_target_disasm_index,
     normalize_expected_result_sections,
+    normalize_instruction_validations,
     validate_llm_decompile_result,
 )
 from ida_llm_utils import call_llm_text, normalize_optional_temperature
@@ -86,11 +87,30 @@ def is_transient_llm_error(exc: Exception) -> bool:
         "transport received error",
         "timeout",
         "timed out",
+        "read timeout",
         "rate limit",
         "rate_limit",
         "too many requests",
         "http 429",
         "status 429",
+        "status_code=429",
+        " 429",
+        "http 500",
+        "http 502",
+        "http 503",
+        "http 504",
+        "status 500",
+        "status 502",
+        "status 503",
+        "status 504",
+        "status_code=500",
+        "status_code=502",
+        "status_code=503",
+        "status_code=504",
+        " 500",
+        " 502",
+        " 503",
+        " 504",
         "server error",
         "service unavailable",
         "temporarily unavailable",
@@ -152,9 +172,10 @@ def _parse_and_validate(
     *,
     requested_symbol_names: tuple[str, ...],
     expected_result_sections: dict[str, set[str]],
+    instruction_validations: dict[str, dict[str, Any]],
     disasm_index: tuple[dict[int, set[str]], dict[str, set[int]]],
     debug: bool,
-) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     outcome = parse_llm_decompile_response_with_issues(
         content,
         requested_symbol_names,
@@ -164,6 +185,7 @@ def _parse_and_validate(
         disasm_index,
         expected_result_sections,
         requested_symbol_names=requested_symbol_names,
+        instruction_validations=instruction_validations,
     )
     issues = outcome["issues"] + semantic_issues
     _debug_print_json(
@@ -176,7 +198,7 @@ def _parse_and_validate(
         },
         debug,
     )
-    return outcome["result"], issues
+    return outcome, outcome["result"], issues
 
 
 async def _run_llm_attempts(
@@ -190,6 +212,7 @@ async def _run_llm_attempts(
     retry_max_delay: float,
     requested_symbols: tuple[str, ...],
     expected_sections: dict[str, set[str]],
+    instruction_validations: dict[str, dict[str, Any]],
     disasm_index: tuple[dict[int, set[str]], dict[str, set[int]]],
     debug: bool,
 ) -> dict[str, list[dict[str, str]]]:
@@ -201,24 +224,45 @@ async def _run_llm_attempts(
             last_attempt = attempt_index >= max_attempts - 1
             if not is_transient_llm_error(exc) or last_attempt:
                 if debug:
-                    print(f"[debug] llm_decompile transport failed: {exc}")
+                    print(
+                        f"[debug] llm_decompile transport failed for "
+                        f"{', '.join(requested_symbols)}: {exc}"
+                    )
                 return empty_llm_decompile_result()
+            if debug:
+                print(
+                    f"[debug] llm_decompile transient failure for "
+                    f"{', '.join(requested_symbols)} on attempt "
+                    f"{attempt_index + 1}/{max_attempts}: {exc}; retrying in "
+                    f"{retry_delay:.2f}s"
+                )
             if retry_delay > 0:
                 await asyncio.sleep(retry_delay)
             retry_delay = min(retry_delay * retry_backoff, retry_max_delay)
             continue
 
         _debug_print_multiline("llm_decompile raw response", content, debug)
-        parsed_result, issues = _parse_and_validate(
+        outcome, parsed_result, issues = _parse_and_validate(
             content,
             requested_symbol_names=requested_symbols,
             expected_result_sections=expected_sections,
+            instruction_validations=instruction_validations,
             disasm_index=disasm_index,
             debug=debug,
         )
         if not issues:
             return parsed_result
         if attempt_index >= max_attempts - 1:
+            if debug:
+                issue_types = sorted(
+                    {issue["issue_type"] for issue in issues}
+                )
+                print(
+                    f"[debug] llm_decompile validation retry exhausted for "
+                    f"{', '.join(requested_symbols)}; "
+                    f"schema_kind={outcome['schema_kind']} "
+                    f"issue_types={','.join(issue_types)}"
+                )
             return empty_llm_decompile_result()
         messages.extend(
             [
@@ -237,6 +281,7 @@ async def call_llm_decompile(
     model: str,
     symbol_name_list: Any,
     expected_result_sections: Any,
+    instruction_validations: Any = None,
     reference_items: Any,
     target_items: Any,
     prompt_template: str,
@@ -273,6 +318,11 @@ async def call_llm_decompile(
             expected_result_sections=expected_sections,
         )
         normalized_temperature = normalize_optional_temperature(temperature)
+        normalized_instruction_validations = normalize_instruction_validations(
+            instruction_validations
+        )
+        if normalized_instruction_validations is None:
+            raise ValueError("invalid instruction_validations")
     except Exception as exc:
         if debug:
             print(f"[debug] failed to prepare llm_decompile request: {exc}")
@@ -313,6 +363,7 @@ async def call_llm_decompile(
         retry_max_delay=max_delay,
         requested_symbols=requested_symbols,
         expected_sections=expected_sections,
+        instruction_validations=normalized_instruction_validations,
         disasm_index=disasm_index,
         debug=debug,
     )

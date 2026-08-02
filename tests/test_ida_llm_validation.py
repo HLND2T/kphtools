@@ -1,7 +1,12 @@
+import re
 import unittest
 
 from ida_llm_response import empty_llm_decompile_result
-from ida_llm_validation import build_target_disasm_index, validate_llm_decompile_result
+from ida_llm_validation import (
+    build_target_disasm_index,
+    normalize_instruction_validations,
+    validate_llm_decompile_result,
+)
 
 
 def call_entry(va: str = "0x1000", disasm: str = "call sub_2000", name: str = "Target"):
@@ -14,12 +19,19 @@ class TestIdaLlmValidation(unittest.TestCase):
             ["00001000  call    sub_2000\n00001010  mov eax, [rcx+20h]"]
         )
 
-    def validate(self, result, requested=("Target",), expected=None):
+    def validate(
+        self,
+        result,
+        requested=("Target",),
+        expected=None,
+        instruction_validations=None,
+    ):
         return validate_llm_decompile_result(
             result,
             self.index,
             expected or {"Target": ["found_call"]},
             requested_symbol_names=requested,
+            instruction_validations=instruction_validations,
         )
 
     def test_rejects_fabricated_or_mismatched_instruction_pairs(self) -> None:
@@ -97,6 +109,194 @@ class TestIdaLlmValidation(unittest.TestCase):
             expected={"Target": ["found_call"], "_ITEM->Value": ["found_struct_offset"]},
         )
         self.assertEqual([], issues)
+
+    def test_struct_offset_instruction_constraints_pass(self) -> None:
+        result = {
+            **empty_llm_decompile_result(),
+            "found_struct_offset": [
+                {
+                    "insn_va": "0x1010",
+                    "insn_disasm": "mov eax, [rcx+20h]",
+                    "offset": "0x20",
+                    "size": "4",
+                    "struct_name": "_ITEM",
+                    "member_name": "Value",
+                }
+            ],
+        }
+
+        issues = self.validate(
+            result,
+            requested=("_ITEM->Value",),
+            expected={"_ITEM->Value": ["found_struct_offset"]},
+            instruction_validations={
+                "_ITEM->Value": {
+                    "instruction_rules": [
+                        {
+                            "regex": r"(?i)^mov\s+eax,\s*\[[^\]]+\]$",
+                            "text": "mov eax, [base+offset]",
+                        }
+                    ],
+                    "expected_size": 4,
+                }
+            },
+        )
+
+        self.assertEqual([], issues)
+
+    def test_struct_offset_instruction_constraints_report_all_mismatches(self) -> None:
+        result = {
+            **empty_llm_decompile_result(),
+            "found_struct_offset": [
+                {
+                    "insn_va": "0x1010",
+                    "insn_disasm": "mov eax, [rcx+20h]",
+                    "offset": "0x30",
+                    "size": "4",
+                    "struct_name": "_ITEM",
+                    "member_name": "Value",
+                }
+            ],
+        }
+
+        issues = self.validate(
+            result,
+            requested=("_ITEM->Value",),
+            expected={"_ITEM->Value": ["found_struct_offset"]},
+            instruction_validations={
+                "_ITEM->Value": {
+                    "instruction_rules": [
+                        {
+                            "regex": r"(?i)^cmp\s+.+$",
+                            "text": "cmp operands",
+                        }
+                    ],
+                    "expected_size": 8,
+                }
+            },
+        )
+
+        self.assertEqual(
+            {
+                "instruction_rule_mismatch",
+                "instruction_size_mismatch",
+                "struct_offset_displacement_mismatch",
+            },
+            {issue["issue_type"] for issue in issues},
+        )
+
+    def test_zero_struct_offset_requires_zero_displacement_operand(self) -> None:
+        index = build_target_disasm_index(
+            ["00001020  mov eax, [rcx]\n00001030  mov eax, [rcx+20h]"]
+        )
+        validation = {
+            "_ITEM->Value": {
+                "instruction_rules": [
+                    {
+                        "regex": r"(?i)^mov\s+eax,\s*\[[^\]]+\]$",
+                        "text": "mov eax, [base+offset]",
+                    }
+                ]
+            }
+        }
+
+        def result_for(va, disasm):
+            return {
+                **empty_llm_decompile_result(),
+                "found_struct_offset": [
+                    {
+                        "insn_va": va,
+                        "insn_disasm": disasm,
+                        "offset": "0",
+                        "size": "4",
+                        "struct_name": "_ITEM",
+                        "member_name": "Value",
+                    }
+                ],
+            }
+
+        valid = validate_llm_decompile_result(
+            result_for("0x1020", "mov eax, [rcx]"),
+            index,
+            {"_ITEM->Value": ["found_struct_offset"]},
+            requested_symbol_names=["_ITEM->Value"],
+            instruction_validations=validation,
+        )
+        invalid = validate_llm_decompile_result(
+            result_for("0x1030", "mov eax, [rcx+20h]"),
+            index,
+            {"_ITEM->Value": ["found_struct_offset"]},
+            requested_symbol_names=["_ITEM->Value"],
+            instruction_validations=validation,
+        )
+
+        self.assertEqual([], valid)
+        self.assertEqual(
+            ["struct_offset_displacement_mismatch"],
+            [issue["issue_type"] for issue in invalid],
+        )
+
+    def test_arm64_struct_offsets_support_immediates_and_zero_offset(self) -> None:
+        index = build_target_disasm_index(
+            [
+                "00001020  ldr w8, [x0,#0x20]\n"
+                "00001030  ldr w8, [x0]\n"
+                "00001040  ldr w8, [x0,x1,lsl #2]"
+            ]
+        )
+        validation = {
+            "_ITEM->Value": {
+                "instruction_rules": [
+                    {
+                        "regex": r"(?i)^ldr\s+w8,\s*\[[^\]]+\]$",
+                        "text": "ldr w8, [base+offset]",
+                    }
+                ]
+            }
+        }
+
+        def validate_offset(va: str, disasm: str, offset: str):
+            result = {
+                **empty_llm_decompile_result(),
+                "found_struct_offset": [
+                    {
+                        "insn_va": va,
+                        "insn_disasm": disasm,
+                        "offset": offset,
+                        "size": "4",
+                        "struct_name": "_ITEM",
+                        "member_name": "Value",
+                    }
+                ],
+            }
+            return validate_llm_decompile_result(
+                result,
+                index,
+                {"_ITEM->Value": ["found_struct_offset"]},
+                requested_symbol_names=["_ITEM->Value"],
+                instruction_validations=validation,
+            )
+
+        self.assertEqual([], validate_offset("0x1020", "ldr w8, [x0,#0x20]", "0x20"))
+        self.assertEqual([], validate_offset("0x1030", "ldr w8, [x0]", "0"))
+        issues = validate_offset("0x1040", "ldr w8, [x0,x1,lsl #2]", "0")
+        self.assertEqual(
+            ["struct_offset_displacement_mismatch"],
+            [issue["issue_type"] for issue in issues],
+        )
+
+    def test_rejects_compiled_bytes_instruction_regex(self) -> None:
+        self.assertIsNone(
+            normalize_instruction_validations(
+                {
+                    "Target": {
+                        "instruction_rules": [
+                            {"regex": re.compile(b"^call"), "text": "call target"}
+                        ]
+                    }
+                }
+            )
+        )
 
     def test_empty_result_passes_without_disassembly_index(self) -> None:
         issues = validate_llm_decompile_result(

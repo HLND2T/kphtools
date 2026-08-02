@@ -67,6 +67,13 @@ class TestLlmDecompileRequestIntegration(unittest.TestCase):
                     "prompt_path": "prompt/call.md",
                     "reference_yaml_paths": ["references/Ref.{arch}.yaml"],
                     "expected_result_sections": ["found_struct_offset"],
+                    "instruction_rules": [
+                        {
+                            "regex": r"(?i)^mov\s+.+$",
+                            "text": "mov operands",
+                        }
+                    ],
+                    "expected_size": 4,
                     "dependency_policy": {"Ref.yaml": "required"},
                 },
             ]
@@ -99,6 +106,78 @@ class TestLlmDecompileRequestIntegration(unittest.TestCase):
             },
             request["expected_result_sections"],
         )
+        self.assertEqual(
+            {
+                "_ITEM->Member": {
+                    "instruction_rules": [
+                        {
+                            "regex": r"(?i)^mov\s+.+$",
+                            "text": "mov operands",
+                        }
+                    ],
+                    "expected_size": 4,
+                }
+            },
+            request["instruction_validations"],
+        )
+
+    def test_request_paths_expand_module_name(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            scripts_dir = Path(temp_dir)
+            prompt_path = scripts_dir / "prompt" / "ntoskrnl" / "call.md"
+            reference_path = (
+                scripts_dir / "references" / "ntoskrnl" / "Ref.amd64.yaml"
+            )
+            prompt_path.parent.mkdir(parents=True)
+            reference_path.parent.mkdir(parents=True)
+            prompt_path.write_text("{symbol_name_list}", encoding="utf-8")
+            reference_path.write_text(
+                yaml.safe_dump(
+                    {
+                        "func_name": "Ref",
+                        "func_va": "0x140001000",
+                        "disasm_code": "00001000 nop",
+                        "procedure": "",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            specs = [
+                {
+                    "symbol_name": "Target",
+                    "prompt_path": "prompt/{module_name}/call.md",
+                    "reference_yaml_paths": [
+                        "references/{module_name}/Ref.{arch}.yaml"
+                    ],
+                    "expected_result_sections": ["found_call"],
+                    "dependency_policy": {"Ref.yaml": "required"},
+                }
+            ]
+            config = {
+                "model": "test-model",
+                "api_key": "test-key",
+                "_semantic_query_names": {"Target": "Target"},
+            }
+            binary_dir = (
+                scripts_dir
+                / "amd64"
+                / "ntoskrnl.exe.10.0.26100.1"
+                / "hash"
+            )
+            with patch.object(
+                ida_mcp_resolver,
+                "_get_preprocessor_scripts_dir",
+                return_value=scripts_dir,
+            ):
+                request = ida_mcp_resolver._prepare_llm_decompile_request(
+                    symbol_name="Target",
+                    llm_decompile_specs=specs,
+                    llm_config=config,
+                    binary_dir=binary_dir,
+                )
+
+        self.assertEqual(str(prompt_path.resolve()), request["prompt_path"])
+        self.assertEqual([str(reference_path.resolve())], request["reference_paths"])
 
 
 class TestLlmDecompileResolverIntegration(unittest.IsolatedAsyncioTestCase):
@@ -110,6 +189,10 @@ class TestLlmDecompileResolverIntegration(unittest.IsolatedAsyncioTestCase):
             "expected_result_sections": {
                 "_ITEM->First": ["found_struct_offset"],
                 "_ITEM->Second": ["found_struct_offset"],
+            },
+            "instruction_validations": {
+                "_ITEM->First": {"expected_size": 4},
+                "_ITEM->Second": {"expected_size": 8},
             },
             "target_func_names": ["Ref"],
             "required_target_func_names": ["Ref"],
@@ -168,6 +251,10 @@ class TestLlmDecompileResolverIntegration(unittest.IsolatedAsyncioTestCase):
             self.request["expected_result_sections"],
             call.await_args.kwargs["llm_config"]["_expected_result_sections"],
         )
+        self.assertEqual(
+            self.request["instruction_validations"],
+            call.await_args.kwargs["llm_config"]["_instruction_validations"],
+        )
 
     async def test_empty_result_is_not_cached(self) -> None:
         with (
@@ -186,6 +273,31 @@ class TestLlmDecompileResolverIntegration(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(await self._resolve("First"))
             self.assertIsNone(await self._resolve("First"))
         self.assertEqual(2, call.await_count)
+
+    def test_instruction_validations_are_part_of_cache_key(self) -> None:
+        llm_config = {"model": "test-model"}
+        first = ida_mcp_resolver._build_llm_decompile_result_cache_key(
+            request=self.request,
+            llm_config=llm_config,
+            binary_dir=Path("binary"),
+            image_base=0x140000000,
+        )
+        changed_request = {
+            **self.request,
+            "instruction_validations": {
+                **self.request["instruction_validations"],
+                "_ITEM->First": {"expected_size": 8},
+            },
+        }
+        second = ida_mcp_resolver._build_llm_decompile_result_cache_key(
+            request=changed_request,
+            llm_config=llm_config,
+            binary_dir=Path("binary"),
+            image_base=0x140000000,
+        )
+
+        self.assertNotEqual(first, second)
+        self.assertEqual("kphtools-four-section-v2", ida_mcp_resolver._LLM_RESULT_CONTRACT_VERSION)
 
     async def test_found_call_precedes_function_pointer_resolution(self) -> None:
         request = {**self.request, "llm_symbol_name": "Target", "llm_symbol_names": ["Target"]}

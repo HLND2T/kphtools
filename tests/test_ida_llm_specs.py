@@ -16,6 +16,7 @@ REQUIRED_KEYS = {
     "expected_result_sections",
     "dependency_policy",
 }
+OPTIONAL_KEYS = {"instruction_rules", "expected_size"}
 
 
 class TestIdaLlmSpecs(unittest.TestCase):
@@ -40,6 +41,39 @@ class TestIdaLlmSpecs(unittest.TestCase):
             spec,
             ida_llm_specs.normalize_llm_decompile_spec(spec),
         )
+
+    def test_normalizes_instruction_constraints(self) -> None:
+        instruction_rules = [
+            {
+                "regex": r"(?i)^mov\s+eax,\s*\[[^\]]+\]$",
+                "text": "mov eax, [base+offset]",
+            }
+        ]
+        spec = self._spec(
+            instruction_rules=instruction_rules,
+            expected_size=4,
+        )
+
+        normalized = ida_llm_specs.normalize_llm_decompile_spec(spec)
+
+        self.assertEqual(instruction_rules, normalized["instruction_rules"])
+        self.assertEqual(4, normalized["expected_size"])
+
+    def test_rejects_invalid_instruction_constraints(self) -> None:
+        invalid_specs = [
+            self._spec(instruction_rules=[]),
+            self._spec(instruction_rules=[r"^mov"]),
+            self._spec(instruction_rules=[{"regex": r"^mov"}]),
+            self._spec(instruction_rules=[{"regex": r"(", "text": "invalid"}]),
+            self._spec(expected_size=0),
+            self._spec(expected_size=True),
+        ]
+
+        for spec in invalid_specs:
+            with self.subTest(spec=spec):
+                self.assertIsNone(
+                    ida_llm_specs.normalize_llm_decompile_spec(spec)
+                )
 
     def test_rejects_legacy_tuple_missing_unknown_and_duplicate_symbol(self) -> None:
         self.assertIsNone(
@@ -127,7 +161,15 @@ class TestIdaLlmSpecs(unittest.TestCase):
                 yaml.safe_dump({"func_name": "PspAllocateProcess"}),
                 encoding="utf-8",
             )
-            specs = ida_llm_specs.build_llm_decompile_specs_map([self._spec()])
+            specs = ida_llm_specs.build_llm_decompile_specs_map(
+                [
+                    self._spec(
+                        reference_yaml_paths=[
+                            "references/{module_name}/PspAllocateProcess.{arch}.yaml"
+                        ]
+                    )
+                ]
+            )
 
             valid = ida_llm_specs.validate_llm_decompile_specs(
                 specs,
@@ -136,6 +178,7 @@ class TestIdaLlmSpecs(unittest.TestCase):
                 category_by_symbol={"EpCookie": "struct_offset"},
                 scripts_dir=scripts_dir,
                 arch="amd64",
+                module_name="ntoskrnl",
             )
 
         self.assertTrue(valid)
@@ -174,6 +217,16 @@ class TestIdaLlmSpecs(unittest.TestCase):
                 ),
                 (
                     base,
+                    ["Target.yaml"],
+                    [],
+                    {"EpCookie": "func"},
+                ),
+                (
+                    {
+                        **base,
+                        "expected_result_sections": ["found_call"],
+                        "expected_size": 4,
+                    },
                     ["Target.yaml"],
                     [],
                     {"EpCookie": "func"},
@@ -257,7 +310,8 @@ class TestIdaLlmSpecs(unittest.TestCase):
                 for entry in entries:
                     self.assertIsInstance(entry, ast.Dict, path)
                     keys = {key.value for key in entry.keys}
-                    self.assertEqual(REQUIRED_KEYS, keys, path)
+                    self.assertTrue(REQUIRED_KEYS <= keys, path)
+                    self.assertFalse(keys - REQUIRED_KEYS - OPTIONAL_KEYS, path)
                 file_entries += len(entries)
             if file_entries:
                 static_files += 1
@@ -277,12 +331,14 @@ class TestIdaLlmSpecs(unittest.TestCase):
         )
         self.assertEqual(3, len(dynamic_entries))
         for entry in dynamic_entries:
-            self.assertEqual(REQUIRED_KEYS, set(entry))
+            keys = set(entry)
+            self.assertTrue(REQUIRED_KEYS <= keys)
+            self.assertFalse(keys - REQUIRED_KEYS - OPTIONAL_KEYS)
 
-        self.assertEqual(38, static_files)
-        self.assertEqual(66, static_entries)
-        self.assertEqual(39, static_files + 1)
-        self.assertEqual(69, static_entries + len(dynamic_entries))
+        self.assertEqual(39, static_files)
+        self.assertEqual(68, static_entries)
+        self.assertEqual(40, static_files + 1)
+        self.assertEqual(71, static_entries + len(dynamic_entries))
 
 
 if __name__ == "__main__":
