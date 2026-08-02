@@ -222,7 +222,7 @@ modules:
         expected_input:
           - MmCreateProcessAddressSpace.yaml
 
-      - name: find-PspCreateProcessNotifyRoutine-AND-PspCreateThreadNotifyRoutine-AND-PspLoadImageNotifyRoutine
+      - name: find-PspEnumerateCallback-decompiles
         expected_output:
           - PspCreateProcessNotifyRoutine.yaml
           - PspCreateThreadNotifyRoutine.yaml
