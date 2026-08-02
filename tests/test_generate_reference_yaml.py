@@ -490,7 +490,12 @@ class TestGenerateReferenceYamlWorkflow(unittest.IsolatedAsyncioTestCase):
         fake_dump_symbols = type(
             "FakeDumpSymbols",
             (),
-            {"start_idalib_mcp": staticmethod(start_idalib_mcp)},
+            {
+                "MCP_SHUTDOWN_TIMEOUT": 10.0,
+                "start_idalib_mcp": staticmethod(start_idalib_mcp),
+                "stop_idalib_mcp_process": staticmethod(lambda *args, **kwargs: True),
+                "_wait_for_port_release": staticmethod(lambda *args, **kwargs: True),
+            },
         )
         session_context = MagicMock()
         session_context.__aenter__ = AsyncMock(
@@ -526,6 +531,47 @@ class TestGenerateReferenceYamlWorkflow(unittest.IsolatedAsyncioTestCase):
             expected_binary=Path("/repo/ntoskrnl.exe"),
             auto_started=True,
         )
+
+    async def test_autostart_reports_port_release_failure(self) -> None:
+        fake_process = MagicMock()
+        fake_process.poll.return_value = 0
+        fake_session = AsyncMock()
+        fake_session.binding = type("Binding", (), {"should_auto_quit": True})()
+        fake_dump_symbols = type(
+            "FakeDumpSymbols",
+            (),
+            {
+                "IDALIB_QEXIT_TIMEOUT_SECONDS": 1,
+                "MCP_SHUTDOWN_TIMEOUT": 10.0,
+                "start_idalib_mcp": staticmethod(lambda *args, **kwargs: fake_process),
+                "stop_idalib_mcp_process": staticmethod(lambda *args, **kwargs: True),
+                "_wait_for_port_release": staticmethod(lambda *args, **kwargs: False),
+            },
+        )
+        session_context = MagicMock()
+        session_context.__aenter__ = AsyncMock(return_value=fake_session)
+        session_context.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch.object(
+                generate_reference_yaml,
+                "_load_dump_symbols_module",
+                return_value=fake_dump_symbols,
+            ),
+            patch.object(
+                generate_reference_yaml,
+                "open_ida_mcp_session",
+                return_value=session_context,
+            ),
+            self.assertRaisesRegex(ReferenceGenerationError, "port 127.0.0.1:13337 remained in use"),
+        ):
+            async with generate_reference_yaml.autostart_mcp_session(
+                Path("/repo/ntoskrnl.exe"),
+                "127.0.0.1",
+                13337,
+                False,
+            ):
+                pass
 
     async def test_run_reference_generation_attach_mode_exports_yaml(self) -> None:
         fake_session = AsyncMock()
@@ -734,7 +780,10 @@ class TestGenerateReferenceYamlWorkflow(unittest.IsolatedAsyncioTestCase):
             (),
             {
                 "IDALIB_QEXIT_TIMEOUT_SECONDS": 1,
+                "MCP_SHUTDOWN_TIMEOUT": 10.0,
                 "start_idalib_mcp": staticmethod(lambda *args, **kwargs: FakeProcess()),
+                "stop_idalib_mcp_process": staticmethod(lambda *args, **kwargs: True),
+                "_wait_for_port_release": staticmethod(lambda *args, **kwargs: True),
             },
         )
         session_context = MagicMock()

@@ -132,7 +132,7 @@ FUNC_XREFS = [
         "xref_strings": [],           # caller must reference these ASCII strings
         "xref_unicode_strings": [],   # caller must reference these Unicode strings (prefix FULLMATCH: for exact match)
         "xref_gvs": [],               # caller must reference these global variable names
-        "xref_signatures": ["49 49 14 67", "32 51 59 48"],  # caller must contain one of these byte patterns
+        "xref_signatures": ["49 49 14 67", "32 51 59 48"],  # candidate must contain every byte pattern
         "xref_funcs": [],             # caller must call these functions
         "exclude_funcs": [],          # discard candidates whose callers call these functions
         "exclude_strings": [],
@@ -164,8 +164,8 @@ async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, 
 
 Key rules for FUNC_XREFS:
 
-- `xref_signatures` is a list of alternative byte patterns — a caller qualifies if it contains **any one** of them.
-- All non-empty lists within a single entry are ANDed: the caller must satisfy every specified criterion.
+- Every `xref_signatures` item is required. Each pattern is resolved to the set of containing functions, and those sets are intersected; a candidate qualifies only if it contains **every** listed pattern.
+- Each item in every non-empty positive-source list contributes a required candidate set. All such sets are ANDed by intersection, so the candidate must satisfy every specified criterion.
 - Multiple entries in `FUNC_XREFS` cover multiple target functions in the same finder.
 - Leave unused lists as `[]` rather than omitting the key — the full dict shape is required.
 

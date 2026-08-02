@@ -1,6 +1,7 @@
 import asyncio
 import os
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -1372,6 +1373,40 @@ class TestDumpSymbols(unittest.TestCase):
         mock_start.assert_not_called()
         mock_open_session.assert_not_called()
 
+    def test_process_module_binary_fails_when_mcp_cleanup_fails(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            binary_path = binary_dir / "ntoskrnl.exe"
+            binary_path.write_text("", encoding="utf-8")
+            pdb_path = binary_dir / "ntkrnlmp.pdb"
+            pdb_path.write_text("", encoding="utf-8")
+
+            module = SimpleNamespace(path=["ntoskrnl.exe"], skills=[], symbols=[])
+            args = SimpleNamespace(agent="codex", debug=False, force=False)
+            fake_lazy_session = MagicMock()
+            fake_lazy_session.close = AsyncMock(return_value=False)
+
+            with (
+                patch.object(
+                    dump_symbols,
+                    "LazyIdalibSession",
+                    return_value=fake_lazy_session,
+                ),
+                patch.object(
+                    dump_symbols,
+                    "process_binary_dir",
+                    new=AsyncMock(return_value=True),
+                ),
+                patch("builtins.print") as mock_print,
+            ):
+                ok, did_work = asyncio.run(
+                    dump_symbols._process_module_binary(module, binary_dir, pdb_path, args)
+                )
+
+        self.assertFalse(ok)
+        self.assertFalse(did_work)
+        mock_print.assert_called_once_with(f"MCP cleanup failed for {binary_path}")
+
     def test_process_binary_dir_marks_activity_when_work_is_required(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
@@ -1570,8 +1605,9 @@ class TestDumpSymbols(unittest.TestCase):
             ]
         )
         fake_context.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_process.terminate.assert_called_once_with()
         fake_process.kill.assert_not_called()
-        fake_process.wait.assert_called_once_with(timeout=10)
+        fake_process.wait.assert_called_once_with(timeout=dump_symbols.MCP_PROCESS_STOP_TIMEOUT)
 
     def test_lazy_idalib_session_restarts_initial_unavailable_worker_once(self) -> None:
         binary_path = Path("/tmp/ntoskrnl.exe")
@@ -1623,7 +1659,7 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertEqual(0, session.recovery_budget.remaining_restarts)
         self.assertFalse(session.recovery_failed)
         original_process.terminate.assert_called_once_with()
-        original_process.wait.assert_called_once_with(timeout=10)
+        original_process.wait.assert_called_once_with(timeout=dump_symbols.MCP_PROCESS_STOP_TIMEOUT)
         wait_for_release.assert_called_once_with(
             "127.0.0.1",
             24567,
@@ -1898,8 +1934,9 @@ class TestDumpSymbols(unittest.TestCase):
             auto_started=True,
         )
         fake_context.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_process.kill.assert_called_once_with()
-        fake_process.wait.assert_called_once_with(timeout=1)
+        fake_process.terminate.assert_called_once_with()
+        fake_process.wait.assert_called_once_with(timeout=dump_symbols.MCP_PROCESS_STOP_TIMEOUT)
+        fake_process.kill.assert_not_called()
         self.assertIsNone(lazy_session.process)
         self.assertIsNone(lazy_session.session)
         self.assertIsNone(lazy_session.session_context)
@@ -1942,8 +1979,14 @@ class TestDumpSymbols(unittest.TestCase):
                     asyncio.run(lazy_session.call_tool("py_eval", {"code": "1"}))
 
         fake_context.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_process.terminate.assert_called_once_with()
+        fake_process.wait.assert_has_calls(
+            [
+                call(timeout=dump_symbols.MCP_PROCESS_STOP_TIMEOUT),
+                call(timeout=1),
+            ]
+        )
         fake_process.kill.assert_called_once_with()
-        fake_process.wait.assert_called_once_with(timeout=1)
         self.assertIsNone(lazy_session.process)
         self.assertIsNone(lazy_session.session)
         self.assertIsNone(lazy_session.session_context)
@@ -1998,13 +2041,14 @@ class TestDumpSymbols(unittest.TestCase):
             auto_started=True,
         )
         fake_context.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_process.kill.assert_called_once_with()
-        fake_process.wait.assert_called_once_with(timeout=1)
+        fake_process.terminate.assert_called_once_with()
+        fake_process.wait.assert_called_once_with(timeout=dump_symbols.MCP_PROCESS_STOP_TIMEOUT)
+        fake_process.kill.assert_not_called()
         self.assertIsNone(lazy_session.process)
         self.assertIsNone(lazy_session.session)
         self.assertIsNone(lazy_session.session_context)
 
-    def test_lazy_idalib_session_close_uses_qexit_before_wait(self) -> None:
+    def test_lazy_idalib_session_close_uses_qexit_before_process_stop(self) -> None:
         session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
         events: list[str] = []
 
@@ -2029,7 +2073,11 @@ class TestDumpSymbols(unittest.TestCase):
             name="py_eval",
             arguments={"code": "import idc; idc.qexit(0)"},
         )
-        self.assertEqual(["qexit", "session_exit", "wait:10"], events)
+        self.assertEqual(
+            ["qexit", "session_exit", f"wait:{dump_symbols.MCP_PROCESS_STOP_TIMEOUT}"],
+            events,
+        )
+        fake_process.terminate.assert_called_once_with()
         fake_process.kill.assert_not_called()
 
     def test_lazy_idalib_session_close_skips_qexit_for_unowned_binding(self) -> None:
@@ -2048,17 +2096,15 @@ class TestDumpSymbols(unittest.TestCase):
 
         fake_session.call_tool.assert_not_awaited()
         fake_context.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_process.wait.assert_called_once_with(timeout=10)
+        fake_process.terminate.assert_called_once_with()
+        fake_process.wait.assert_called_once_with(timeout=dump_symbols.MCP_PROCESS_STOP_TIMEOUT)
 
     def test_lazy_idalib_session_close_kills_after_wait_timeout(self) -> None:
         session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
 
         fake_process = MagicMock()
         fake_process.poll.return_value = None
-        fake_process.wait.side_effect = [
-            subprocess.TimeoutExpired(cmd="wait", timeout=10),
-            None,
-        ]
+        fake_process.wait.side_effect = [subprocess.TimeoutExpired(cmd="wait", timeout=5), None]
 
         fake_session = AsyncMock()
         fake_session.binding = SimpleNamespace(should_auto_quit=True)
@@ -2074,10 +2120,16 @@ class TestDumpSymbols(unittest.TestCase):
             name="py_eval",
             arguments={"code": "import idc; idc.qexit(0)"},
         )
-        fake_process.wait.assert_has_calls([call(timeout=10), call(timeout=1)])
+        fake_process.wait.assert_has_calls(
+            [
+                call(timeout=dump_symbols.MCP_PROCESS_STOP_TIMEOUT),
+                call(timeout=1),
+            ]
+        )
+        fake_process.terminate.assert_called_once_with()
         fake_process.kill.assert_called_once_with()
 
-    def test_lazy_idalib_session_close_without_session_waits_before_kill(self) -> None:
+    def test_lazy_idalib_session_close_without_session_stops_owned_process(self) -> None:
         session = dump_symbols.LazyIdalibSession(binary_path=Path("/tmp/ntoskrnl.exe"))
 
         fake_process = MagicMock()
@@ -2092,7 +2144,8 @@ class TestDumpSymbols(unittest.TestCase):
         asyncio.run(session.close())
 
         fake_context.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_process.wait.assert_called_once_with(timeout=10)
+        fake_process.terminate.assert_called_once_with()
+        fake_process.wait.assert_called_once_with(timeout=dump_symbols.MCP_PROCESS_STOP_TIMEOUT)
         fake_process.kill.assert_not_called()
 
     def test_lazy_idalib_session_close_qexit_timeout_still_runs_cleanup_and_fallback(
@@ -2102,10 +2155,7 @@ class TestDumpSymbols(unittest.TestCase):
 
         fake_process = MagicMock()
         fake_process.poll.return_value = None
-        fake_process.wait.side_effect = [
-            subprocess.TimeoutExpired(cmd="wait", timeout=10),
-            None,
-        ]
+        fake_process.wait.side_effect = [subprocess.TimeoutExpired(cmd="wait", timeout=5), None]
 
         fake_session = AsyncMock()
         fake_session.binding = SimpleNamespace(should_auto_quit=True)
@@ -2124,7 +2174,13 @@ class TestDumpSymbols(unittest.TestCase):
 
         self.assertEqual(1, mock_wait_for.await_count)
         fake_context.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_process.wait.assert_has_calls([call(timeout=10), call(timeout=1)])
+        fake_process.wait.assert_has_calls(
+            [
+                call(timeout=dump_symbols.MCP_PROCESS_STOP_TIMEOUT),
+                call(timeout=1),
+            ]
+        )
+        fake_process.terminate.assert_called_once_with()
         fake_process.kill.assert_called_once_with()
 
     def test_lazy_idalib_session_close_suppresses_mcp_cancel_scope_noise(self) -> None:
@@ -2146,8 +2202,9 @@ class TestDumpSymbols(unittest.TestCase):
         asyncio.run(session.close())
 
         fake_context.__aexit__.assert_awaited_once_with(None, None, None)
+        fake_process.terminate.assert_called_once_with()
         fake_process.kill.assert_not_called()
-        fake_process.wait.assert_called_once_with(timeout=10)
+        fake_process.wait.assert_called_once_with(timeout=dump_symbols.MCP_PROCESS_STOP_TIMEOUT)
         self.assertIsNone(session.process)
         self.assertIsNone(session.session)
         self.assertIsNone(session.session_context)
@@ -2172,8 +2229,9 @@ class TestDumpSymbols(unittest.TestCase):
             asyncio.run(session.close())
 
         fake_context.__aexit__.assert_awaited_once_with(None, None, None)
-        fake_process.kill.assert_called_once_with()
-        fake_process.wait.assert_called_once_with(timeout=1)
+        fake_process.terminate.assert_called_once_with()
+        fake_process.wait.assert_called_once_with(timeout=dump_symbols.MCP_PROCESS_STOP_TIMEOUT)
+        fake_process.kill.assert_not_called()
         self.assertIsNone(session.process)
         self.assertIsNone(session.session)
         self.assertIsNone(session.session_context)
@@ -2252,12 +2310,13 @@ class TestDumpSymbols(unittest.TestCase):
             dump_symbols.MCP_SHUTDOWN_TIMEOUT,
         )
 
-    def test_start_idalib_mcp_uses_devnull_streams(self) -> None:
+    def test_start_idalib_mcp_uses_direct_executable_and_devnull_streams(self) -> None:
         fake_process = MagicMock()
         binary_path = Path("/tmp/ntoskrnl.exe")
 
         with (
             patch.object(dump_symbols.subprocess, "Popen", return_value=fake_process) as mock_popen,
+            patch.object(dump_symbols, "_is_port_in_use", return_value=False),
             patch.object(dump_symbols, "_wait_for_port", return_value=True),
         ):
             process = dump_symbols.start_idalib_mcp(binary_path, host="127.0.0.1", port=13337)
@@ -2265,8 +2324,6 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertIs(process, fake_process)
         mock_popen.assert_called_once_with(
             [
-                "uv",
-                "run",
                 "idalib-mcp",
                 "--unsafe",
                 "--host",
@@ -2286,13 +2343,14 @@ class TestDumpSymbols(unittest.TestCase):
 
         with (
             patch.object(dump_symbols.subprocess, "Popen", return_value=fake_process),
+            patch.object(dump_symbols, "_is_port_in_use", return_value=False),
             patch.object(dump_symbols, "_wait_for_port", return_value=False),
+            patch.object(dump_symbols, "stop_idalib_mcp_process", return_value=True) as stop_process,
         ):
             with self.assertRaisesRegex(RuntimeError, "failed to start"):
                 dump_symbols.start_idalib_mcp(binary_path, host="127.0.0.1", port=13337)
 
-        fake_process.kill.assert_called_once_with()
-        fake_process.wait.assert_called_once_with()
+        stop_process.assert_called_once_with(fake_process, debug=False)
 
     def test_start_idalib_mcp_uses_reference_startup_timeout(self) -> None:
         fake_process = MagicMock()
@@ -2304,6 +2362,7 @@ class TestDumpSymbols(unittest.TestCase):
                 "Popen",
                 return_value=fake_process,
             ),
+            patch.object(dump_symbols, "_is_port_in_use", return_value=False),
             patch.object(dump_symbols, "_wait_for_port", return_value=True) as mock_wait,
         ):
             process = dump_symbols.start_idalib_mcp(
@@ -2318,6 +2377,90 @@ class TestDumpSymbols(unittest.TestCase):
             13337,
             timeout=dump_symbols.MCP_STARTUP_TIMEOUT,
         )
+
+    def test_start_idalib_mcp_rejects_port_already_in_use(self) -> None:
+        with (
+            patch.object(dump_symbols, "_is_port_in_use", return_value=True),
+            patch.object(dump_symbols.subprocess, "Popen") as popen,
+            self.assertRaisesRegex(RuntimeError, "MCP port 127.0.0.1:13337 is already in use"),
+        ):
+            dump_symbols.start_idalib_mcp(Path("/tmp/ntoskrnl.exe"))
+
+        popen.assert_not_called()
+
+    def test_stop_idalib_mcp_process_uses_taskkill_for_owned_windows_tree(self) -> None:
+        process = MagicMock()
+        process.pid = 12345
+        process.poll.return_value = None
+        completed = SimpleNamespace(returncode=0)
+
+        with (
+            patch.object(dump_symbols, "_IS_WINDOWS", True),
+            patch.object(dump_symbols.subprocess, "run", return_value=completed) as run,
+        ):
+            stopped = dump_symbols.stop_idalib_mcp_process(process)
+
+        self.assertTrue(stopped)
+        run_kwargs = {
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+            "check": False,
+            "timeout": dump_symbols.MCP_PROCESS_STOP_TIMEOUT,
+        }
+        create_no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        if create_no_window:
+            run_kwargs["creationflags"] = create_no_window
+        run.assert_called_once_with(
+            ["taskkill", "/PID", "12345", "/T", "/F"],
+            **run_kwargs,
+        )
+        process.wait.assert_called_once_with(timeout=dump_symbols.MCP_PROCESS_STOP_TIMEOUT)
+        process.terminate.assert_not_called()
+        process.kill.assert_not_called()
+
+    @unittest.skipUnless(os.name == "nt", "Windows process-tree semantics")
+    def test_stop_idalib_mcp_process_releases_descendant_listener(self) -> None:
+        port = dump_symbols._allocate_local_port()
+        child_code = (
+            "import socket,time; "
+            "sock=socket.socket(); "
+            f"sock.bind(('127.0.0.1',{port})); "
+            "sock.listen(); "
+            "time.sleep(60)"
+        )
+        wrapper_code = (
+            "import subprocess,sys,time; "
+            f"child=subprocess.Popen([sys.executable,'-c',{child_code!r}]); "
+            "print(child.pid, flush=True); "
+            "time.sleep(60)"
+        )
+        process = subprocess.Popen(
+            [sys.executable, "-c", wrapper_code],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        child_pid = int(process.stdout.readline().strip())
+        process.stdout.close()
+        try:
+            self.assertTrue(dump_symbols._wait_for_port("127.0.0.1", port, timeout=5))
+            self.assertTrue(dump_symbols.stop_idalib_mcp_process(process))
+            self.assertTrue(
+                dump_symbols._wait_for_port_release(
+                    "127.0.0.1",
+                    port,
+                    timeout=5,
+                )
+            )
+        finally:
+            for pid in (process.pid, child_pid):
+                subprocess.run(
+                    ["taskkill", "/PID", str(pid), "/T", "/F"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
 
     def test_main_reports_when_no_binary_dirs_match(self) -> None:
         args = SimpleNamespace(

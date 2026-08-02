@@ -39,7 +39,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import subprocess
 import sys
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -567,12 +566,23 @@ async def autostart_mcp_session(
         ) as exc:
             raise _reference_generation_error(str(exc)) from exc
     finally:
-        if process is not None and process.poll() is None:
-            try:
-                await asyncio.to_thread(process.wait, timeout=10)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                await asyncio.to_thread(process.wait, timeout=1)
+        stopped = await asyncio.to_thread(
+            dump_symbols.stop_idalib_mcp_process,
+            process,
+            debug=debug,
+        )
+        released = await asyncio.to_thread(
+            dump_symbols._wait_for_port_release,
+            host,
+            port,
+            dump_symbols.MCP_SHUTDOWN_TIMEOUT,
+        )
+        if not stopped or not released:
+            message = f"MCP cleanup failed for {binary_path}; port {host}:{port} remained in use"
+            if sys.exc_info()[0] is None:
+                raise _reference_generation_error(message)
+            if debug:
+                print(message)
 
 
 def _is_reference_generation_error(exc: BaseException) -> bool:
