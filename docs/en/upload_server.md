@@ -1,6 +1,6 @@
 # Upload Server
 
-[Back to README](../README.md)
+[Back to README](../../README.md)
 
 `upload_server.py` accepts file uploads, validates PE files and Authenticode signatures, and stores accepted files on local disk or Alibaba Cloud OSS.
 

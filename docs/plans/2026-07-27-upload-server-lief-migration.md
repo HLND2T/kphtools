@@ -115,9 +115,9 @@ CA bundle 在服务启动阶段加载并校验一次，后续请求复用只读�
   - 增加 CA 加载、LIEF 验证、信任链、CN 策略和 fail-closed 测试。
 - Add/Track: `ca/windows_code_signing.pem`
   - 作为生产唯一可信 CA bundle 纳入版本控制和部署包。
-- Modify: `docs/upload_server.md`
+- Modify: `docs/en/upload_server.md`
   - 说明 LIEF 校验行为、唯一 CA 来源、CA 缺失时的启动失败和更新流程。
-- Modify: `docs/requirements.md`
+- Modify: `docs/en/requirements.md`
   - 在 Ubuntu 24.04 smoke test 通过后，移除 `oscrypto` Git workaround；仅在确认
     仓库其他功能不需要 OpenSSL development headers 后再删除对应系统依赖说明。
 
@@ -233,8 +233,8 @@ Task 1 是实现门禁。无法证明“签名完整性检查”和“唯一 CA 
 
 - Modify: `pyproject.toml`
 - Modify: `uv.lock`
-- Modify: `docs/upload_server.md`
-- Modify: `docs/requirements.md`
+- Modify: `docs/en/upload_server.md`
+- Modify: `docs/en/requirements.md`
 - Track: `ca/windows_code_signing.pem`
 
 - [x] 移除 `signify`，加入 Task 1 已验证的 LIEF 版本范围并执行 `uv lock`、
@@ -249,7 +249,7 @@ Task 1 是实现门禁。无法证明“签名完整性检查”和“唯一 CA 
 - [x] 在干净 Ubuntu 24.04 环境确认 LIEF wheel 可安装和导入；验证成功后删除
       `oscrypto` Git workaround。
 - [x] 只有在仓库其他功能和 LIEF wheel 均不需要 OpenSSL development headers 时，
-      才从 `docs/requirements.md` 删除 `libssl-dev`/`openssl-devel` 安装说明。
+      才从 `docs/en/requirements.md` 删除 `libssl-dev`/`openssl-devel` 安装说明。
 
 ### Task 6：回归、平台验证和上线观察
 
@@ -347,7 +347,7 @@ Task 1 是实现门禁。无法证明“签名完整性检查”和“唯一 CA 
 5. CA bundle 缺失、损坏、为空或解析不完整时，服务在监听前以非零状态退出。
 6. Windows、Ubuntu 24.04 定向测试、全量 unittest、Ruff、compileall 和真实 PE
    smoke 全部通过；无法执行的关键验证不得以“完成”表述。
-7. `docs/upload_server.md`、`docs/requirements.md` 和部署流程与实际依赖、CA 路径、
+7. `docs/en/upload_server.md`、`docs/en/requirements.md` 和部署流程与实际依赖、CA 路径、
    启动失败语义一致。
 8. `ca/windows_code_signing.pem` 已被 Git 跟踪并包含在生产部署产物中。
 

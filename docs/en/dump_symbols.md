@@ -1,6 +1,6 @@
 # Dump YAML Artifacts
 
-[Back to README](../README.md)
+[Back to README](../../README.md)
 
 `dump_symbols.py` is the primary analysis entry point.
 

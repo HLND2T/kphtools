@@ -1,6 +1,6 @@
 # Jenkins Workflow on Windows
 
-[Back to README](../README.md)
+[Back to README](../../README.md)
 
 This reference workflow runs every step through Windows Command Prompt.
 

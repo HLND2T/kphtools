@@ -1,6 +1,6 @@
 # Reference YAML for `LLM_DECOMPILE`
 
-[Back to README](../README.md)
+[Back to README](../../README.md)
 
 `generate_reference_yaml.py` creates a single reference YAML at:
 

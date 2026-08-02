@@ -1,6 +1,6 @@
 # Export YAML Artifacts to `kphdyn.xml`
 
-[Back to README](../README.md)
+[Back to README](../../README.md)
 
 `update_symbols.py` is a YAML-to-XML exporter.
 

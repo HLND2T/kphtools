@@ -1,4 +1,6 @@
-# OSS Sync
+# OSS 同步
+
+[返回 README](../../README.zh-CN.md)
 
 ## 同步模式
 
@@ -33,8 +35,8 @@ OSS 同步使用 `alibabacloud-oss-v2`，连接配置与 `upload_server.py` 使�
 - `KPHTOOLS_SERVER_OSS_BUCKET`：OSS bucket 名称，必填
 - `KPHTOOLS_SERVER_OSS_PREFIX`：OSS 路径前缀，可选，默认为空
 - `KPHTOOLS_OSS_SYNC_CHECK_INTERVAL`：OSS 检查间隔（秒），可选，默认为 `60`
-- `KPHTOOLS_OSS_SYNC_EXCLUDE`：排除路径，使用英文逗号分隔，可选，默认为 `.git/,.DS_Store`
-- `KPHTOOLS_OSS_SYNC_EXCLUDE_EXTENSION`：排除扩展名，使用英文逗号分隔，可选，默认为 `.mdmp,.dmp`
+- `KPHTOOLS_OSS_SYNC_EXCLUDE`：排除路径，使用英文逗号分隔，可选，默认为 `.git,.stfolder`
+- `KPHTOOLS_OSS_SYNC_EXCLUDE_EXTENSION`：排除扩展名，使用英文逗号分隔，可选，默认为 `.txt,.yaml,.pdb,.id0,.id1,.id2,.nam,.til,.i64,.log,.stignore`
 
 同步方向通过命令行参数设置：
 
@@ -49,3 +51,4 @@ uv run --env-file .env oss_sync.py --direction both
 ```bash
 uv run --env-file .env oss_sync.py --direction local2oss --once
 ```
+
