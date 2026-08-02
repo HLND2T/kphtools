@@ -21,6 +21,13 @@ jobs:
       KPHTOOLS_LLM_EFFORT: ${{ secrets.KPHTOOLS_LLM_EFFORT }}
       KPHTOOLS_LLM_FAKE_AS: ${{ secrets.KPHTOOLS_LLM_FAKE_AS }}
       KPHTOOLS_LLM_TEMPERATURE: ${{ secrets.KPHTOOLS_LLM_TEMPERATURE }}
+      KPHTOOLS_SERVER_STORAGE: ${{ secrets.KPHTOOLS_SERVER_STORAGE }}
+      KPHTOOLS_SERVER_OSS_REGION: ${{ secrets.KPHTOOLS_SERVER_OSS_REGION }}
+      KPHTOOLS_SERVER_OSS_BUCKET: ${{ secrets.KPHTOOLS_SERVER_OSS_BUCKET }}
+      KPHTOOLS_SERVER_OSS_ENDPOINT: ${{ secrets.KPHTOOLS_SERVER_OSS_ENDPOINT }}
+      KPHTOOLS_SERVER_OSS_PREFIX: ${{ secrets.KPHTOOLS_SERVER_OSS_PREFIX }}
+      OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+      OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
 
     steps:
       - name: Checkout repository
@@ -60,6 +67,12 @@ jobs:
         run: |
           powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml' -OutFile kphdyn.official.xml"
           copy kphdyn.official.xml kphdyn.xml /y
+
+      - name: Sync symbols from OSS
+        shell: cmd
+        run: |
+          set "KPHTOOLS_SYMBOLDIR=%WORKSPACE%\symbols"
+          uv run python oss_sync.py --direction oss2local --once
 
       - name: Sync unmanaged ntoskrnl to kphdyn.xml
         shell: cmd
