@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
@@ -20,7 +21,12 @@ _LLM_DECOMPILE_REQUIRED_SPEC_KEYS = frozenset(
         "dependency_policy",
     }
 )
-_LLM_DECOMPILE_SPEC_KEYS = _LLM_DECOMPILE_REQUIRED_SPEC_KEYS
+_LLM_DECOMPILE_OPTIONAL_SPEC_KEYS = frozenset(
+    {"instruction_rules", "expected_size"}
+)
+_LLM_DECOMPILE_SPEC_KEYS = (
+    _LLM_DECOMPILE_REQUIRED_SPEC_KEYS | _LLM_DECOMPILE_OPTIONAL_SPEC_KEYS
+)
 _LLM_DECOMPILE_DEPENDENCY_POLICIES = frozenset({"required", "optional"})
 _LLM_RESULT_SECTIONS_BY_CATEGORY = {
     "func": frozenset({"found_call", "found_funcptr"}),
@@ -119,6 +125,65 @@ def _normalize_llm_decompile_spec(
     if references is None or sections is None:
         return None
 
+    instruction_rules = None
+    if "instruction_rules" in spec:
+        raw_rules = spec.get("instruction_rules")
+        if not isinstance(raw_rules, (tuple, list)) or not raw_rules:
+            _debug_log(
+                debug,
+                f"invalid llm_decompile instruction rules for {symbol_name}: "
+                f"{raw_rules!r}",
+            )
+            return None
+        instruction_rules = []
+        for raw_rule in raw_rules:
+            if not isinstance(raw_rule, Mapping) or set(raw_rule) != {"regex", "text"}:
+                _debug_log(
+                    debug,
+                    f"invalid llm_decompile instruction rule shape for "
+                    f"{symbol_name}: {raw_rule!r}",
+                )
+                return None
+            regex_text = raw_rule.get("regex")
+            instruction_text = raw_rule.get("text")
+            if (
+                not isinstance(regex_text, str)
+                or not regex_text.strip()
+                or not isinstance(instruction_text, str)
+                or not instruction_text.strip()
+            ):
+                _debug_log(
+                    debug,
+                    f"empty llm_decompile instruction rule field for "
+                    f"{symbol_name}: {raw_rule!r}",
+                )
+                return None
+            try:
+                re.compile(regex_text)
+            except re.error as exc:
+                _debug_log(
+                    debug,
+                    f"invalid llm_decompile instruction rule for {symbol_name}: "
+                    f"{regex_text!r}: {exc}",
+                )
+                return None
+            instruction_rules.append(
+                {"regex": regex_text, "text": instruction_text}
+            )
+
+    expected_size = spec.get("expected_size")
+    if "expected_size" in spec and (
+        isinstance(expected_size, bool)
+        or not isinstance(expected_size, int)
+        or expected_size <= 0
+    ):
+        _debug_log(
+            debug,
+            f"invalid llm_decompile expected_size for {symbol_name}: "
+            f"{expected_size!r}",
+        )
+        return None
+
     raw_policy = spec.get("dependency_policy")
     if not isinstance(raw_policy, Mapping) or not raw_policy:
         _debug_log(
@@ -152,13 +217,18 @@ def _normalize_llm_decompile_spec(
         seen_keys.add(artifact_key)
         dependency_policy[artifact_name] = policy
 
-    return {
+    normalized = {
         "symbol_name": symbol_name,
         "prompt_path": prompt_path,
         "reference_yaml_paths": references,
         "expected_result_sections": sections,
         "dependency_policy": dependency_policy,
     }
+    if instruction_rules is not None:
+        normalized["instruction_rules"] = instruction_rules
+    if "expected_size" in spec:
+        normalized["expected_size"] = expected_size
+    return normalized
 
 
 def _build_llm_decompile_specs_map(
@@ -185,11 +255,18 @@ def _build_llm_decompile_specs_map(
     return specs_map
 
 
-def _resolve_template(value: str, *, arch: str | None) -> str:
+def _resolve_template(
+    value: str,
+    *,
+    arch: str | None,
+    module_name: str | None = None,
+) -> str:
     resolved = value
     if arch:
         resolved = resolved.replace("{arch}", arch)
         resolved = resolved.replace("{platform}", arch)
+    if module_name:
+        resolved = resolved.replace("{module_name}", module_name)
     return resolved
 
 
@@ -198,9 +275,16 @@ def _load_reference_artifact_name(
     *,
     scripts_dir: Path,
     arch: str | None,
+    module_name: str | None,
     debug: bool,
 ) -> str | None:
-    reference_path = Path(_resolve_template(reference_value, arch=arch))
+    reference_path = Path(
+        _resolve_template(
+            reference_value,
+            arch=arch,
+            module_name=module_name,
+        )
+    )
     if not reference_path.is_absolute():
         reference_path = scripts_dir / reference_path
     try:
@@ -266,6 +350,7 @@ def validate_llm_decompile_specs(
     category_by_symbol: Mapping[str, str],
     scripts_dir: str | Path | None = None,
     arch: str | None = None,
+    module_name: str | None = None,
     debug: bool = False,
 ) -> bool:
     if not specs_map:
@@ -301,11 +386,22 @@ def validate_llm_decompile_specs(
                 f"incompatible llm_decompile sections for {symbol_name}: "
                 f"category={category!r}, sections={sorted(sections)}",
             )
+        if "expected_size" in spec and category != "struct_offset":
+            valid = False
+            _debug_log(
+                debug,
+                f"incompatible llm_decompile expected_size for {symbol_name}: "
+                f"category={category!r}",
+            )
 
         inferred: dict[str, str] = {}
         for reference in spec["reference_yaml_paths"]:
             artifact_name = _load_reference_artifact_name(
-                reference, scripts_dir=root, arch=arch, debug=debug
+                reference,
+                scripts_dir=root,
+                arch=arch,
+                module_name=module_name,
+                debug=debug,
             )
             if artifact_name is None:
                 valid = False
@@ -322,7 +418,11 @@ def validate_llm_decompile_specs(
 
         resolved_policy: dict[str, str] = {}
         for artifact_template, policy in spec["dependency_policy"].items():
-            artifact_name = _resolve_template(artifact_template, arch=arch)
+            artifact_name = _resolve_template(
+                artifact_template,
+                arch=arch,
+                module_name=module_name,
+            )
             artifact_key = os.path.normcase(artifact_name)
             if artifact_key in resolved_policy:
                 valid = False

@@ -514,7 +514,7 @@ uv run python -m unittest tests.test_ida_llm_utils.TestCallLlmTextCodexHttp -v
   `expected_result_sections`。
 - [ ] 对同一个派生 query name 出现冲突 artifact/category 时拒绝请求，不猜测分类。
 - [ ] 特别覆盖现有混合 finder
-  `find-EpCookie-AND-EpSectionObject-AND-MmCreateProcessAddressSpace.py`：两个 struct 和一个
+  `find-PspAllocateProcess-decompiles.py`：两个 struct 和一个
   func 必须在同一请求中得到不同 expected sections。
 - [ ] `call_llm_decompile(...)` 接收全部 target disassembly，而不是只拿第一段做校验。
 - [ ] 把 `_load_llm_decompile_target_details_via_mcp(...)`、function/code-region detail

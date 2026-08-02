@@ -10,6 +10,17 @@ from ida_llm_response import LLM_DECOMPILE_RESULT_SECTIONS
 
 
 SYSTEM_PROMPT = "You are a Windows-kernel reverse-engineering expert."
+_LLM_SCHEMA_ISSUE_TYPES = frozenset(
+    {
+        "yaml_parse_error",
+        "yaml_root_type_mismatch",
+        "yaml_schema_mismatch",
+        "yaml_section_type_mismatch",
+        "yaml_entry_shape_mismatch",
+        "wrapped_symbol_mismatch",
+        "unexpected_result_symbol",
+    }
+)
 
 
 def _strip_line_comment_outside_quotes(line: str, marker: str) -> str:
@@ -200,17 +211,45 @@ def build_result_section_requirements(expected_sections: dict[str, set[str]]) ->
     return "\n".join(lines)
 
 
+def _format_instruction_rule_issue(issue: dict[str, Any], location: str) -> str:
+    rules_text = " or ".join(
+        f"`{rule_text}`"
+        for rule_text in issue.get("instruction_rule_texts", [])
+    )
+    return (
+        f"- {location}: symbol {issue.get('symbol_name')!r} reports "
+        f"`{issue.get('reported_disasm')}`, but the instruction must use one "
+        f"of these forms: {rules_text}."
+    )
+
+
+def _format_instruction_size_issue(issue: dict[str, Any], location: str) -> str:
+    return (
+        f"- {location}: symbol {issue.get('symbol_name')!r} reports size "
+        f"{issue.get('reported_size')!r} for `{issue.get('reported_disasm')}`, "
+        f"but the required size is {issue.get('expected_size')}."
+    )
+
+
+def _format_struct_offset_displacement_issue(
+    issue: dict[str, Any],
+    location: str,
+) -> str:
+    displacement_text = ", ".join(
+        f"-0x{-value:X}" if value < 0 else f"0x{value:X}"
+        for value in issue.get("instruction_displacements", [])
+    ) or "<none>"
+    return (
+        f"- {location}: symbol {issue.get('symbol_name')!r} reports offset "
+        f"{issue.get('offset')!r}, but `{issue.get('reported_disasm')}` contains "
+        f"memory displacement(s) {displacement_text}. The reported offset must "
+        "be the displacement accessed by that exact instruction."
+    )
+
+
 def _format_validation_issue(issue: dict[str, Any]) -> str:
     issue_type = issue.get("issue_type")
-    if issue_type in {
-        "yaml_parse_error",
-        "yaml_root_type_mismatch",
-        "yaml_schema_mismatch",
-        "yaml_section_type_mismatch",
-        "yaml_entry_shape_mismatch",
-        "wrapped_symbol_mismatch",
-        "unexpected_result_symbol",
-    }:
+    if issue_type in _LLM_SCHEMA_ISSUE_TYPES:
         return f"- {issue.get('message', issue_type)}"
     location = f"{issue.get('section_name')}[{issue.get('entry_index')}]"
     if issue_type == "result_section_mismatch":
@@ -219,6 +258,12 @@ def _format_validation_issue(issue: dict[str, Any]) -> str:
             f"- {location}: symbol {issue.get('symbol_name')!r} was returned in "
             f"`{issue.get('section_name')}`, but it requires {expected}."
         )
+    if issue_type == "instruction_rule_mismatch":
+        return _format_instruction_rule_issue(issue, location)
+    if issue_type == "instruction_size_mismatch":
+        return _format_instruction_size_issue(issue, location)
+    if issue_type == "struct_offset_displacement_mismatch":
+        return _format_struct_offset_displacement_issue(issue, location)
     actual = " | ".join(issue.get("actual_disasms", [])) or "<no instruction found>"
     text = (
         f"- {location}: insn_va {issue.get('insn_va')!r} reports "
@@ -240,6 +285,24 @@ def build_validation_correction_prompt(
     permitted = ", ".join(LLM_DECOMPILE_RESULT_SECTIONS)
     requirements = build_result_section_requirements(expected_result_sections or {})
     requirement_block = f"\n{requirements}\n" if requirements else ""
+    schema_guidance = ""
+    if any(issue.get("issue_type") in _LLM_SCHEMA_ISSUE_TYPES for issue in validation_issues):
+        schema_guidance = """
+
+Canonical multi-symbol example:
+```yaml
+found_call:
+  - insn_va: '0x1000'
+    insn_disasm: call sub_1000
+    func_name: FirstRequestedSymbol
+found_funcptr:
+  - insn_va: '0x1010'
+    insn_disasm: lea rax, sub_1010
+    funcptr_name: SecondRequestedSymbol
+found_gv: []
+found_struct_offset: []
+```
+"""
     return f"""Your previous YAML output contains invalid references.
 Each insn_va must identify the exact target instruction written in insn_disasm; only whitespace differences are allowed.
 
@@ -257,6 +320,7 @@ found_funcptr: []
 found_gv: []
 found_struct_offset: []
 ```
+{schema_guidance}
 {requirement_block}
 For `found_struct_offset`, report the exact member-access instruction plus `offset`, `size`, `struct_name`, and `member_name`.
 Re-check every entry and return the complete YAML for all requested symbols. Do not return a patch, explanation, or text outside YAML."""

@@ -11,7 +11,7 @@ modules:
         expected_output:
           - AlpcpInitSystem.yaml
 
-      - name: find-AlpcpDeletePort-AND-ObCreateObjectTypeEx
+      - name: find-AlpcpInitSystem-decompiles
         expected_input:
           - AlpcpInitSystem.yaml
         expected_output:
@@ -54,7 +54,7 @@ modules:
         expected_output:
           - AlpcpCreateClientPort.yaml
 
-      - name: find-EgeGuid-AND-EreGuidEntry
+      - name: find-EtwGetProviderIdFromHandle-decompiles
         expected_output:
           - EgeGuid.yaml
           - EreGuidEntry.yaml
@@ -89,17 +89,17 @@ modules:
         expected_input:
           - ObCreateObjectTypeEx.yaml
 
-      - name: find-ObAttributesShift-AND-ObDecodeShift-AND-HtHandleContentionEvent
+      - name: find-ObpEnumFindHandleProcedure-decompiles
         expected_output:
           - ObAttributesShift.yaml
           - ObDecodeShift.yaml
           - HtHandleContentionEvent.yaml
         prerequisite:
-          - find-ObReferenceProcessHandleTable-AND-ObpEnumFindHandleProcedure
+          - find-ObFindHandleForObject-decompiles
         optional_input:
           - ObpEnumFindHandleProcedure.yaml
 
-      - name: find-AlpcHandleTable-AND-AlpcPortContext-AND-AlpcPortObjectLock
+      - name: find-AlpcpCreateClientPort-decompiles
         expected_output:
           - AlpcHandleTable.yaml
           - AlpcPortContext.yaml
@@ -113,7 +113,7 @@ modules:
         expected_output:
           - AlpcHandleTableLock.yaml
 
-      - name: find-AlpcAttributes-AND-AlpcAttributesFlags-AND-AlpcCommunicationInfo-AND-AlpcOwnerProcess-AND-AlpcConnectionPort-AND-AlpcServerCommunicationPort-AND-AlpcClientCommunicationPort
+      - name: find-AlpcpDeletePort-decompiles
         expected_output:
           - AlpcAttributes.yaml
           - AlpcAttributesFlags.yaml
@@ -125,7 +125,7 @@ modules:
         expected_input:
           - AlpcpDeletePort.yaml
 
-      - name: find-AlpcSequenceNo-AND-AlpcState
+      - name: find-AlpcpDisconnectPort-decompiles
         expected_output:
           - AlpcSequenceNo.yaml
           - AlpcState.yaml
@@ -149,7 +149,7 @@ modules:
         expected_input:
           - SwapContext.yaml
 
-      - name: find-KtReadOperationCount-AND-KtWriteOperationCount-AND-KtOtherOperationCount-AND-KtReadTransferCount-AND-KtWriteTransferCount-AND-KtOtherTransferCount
+      - name: find-KeFoldProcessStatisticsThread-decompiles
         expected_output:
           - KtReadOperationCount.yaml
           - KtWriteOperationCount.yaml
@@ -196,7 +196,7 @@ modules:
         expected_input:
           - MiCheckControlArea.yaml
 
-      - name: find-EpCookie-AND-EpSectionObject-AND-MmCreateProcessAddressSpace
+      - name: find-PspAllocateProcess-decompiles
         expected_output:
           - EpCookie.yaml
           - EpSectionObject.yaml
@@ -222,7 +222,7 @@ modules:
         expected_input:
           - MmCreateProcessAddressSpace.yaml
 
-      - name: find-PspCreateProcessNotifyRoutine-AND-PspCreateThreadNotifyRoutine-AND-PspLoadImageNotifyRoutine
+      - name: find-PspEnumerateCallback-decompiles
         expected_output:
           - PspCreateProcessNotifyRoutine.yaml
           - PspCreateThreadNotifyRoutine.yaml
@@ -259,7 +259,7 @@ modules:
         expected_output:
           - ObFindHandleForObject.yaml
 
-      - name: find-ObReferenceProcessHandleTable-AND-ObpEnumFindHandleProcedure
+      - name: find-ObFindHandleForObject-decompiles
         expected_input:
           - ObFindHandleForObject.yaml
         expected_output:
@@ -362,6 +362,17 @@ modules:
         expected_output:
           - MmPurgeSection.yaml
 
+      - name: find-ExpGetSystemFirmwareTableInformation
+        expected_output:
+          - ExpGetSystemFirmwareTableInformation.yaml
+
+      - name: find-ExpGetSystemFirmwareTableInformation-decompiles
+        expected_output:
+          - ExpFirmwareTableResource.yaml
+          - ExpFirmwareTableProviderListHead.yaml
+        expected_input:
+          - ExpGetSystemFirmwareTableInformation.yaml
+
       - name: find-MiCheckControlArea
         expected_input:
           - MmPurgeSection.yaml
@@ -384,7 +395,7 @@ modules:
         expected_output:
           - ObpCallPreOperationCallbacks.yaml
 
-      - name: find-OtTypeLock-AND-OtCallbackList
+      - name: find-ObpCallPreOperationCallbacks-decompiles
         expected_output:
           - OtTypeLock.yaml
           - OtCallbackList.yaml
@@ -535,4 +546,10 @@ modules:
         data_type: uint32
       - name: CmpEnumerateCallback
         category: func
+        data_type: uint32
+      - name: ExpFirmwareTableResource
+        category: gv
+        data_type: uint32
+      - name: ExpFirmwareTableProviderListHead
+        category: gv
         data_type: uint32

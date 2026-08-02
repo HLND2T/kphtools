@@ -8,6 +8,7 @@ from typing import Any
 import yaml
 
 from ida_llm_decompile import call_llm_decompile as _validated_call_llm_decompile
+from ida_llm_prompt import derive_module_name
 from ida_llm_response import empty_llm_decompile_result, parse_llm_decompile_response
 from ida_llm_specs import build_llm_decompile_specs_map
 from ida_llm_targets import (
@@ -18,7 +19,7 @@ from ida_llm_targets import (
 from ida_reference_export import validate_reference_yaml_payload
 
 _LLM_DECOMPILE_RESULT_CACHE: dict[tuple[Any, ...], dict[str, list[dict[str, str]]]] = {}
-_LLM_RESULT_CONTRACT_VERSION = "kphtools-four-section-v1"
+_LLM_RESULT_CONTRACT_VERSION = "kphtools-four-section-v2"
 
 
 def _debug_log(debug: bool, message: str) -> None:
@@ -96,10 +97,17 @@ def _infer_arch_from_binary_dir(binary_dir: str | Path | None) -> str:
     return ""
 
 
-def _resolve_request_path(value: Any, arch: str, scripts_dir: Path) -> Path:
+def _resolve_request_path(
+    value: Any,
+    arch: str,
+    scripts_dir: Path,
+    module_name: str = "",
+) -> Path:
     resolved = str(value or "")
     if arch:
         resolved = resolved.replace("{arch}", arch).replace("{platform}", arch)
+    if module_name:
+        resolved = resolved.replace("{module_name}", module_name)
     path = Path(resolved)
     return path if path.is_absolute() else scripts_dir / path
 
@@ -129,10 +137,15 @@ def _collect_batch_context(
     specs_map: dict[str, dict[str, Any]],
     llm_spec: dict[str, Any],
     semantic_query_names: dict[str, str],
-) -> tuple[list[str], dict[str, list[str]]] | None:
+) -> tuple[
+    list[str],
+    dict[str, list[str]],
+    dict[str, dict[str, Any]],
+] | None:
     signature = _llm_decompile_specs_signature(llm_spec)
     names: list[str] = []
     expected_sections: dict[str, list[str]] = {}
+    instruction_validations: dict[str, dict[str, Any]] = {}
     semantic_owners: dict[str, str] = {}
     for artifact_name, candidate_spec in specs_map.items():
         if _llm_decompile_specs_signature(candidate_spec) != signature:
@@ -149,7 +162,14 @@ def _collect_batch_context(
         if semantic_name not in names:
             names.append(semantic_name)
         expected_sections[semantic_name] = sections
-    return names, expected_sections
+        validation = {
+            key: candidate_spec[key]
+            for key in ("instruction_rules", "expected_size")
+            if key in candidate_spec
+        }
+        if validation:
+            instruction_validations[semantic_name] = validation
+    return names, expected_sections, instruction_validations
 
 
 def _append_unique_text(items: list[str], seen: set[str], value: Any) -> None:
@@ -164,6 +184,7 @@ def _load_reference_context(
     llm_spec: dict[str, Any],
     arch: str,
     scripts_dir: Path,
+    module_name: str,
     symbol_name: str,
     debug: bool,
 ) -> dict[str, Any] | None:
@@ -174,7 +195,12 @@ def _load_reference_context(
     seen: set[str] = set()
     policy = dict(llm_spec.get("dependency_policy", {}))
     for reference_value in llm_spec.get("reference_yaml_paths", []):
-        path = _resolve_request_path(reference_value, arch, scripts_dir)
+        path = _resolve_request_path(
+            reference_value,
+            arch,
+            scripts_dir,
+            module_name,
+        )
         item = _load_reference_item(path) if path.is_file() else None
         if item is None:
             _debug_log(debug, f"llm_decompile skipped for {symbol_name}: invalid reference {path}")
@@ -224,8 +250,14 @@ def _prepare_llm_decompile_request(
         return None
     arch = _infer_arch_from_binary_dir(binary_dir)
     arch = arch or str(llm_config.get("arch", "")).strip()
+    module_name = derive_module_name(binary_dir)
     scripts_dir = _get_preprocessor_scripts_dir()
-    prompt_path = _resolve_request_path(llm_spec["prompt_path"], arch, scripts_dir)
+    prompt_path = _resolve_request_path(
+        llm_spec["prompt_path"],
+        arch,
+        scripts_dir,
+        module_name,
+    )
     try:
         prompt_template = prompt_path.read_text(encoding="utf-8")
     except OSError:
@@ -235,6 +267,7 @@ def _prepare_llm_decompile_request(
         llm_spec=llm_spec,
         arch=arch,
         scripts_dir=scripts_dir,
+        module_name=module_name,
         symbol_name=symbol_name,
         debug=debug,
     )
@@ -250,6 +283,7 @@ def _prepare_llm_decompile_request(
         "llm_symbol_name": llm_symbol_name,
         "llm_symbol_names": batch[0],
         "expected_result_sections": batch[1],
+        "instruction_validations": batch[2],
         "arch": arch,
     }
 
@@ -257,6 +291,35 @@ def _prepare_llm_decompile_request(
 def _normalized_expected_sections(request: dict[str, Any]) -> tuple[Any, ...]:
     expected = request.get("expected_result_sections", {})
     return tuple(sorted((str(name), tuple(sorted(map(str, sections)))) for name, sections in expected.items()))
+
+
+def _normalized_instruction_validations(
+    request: dict[str, Any],
+) -> tuple[Any, ...]:
+    validations = request.get("instruction_validations", {})
+    if not isinstance(validations, dict):
+        return ()
+    normalized = []
+    for symbol_name, validation in sorted(validations.items()):
+        if not isinstance(validation, dict):
+            continue
+        rules = validation.get("instruction_rules", ())
+        normalized_rules = tuple(
+            (
+                str(rule.get("regex", "")),
+                str(rule.get("text", "")),
+            )
+            for rule in rules
+            if isinstance(rule, dict)
+        )
+        normalized.append(
+            (
+                str(symbol_name),
+                normalized_rules,
+                validation.get("expected_size"),
+            )
+        )
+    return tuple(normalized)
 
 
 def _build_llm_decompile_result_cache_key(
@@ -289,6 +352,7 @@ def _build_llm_decompile_result_cache_key(
         tuple(sorted(request.get("dependency_policy", {}).items())),
         query_names,
         _normalized_expected_sections(request),
+        _normalized_instruction_validations(request),
         _LLM_RESULT_CONTRACT_VERSION,
     )
 
@@ -307,6 +371,7 @@ async def call_llm_decompile(
         model=llm_config.get("model", ""),
         symbol_name_list=symbol_name_list,
         expected_result_sections=llm_config.get("_expected_result_sections", {}),
+        instruction_validations=llm_config.get("_instruction_validations", {}),
         reference_items=reference_items,
         target_items=target_items,
         prompt_template=prompt_template,
@@ -361,6 +426,7 @@ async def _load_or_call_llm_result(
     call_config = {
         **llm_config,
         "_expected_result_sections": request.get("expected_result_sections", {}),
+        "_instruction_validations": request.get("instruction_validations", {}),
         "_binary_path": binary_dir,
     }
     result = await call_llm_decompile(

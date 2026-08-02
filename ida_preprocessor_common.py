@@ -9,6 +9,7 @@ from ida_preprocessor_scripts.generic_func import preprocess_func_symbol
 from ida_preprocessor_scripts.generic_gv import preprocess_gv_symbol
 from ida_preprocessor_scripts.generic_struct_offset import preprocess_struct_symbol
 from ida_mcp_resolver import resolve_symbol_via_llm_decompile
+from ida_llm_prompt import derive_module_name
 from ida_llm_specs import (
     build_llm_decompile_specs_map,
     build_semantic_query_names,
@@ -242,6 +243,7 @@ def _prepare_llm_decompile_context(
         optional_inputs=config.get("_optional_inputs"),
         category_by_symbol=category_by_symbol,
         arch=arch_from_binary_dir(binary_dir),
+        module_name=derive_module_name(binary_dir),
         debug=debug,
     ):
         return None

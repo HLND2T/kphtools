@@ -178,7 +178,7 @@ Examples:
 - Function (FUNC_XREFS, xref_unicode_strings + xref_signatures): `ida_preprocessor_scripts/find-AlpcpInitSystem.py`.
 - Single-symbol LLM_DECOMPILE struct offset: `ida_preprocessor_scripts/find-AlpcHandleTableLock.py` (ref: `AlpcAddHandleTableEntry`).
 - Merged LLM_DECOMPILE struct offsets (two targets, same ref): `ida_preprocessor_scripts/find-AlpcHandleTable-AND-AlpcPortContext.py` (ref: `AlpcpCreateClientPort`).
-- Merged LLM struct offsets: `ida_preprocessor_scripts/find-AlpcAttributes-AND-AlpcAttributesFlags-AND-AlpcCommunicationInfo-AND-AlpcOwnerProcess-AND-AlpcConnectionPort-AND-AlpcServerCommunicationPort-AND-AlpcClientCommunicationPort.py`.
+- Merged LLM struct offsets: `ida_preprocessor_scripts/find-AlpcpDeletePort-decompiles.py`.
 
 ### 3. Update config.yaml
 
@@ -259,18 +259,33 @@ Also run:
 - YAML parse check for `config.yaml` and changed reference YAML files.
 - `git diff --check`.
 
-### 6. Commit Changes
+### 6. Commit Changes to `dev`
 
-Check the current branch:
+After validation, deliver the task on the local `dev` branch. Never commit
+directly to `main`. Before switching branches, inspect `git status --short` and
+stop if unrelated changes would be affected.
 
 ```bash
-git branch --show-current
+if git show-ref --verify --quiet refs/heads/dev; then
+  git switch dev
+else
+  git switch main
+  git switch -c dev
+fi
 ```
 
-- If on `main`: commit to a dev branch (e.g., `dev` or a new `dev-<feature>` branch).
-- If on any other branch: commit directly to the current branch.
+If a branch switch fails, stop and report the error. Stage only relevant finder
+scripts, reference YAMLs, and `config.yaml` files; do not stage `.claude/`
+tooling directories or use `git add -A`.
 
-Stage only relevant files (finder scripts, reference YAMLs, `config.yaml`). Do not stage `.claude/` tooling directories.
+```bash
+git add -- <task-related-paths>
+git diff --cached --name-only
+git commit -m "feat(preprocessor): add <SkillName> finder" -m "Co-Authored-By: Codex <codex@openai.com>"
+```
+
+Stop if the staged-path list includes unrelated files. Do not push or open a
+pull request unless the user separately requests it.
 
 ## Common Mistakes
 
@@ -296,4 +311,4 @@ Stage only relevant files (finder scripts, reference YAMLs, `config.yaml`). Do n
 - Reference YAML exists for LLM_DECOMPILE and includes target annotations.
 - Stale merged-away scripts/skill entries are removed when cleanup was authorized.
 - `dump_symbols.py -debug` shows `preprocess status for find-<SkillName>/<SymbolName>: success` for the new skill.
-- Changes committed to the current branch (or a dev branch if on `main`).
+- Changes committed to `dev` only.
