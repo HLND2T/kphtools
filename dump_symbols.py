@@ -66,7 +66,9 @@ SURVEY_CURRENT_IDB_PATH_PY_EVAL = (
 )
 MCP_STARTUP_TIMEOUT = 1200
 MCP_SHUTDOWN_TIMEOUT = 10.0
+MCP_PROCESS_STOP_TIMEOUT = 5.0
 IDALIB_QEXIT_TIMEOUT_SECONDS = 3
+_IS_WINDOWS = os.name == "nt"
 SUPPORTED_ARCHES = ("amd64", "arm64")
 DEFAULT_ARCH = ",".join(SUPPORTED_ARCHES)
 DEFAULT_SYMBOL_DIR = "symbols"
@@ -760,9 +762,10 @@ def start_idalib_mcp(
     port: int = 13337,
     debug: bool = False,
 ):
+    if _is_port_in_use(host, port):
+        raise RuntimeError(f"MCP port {host}:{port} is already in use")
+
     cmd = [
-        "uv",
-        "run",
         "idalib-mcp",
         "--unsafe",
         "--host",
@@ -777,10 +780,65 @@ def start_idalib_mcp(
         popen_kwargs["stderr"] = subprocess.DEVNULL
     process = subprocess.Popen(cmd, **popen_kwargs)
     if not _wait_for_port(host, port, timeout=MCP_STARTUP_TIMEOUT):
-        process.kill()
-        process.wait()
+        stop_idalib_mcp_process(process, debug=debug)
         raise RuntimeError(f"idalib-mcp failed to start for {binary_path}")
     return process
+
+
+def stop_idalib_mcp_process(
+    process: Any,
+    *,
+    debug: bool = False,
+    timeout: float = MCP_PROCESS_STOP_TIMEOUT,
+) -> bool:
+    """Stop an owned idalib-mcp process and its descendants."""
+    if process is None or process.poll() is not None:
+        return True
+
+    pid = getattr(process, "pid", None)
+    if _IS_WINDOWS and isinstance(pid, int) and pid > 0:
+        taskkill_kwargs: dict[str, Any] = {
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+            "check": False,
+            "timeout": max(0.1, timeout),
+        }
+        create_no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        if create_no_window:
+            taskkill_kwargs["creationflags"] = create_no_window
+        try:
+            completed = subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                **taskkill_kwargs,
+            )
+            if completed.returncode != 0:
+                _debug_log(
+                    debug,
+                    f"taskkill failed for owned MCP process tree {pid}: exit code {completed.returncode}",
+                )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            _debug_log(debug, f"taskkill failed for owned MCP process tree {pid}: {exc}")
+    else:
+        try:
+            process.terminate()
+        except Exception:
+            pass
+
+    try:
+        process.wait(timeout=max(0.1, timeout))
+        return True
+    except subprocess.TimeoutExpired:
+        try:
+            process.kill()
+        except Exception:
+            pass
+        try:
+            process.wait(timeout=1)
+            return True
+        except (OSError, subprocess.TimeoutExpired):
+            return process.poll() is not None
+    except OSError:
+        return process.poll() is not None
 
 
 async def check_mcp_worker_health(host: str, port: int, binary_path: Path) -> bool:
@@ -835,14 +893,11 @@ class LazyIdalibSession:
         except BaseException:
             pass
         if process is not None and process.poll() is None:
-            try:
-                process.kill()
-            except Exception:
-                pass
-            try:
-                await asyncio.to_thread(process.wait, timeout=1)
-            except BaseException:
-                pass
+            await asyncio.to_thread(
+                stop_idalib_mcp_process,
+                process,
+                debug=self.debug,
+            )
         await self._wait_for_port_release()
 
     async def ensure_started(self):
@@ -890,18 +945,11 @@ class LazyIdalibSession:
         self.process = None
         await self._close_handles()
         if process is not None and process.poll() is None:
-            try:
-                process.terminate()
-                await asyncio.to_thread(process.wait, timeout=10)
-            except (OSError, subprocess.TimeoutExpired):
-                try:
-                    process.kill()
-                except Exception:
-                    pass
-                try:
-                    await asyncio.to_thread(process.wait, timeout=1)
-                except BaseException:
-                    pass
+            await asyncio.to_thread(
+                stop_idalib_mcp_process,
+                process,
+                debug=self.debug,
+            )
         return await self._wait_for_port_release()
 
     async def _restart_once(self) -> bool:
@@ -1021,11 +1069,11 @@ class LazyIdalibSession:
 
             await self._close_handles()
             if process.poll() is None:
-                try:
-                    await asyncio.to_thread(process.wait, timeout=10)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    await asyncio.to_thread(process.wait, timeout=1)
+                await asyncio.to_thread(
+                    stop_idalib_mcp_process,
+                    process,
+                    debug=self.debug,
+                )
             return await self._wait_for_port_release()
         except asyncio.CancelledError:
             try:
@@ -1033,14 +1081,12 @@ class LazyIdalibSession:
             except BaseException:
                 pass
             if process is not None and process.poll() is None:
-                try:
-                    process.kill()
-                except Exception:
-                    pass
-                try:
-                    await asyncio.to_thread(process.wait, timeout=1)
-                except BaseException:
-                    pass
+                await asyncio.to_thread(
+                    stop_idalib_mcp_process,
+                    process,
+                    debug=self.debug,
+                )
+            await self._wait_for_port_release()
             raise
 
 
@@ -1117,9 +1163,12 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
             arch=getattr(args, "current_arch", None),
             skill=getattr(args, "skill", None),
         )
-        return ok, bool(activity["did_work"])
     finally:
-        await session.close()
+        closed = await session.close()
+    if closed is False:
+        print(f"MCP cleanup failed for {binary_path}")
+        ok = False
+    return ok, bool(activity["did_work"])
 
 
 def main(argv=None):
