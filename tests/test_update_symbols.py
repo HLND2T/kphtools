@@ -652,6 +652,57 @@ class TestUpdateSymbols(unittest.TestCase):
         self.assertEqual("1", data_elem.text)
         self.assertIsNone(data_elem.get("fields"))
 
+    def test_export_xml_builds_indexes_once_for_multiple_binaries(self) -> None:
+        tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring(XML_TEXT))
+        config = self._build_config()
+        stats = update_symbols.ExportStats()
+
+        with TemporaryDirectory() as temp_dir:
+            for version, sha256 in (("10.0.1", "abc"), ("10.0.2", "def")):
+                sha_dir = (
+                    Path(temp_dir)
+                    / "amd64"
+                    / f"ntoskrnl.exe.{version}"
+                    / sha256
+                )
+                sha_dir.mkdir(parents=True, exist_ok=True)
+                (sha_dir / "EpObjectTable.yaml").write_text(
+                    "category: struct_offset\noffset: 0x570\n",
+                    encoding="utf-8",
+                )
+
+            with (
+                patch.object(
+                    update_symbols,
+                    "_collect_existing_fields",
+                    wraps=update_symbols._collect_existing_fields,
+                ) as fields_index_mock,
+                patch.object(
+                    update_symbols,
+                    "_collect_existing_data_entries",
+                    wraps=update_symbols._collect_existing_data_entries,
+                ) as data_index_mock,
+                patch.object(
+                    update_symbols,
+                    "_load_binary_metadata",
+                    return_value={"timestamp": "0x0", "size": "0x0"},
+                ),
+            ):
+                update_symbols.export_xml(tree, config, Path(temp_dir), stats)
+
+        fields_index_mock.assert_called_once_with(tree.getroot())
+        data_index_mock.assert_called_once_with(tree.getroot())
+        self.assertEqual(1, len(tree.getroot().findall("fields")))
+        self.assertEqual(2, len(tree.getroot().findall("data")))
+        self.assertEqual(
+            ["1", "1"],
+            [data_elem.text for data_elem in tree.getroot().findall("data")],
+        )
+        self.assertEqual(2, stats.binaries)
+        self.assertEqual(2, stats.fields_reused)
+        self.assertEqual(1, stats.data_reused)
+        self.assertEqual(1, stats.data_created)
+
     def test_export_xml_creates_fields_as_field_children(self) -> None:
         tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring("<kphdyn />"))
         config = SimpleNamespace(

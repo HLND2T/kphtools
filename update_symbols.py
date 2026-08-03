@@ -28,6 +28,7 @@ from dataclasses import dataclass
 import hashlib
 import os
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 import xml.etree.ElementTree as ET
 
@@ -90,6 +91,31 @@ class SyncStats:
     hash_mismatch: int = 0
     pe_error: int = 0
     skipped: int = 0
+
+
+FieldValuesKey = tuple[tuple[str, int], ...]
+DataEntryKey = tuple[str, str, str, str]
+
+
+@dataclass
+class ExportXmlIndex:
+    fields_by_values: dict[FieldValuesKey, str]
+    data_by_identity: dict[DataEntryKey, ET.Element]
+    next_fields_id: int | None = None
+
+
+@dataclass
+class ExportStats:
+    binaries: int = 0
+    fields_reused: int = 0
+    fields_created: int = 0
+    data_reused: int = 0
+    data_created: int = 0
+    index_seconds: float = 0.0
+    metadata_seconds: float = 0.0
+    yaml_seconds: float = 0.0
+    fields_seconds: float = 0.0
+    data_seconds: float = 0.0
 
 
 def _is_sha256(value: str) -> bool:
@@ -311,8 +337,8 @@ def _load_module_yaml(
     return payloads
 
 
-def _collect_existing_fields(root: ET.Element) -> dict[tuple[tuple[str, int], ...], str]:
-    existing: dict[tuple[tuple[str, int], ...], str] = {}
+def _collect_existing_fields(root: ET.Element) -> dict[FieldValuesKey, str]:
+    existing: dict[FieldValuesKey, str] = {}
     for fields_elem in root.findall("fields"):
         values = []
         field_children = fields_elem.findall("field")
@@ -332,6 +358,35 @@ def _collect_existing_fields(root: ET.Element) -> dict[tuple[tuple[str, int], ..
     return existing
 
 
+def _data_entry_key(
+    arch: str, file_name: str, version: str, sha256: str
+) -> DataEntryKey:
+    return (arch, file_name, version, sha256.lower())
+
+
+def _collect_existing_data_entries(root: ET.Element) -> dict[DataEntryKey, ET.Element]:
+    existing: dict[DataEntryKey, ET.Element] = {}
+    for data_elem in root.findall("data"):
+        existing_hash = data_elem.get("hash") or data_elem.get("sha256")
+        if not existing_hash:
+            continue
+        key = _data_entry_key(
+            data_elem.get("arch", ""),
+            data_elem.get("file", ""),
+            data_elem.get("version", ""),
+            existing_hash,
+        )
+        existing.setdefault(key, data_elem)
+    return existing
+
+
+def _build_export_xml_index(root: ET.Element) -> ExportXmlIndex:
+    return ExportXmlIndex(
+        fields_by_values=_collect_existing_fields(root),
+        data_by_identity=_collect_existing_data_entries(root),
+    )
+
+
 def _format_field_value(value: int) -> str:
     return f"0x{value:04x}"
 
@@ -346,14 +401,28 @@ def _append_fields_element(root: ET.Element, fields_id: int) -> ET.Element:
     return fields_elem
 
 
-def _find_or_create_fields_id(root: ET.Element, values: dict[str, int]) -> str:
-    existing = _collect_existing_fields(root)
+def _allocate_fields_id(root: ET.Element, index: ExportXmlIndex) -> int:
+    if index.next_fields_id is None:
+        index.next_fields_id = (
+            max([0] + [int(elem.get("id", "0")) for elem in root.findall("fields")])
+            + 1
+        )
+    fields_id = index.next_fields_id
+    index.next_fields_id += 1
+    return fields_id
+
+
+def _find_or_create_fields_id(
+    root: ET.Element,
+    values: dict[str, int],
+    index: ExportXmlIndex,
+) -> str:
     key = tuple(sorted(values.items()))
-    matched = existing.get(key)
+    matched = index.fields_by_values.get(key)
     if matched:
         return matched
 
-    next_id = max([0] + [int(elem.get("id", "0")) for elem in root.findall("fields")]) + 1
+    next_id = _allocate_fields_id(root, index)
     fields_elem = _append_fields_element(root, next_id)
     for name, value in values.items():
         field_elem = ET.SubElement(fields_elem, "field")
@@ -362,7 +431,9 @@ def _find_or_create_fields_id(root: ET.Element, values: dict[str, int]) -> str:
         field_elem.tail = "\n        "
     if len(fields_elem):
         fields_elem[-1].tail = "\n    "
-    return str(next_id)
+    fields_id = str(next_id)
+    index.fields_by_values[key] = fields_id
+    return fields_id
 
 
 def _load_binary_metadata(binary_path: Path) -> dict[str, str]:
@@ -383,25 +454,20 @@ def _ensure_data_entry(
     version: str,
     sha256: str,
     metadata: dict[str, str],
+    index: ExportXmlIndex,
 ) -> ET.Element:
-    for data_elem in root.findall("data"):
-        existing_hash = data_elem.get("hash") or data_elem.get("sha256")
-        if (
-            data_elem.get("arch") == arch
-            and data_elem.get("file") == file_name
-            and data_elem.get("version") == version
-            and existing_hash
-            and existing_hash.lower() == sha256.lower()
-        ):
-            if not data_elem.get("hash"):
-                data_elem.set("hash", sha256)
-            if not data_elem.get("sha256"):
-                data_elem.set("sha256", sha256)
-            if not data_elem.get("timestamp"):
-                data_elem.set("timestamp", metadata["timestamp"])
-            if not data_elem.get("size"):
-                data_elem.set("size", metadata["size"])
-            return data_elem
+    key = _data_entry_key(arch, file_name, version, sha256)
+    data_elem = index.data_by_identity.get(key)
+    if data_elem is not None:
+        if not data_elem.get("hash"):
+            data_elem.set("hash", sha256)
+        if not data_elem.get("sha256"):
+            data_elem.set("sha256", sha256)
+        if not data_elem.get("timestamp"):
+            data_elem.set("timestamp", metadata["timestamp"])
+        if not data_elem.get("size"):
+            data_elem.set("size", metadata["size"])
+        return data_elem
     data_elem = ET.SubElement(root, "data")
     data_elem.set("arch", arch)
     data_elem.set("file", file_name)
@@ -411,11 +477,38 @@ def _ensure_data_entry(
     data_elem.set("timestamp", metadata["timestamp"])
     data_elem.set("size", metadata["size"])
     data_elem.text = "0"
+    index.data_by_identity[key] = data_elem
     return data_elem
 
 
-def export_xml(tree: ET.ElementTree, config: Any, symboldir: Path) -> ET.ElementTree:
+def _print_export_stats(stats: ExportStats) -> None:
+    print(
+        "export: "
+        f"binaries={stats.binaries} "
+        f"fields_reused={stats.fields_reused} "
+        f"fields_created={stats.fields_created} "
+        f"data_reused={stats.data_reused} "
+        f"data_created={stats.data_created} "
+        f"index={stats.index_seconds:.3f}s "
+        f"metadata={stats.metadata_seconds:.3f}s "
+        f"yaml={stats.yaml_seconds:.3f}s "
+        f"fields={stats.fields_seconds:.3f}s "
+        f"data={stats.data_seconds:.3f}s"
+    )
+
+
+def export_xml(
+    tree: ET.ElementTree,
+    config: Any,
+    symboldir: Path,
+    stats: ExportStats | None = None,
+) -> ET.ElementTree:
     root = tree.getroot()
+    if stats is None:
+        stats = ExportStats()
+    started = perf_counter()
+    index = _build_export_xml_index(root)
+    stats.index_seconds = perf_counter() - started
     for module in config.modules:
         symbol_specs = [vars(symbol) for symbol in module.symbols]
         for arch in ("amd64", "arm64"):
@@ -426,13 +519,43 @@ def export_xml(tree: ET.ElementTree, config: Any, symboldir: Path) -> ET.Element
                     for sha_dir in version_dir.iterdir():
                         if not sha_dir.is_dir():
                             continue
+                        stats.binaries += 1
+                        started = perf_counter()
                         metadata = _load_binary_metadata(sha_dir / module_path)
+                        stats.metadata_seconds += perf_counter() - started
+
+                        started = perf_counter()
                         payloads = _load_module_yaml(sha_dir, symbol_specs)
+                        stats.yaml_seconds += perf_counter() - started
                         values = collect_symbol_values(symbol_specs, payloads)
-                        fields_id = _find_or_create_fields_id(root, values)
-                        data_elem = _ensure_data_entry(
-                            root, arch, module_path, version, sha_dir.name, metadata
+
+                        fields_key = tuple(sorted(values.items()))
+                        if index.fields_by_values.get(fields_key):
+                            stats.fields_reused += 1
+                        else:
+                            stats.fields_created += 1
+                        started = perf_counter()
+                        fields_id = _find_or_create_fields_id(root, values, index)
+                        stats.fields_seconds += perf_counter() - started
+
+                        data_key = _data_entry_key(
+                            arch, module_path, version, sha_dir.name
                         )
+                        if data_key in index.data_by_identity:
+                            stats.data_reused += 1
+                        else:
+                            stats.data_created += 1
+                        started = perf_counter()
+                        data_elem = _ensure_data_entry(
+                            root,
+                            arch,
+                            module_path,
+                            version,
+                            sha_dir.name,
+                            metadata,
+                            index,
+                        )
+                        stats.data_seconds += perf_counter() - started
                         data_elem.text = fields_id
                         data_elem.attrib.pop("fields", None)
     return tree
@@ -513,9 +636,16 @@ def main(argv: list[str] | None = None) -> int:
 
     config = load_config(args.configyaml)
     tree = ET.parse(args.xml)
-    export_xml(tree, config, Path(args.symboldir))
+    stats = ExportStats()
+    export_started = perf_counter()
+    export_xml(tree, config, Path(args.symboldir), stats)
+    export_seconds = perf_counter() - export_started
+    _print_export_stats(stats)
     out_path = args.outxml or args.xml
+    write_started = perf_counter()
     tree.write(out_path, encoding="utf-8", xml_declaration=True)
+    write_seconds = perf_counter() - write_started
+    print(f"update_symbols: export={export_seconds:.3f}s write={write_seconds:.3f}s")
     return 0
 
 
