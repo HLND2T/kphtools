@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import update_symbols
+import symbol_artifacts
 
 
 XML_TEXT = """
@@ -160,6 +161,58 @@ class TestUpdateSymbols(unittest.TestCase):
                 payloads = update_symbols._load_module_yaml(binary_dir, symbol_specs)
 
         self.assertEqual({"EpObjectTable"}, set(payloads))
+        self.assertEqual(0x570, payloads["EpObjectTable"]["offset"])
+
+    def test_load_module_yaml_prefers_current_artifacts_manifest(self) -> None:
+        symbol_specs = [{"name": "EpObjectTable"}]
+
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            (binary_dir / "EpObjectTable.yaml").write_text(
+                "category: struct_offset\noffset: '0x111'\n",
+                encoding="utf-8",
+            )
+            symbol_artifacts.write_artifacts_manifest(
+                binary_dir,
+                {
+                    "EpObjectTable": {
+                        "category": "struct_offset",
+                        "offset": 0x570,
+                    }
+                },
+            )
+            with patch.object(
+                update_symbols,
+                "load_artifact",
+                side_effect=AssertionError("individual artifact must not be loaded"),
+            ):
+                payloads = update_symbols._load_module_yaml(binary_dir, symbol_specs)
+
+        self.assertEqual(0x570, payloads["EpObjectTable"]["offset"])
+
+    def test_load_module_yaml_falls_back_when_manifest_is_stale(self) -> None:
+        symbol_specs = [{"name": "EpObjectTable"}]
+
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            symbol_artifacts.write_artifacts_manifest(
+                binary_dir,
+                {
+                    "EpObjectTable": {
+                        "category": "struct_offset",
+                        "offset": 0x111,
+                    }
+                },
+            )
+            manifest_path = binary_dir / "artifacts.yaml"
+            os.utime(manifest_path, ns=(1, 1))
+            (binary_dir / "EpObjectTable.yaml").write_text(
+                "category: struct_offset\noffset: '0x570'\n",
+                encoding="utf-8",
+            )
+
+            payloads = update_symbols._load_module_yaml(binary_dir, symbol_specs)
+
         self.assertEqual(0x570, payloads["EpObjectTable"]["offset"])
 
     def test_collect_symbol_values_applies_bitfield_formula(self) -> None:

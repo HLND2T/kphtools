@@ -46,6 +46,7 @@ from ida_skill_preprocessor import (
     PREPROCESS_STATUS_SUCCESS,
     preprocess_single_skill_via_mcp,
 )
+from symbol_artifacts import artifact_path, load_artifact, write_artifacts_manifest
 from symbol_config import load_config, symbol_name_from_artifact_name
 
 SURVEY_CURRENT_IDB_PATH_PY_EVAL = (
@@ -1138,6 +1139,19 @@ def _format_close_cancelled_message(stage: str, exc: BaseException) -> str:
     return f"MCP session close {stage} cancelled; suppressed teardown noise: {detail}"
 
 
+def _write_binary_artifacts_manifest(binary_dir: Path, symbols) -> bool:
+    artifacts: dict[str, dict | None] = {}
+    for symbol in symbols:
+        symbol_name = str(_field(symbol, "name"))
+        try:
+            artifacts[symbol_name] = load_artifact(
+                artifact_path(binary_dir, symbol_name)
+            )
+        except FileNotFoundError:
+            artifacts[symbol_name] = None
+    return write_artifacts_manifest(binary_dir, artifacts)
+
+
 async def _process_module_binary(module, binary_dir, pdb_path, args):
     binary_path = _resolve_binary_path(module, Path(binary_dir))
     resolved_pdb_path = Path(pdb_path) if pdb_path is not None else None
@@ -1168,6 +1182,9 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
     if closed is False:
         print(f"MCP cleanup failed for {binary_path}")
         ok = False
+    if ok and module.symbols:
+        if _write_binary_artifacts_manifest(Path(binary_dir), module.symbols):
+            activity["did_work"] = True
     return ok, bool(activity["did_work"])
 
 

@@ -35,7 +35,12 @@ import xml.etree.ElementTree as ET
 from dotenv import load_dotenv
 import pefile
 
-from symbol_artifacts import load_artifact
+from symbol_artifacts import (
+    artifact_path,
+    artifacts_manifest_path,
+    load_artifact,
+    load_artifacts_manifest,
+)
 from symbol_config import load_config
 
 DEFAULT_XML_PATH = "kphdyn.xml"
@@ -326,17 +331,60 @@ def collect_symbol_values(
     return values
 
 
-def _load_module_yaml(
+def _load_individual_module_yaml(
     binary_dir: Path, symbol_specs: list[dict[str, Any]]
 ) -> dict[str, dict[str, Any]]:
     payloads: dict[str, dict[str, Any]] = {}
     for spec in symbol_specs:
-        artifact_path = binary_dir / f"{spec['name']}.yaml"
+        symbol_artifact_path = artifact_path(binary_dir, spec["name"])
         try:
-            payloads[spec["name"]] = load_artifact(artifact_path)
+            payloads[spec["name"]] = load_artifact(symbol_artifact_path)
         except FileNotFoundError:
             continue
     return payloads
+
+
+def _artifacts_manifest_is_current(
+    binary_dir: Path,
+    symbol_specs: list[dict[str, Any]],
+    manifest: dict[str, dict | None],
+) -> bool:
+    symbol_names = [spec["name"] for spec in symbol_specs]
+    if any(symbol_name not in manifest for symbol_name in symbol_names):
+        return False
+    try:
+        manifest_mtime_ns = artifacts_manifest_path(binary_dir).stat().st_mtime_ns
+    except FileNotFoundError:
+        return False
+
+    for symbol_name in symbol_names:
+        payload = manifest[symbol_name]
+        try:
+            artifact_mtime_ns = artifact_path(binary_dir, symbol_name).stat().st_mtime_ns
+        except FileNotFoundError:
+            if payload is not None:
+                return False
+            continue
+        if payload is None or artifact_mtime_ns > manifest_mtime_ns:
+            return False
+    return True
+
+
+def _load_module_yaml(
+    binary_dir: Path, symbol_specs: list[dict[str, Any]]
+) -> dict[str, dict[str, Any]]:
+    try:
+        manifest = load_artifacts_manifest(binary_dir)
+    except FileNotFoundError:
+        return _load_individual_module_yaml(binary_dir, symbol_specs)
+
+    if not _artifacts_manifest_is_current(binary_dir, symbol_specs, manifest):
+        return _load_individual_module_yaml(binary_dir, symbol_specs)
+    return {
+        spec["name"]: manifest[spec["name"]]
+        for spec in symbol_specs
+        if manifest[spec["name"]] is not None
+    }
 
 
 def _collect_existing_fields(root: ET.Element) -> dict[FieldValuesKey, str]:

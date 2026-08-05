@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import agent_runner
 import dump_symbols
+import symbol_artifacts
 
 
 class TestDumpSymbols(unittest.TestCase):
@@ -1303,6 +1304,97 @@ class TestDumpSymbols(unittest.TestCase):
     def test_run_skill_uses_shared_agent_runner(self) -> None:
         self.assertIs(agent_runner.run_skill, dump_symbols.run_skill)
 
+    def test_process_module_binary_writes_manifest_after_cleanup(self) -> None:
+        events = []
+
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            binary_path = binary_dir / "ntoskrnl.exe"
+            binary_path.write_text("", encoding="utf-8")
+            pdb_path = binary_dir / "ntkrnlmp.pdb"
+            pdb_path.write_text("", encoding="utf-8")
+            (binary_dir / "EpObjectTable.yaml").write_text(
+                "category: struct_offset\noffset: '0x570'\n",
+                encoding="utf-8",
+            )
+
+            module = SimpleNamespace(
+                path=["ntoskrnl.exe"],
+                skills=[],
+                symbols=[
+                    SimpleNamespace(
+                        name="EpObjectTable",
+                        category="struct_offset",
+                        data_type="uint16",
+                    ),
+                    SimpleNamespace(
+                        name="MissingSymbol",
+                        category="gv",
+                        data_type="uint32",
+                    ),
+                ],
+            )
+            args = SimpleNamespace(agent="codex", debug=False, force=False)
+            fake_lazy_session = MagicMock()
+
+            async def process_binary(**_kwargs):
+                events.append("process")
+                return True
+
+            async def close_session():
+                events.append("close")
+                return None
+
+            fake_lazy_session.close = AsyncMock(side_effect=close_session)
+            real_write_manifest = symbol_artifacts.write_artifacts_manifest
+
+            def write_manifest(*args, **kwargs):
+                events.append("manifest")
+                return real_write_manifest(*args, **kwargs)
+
+            with (
+                patch.object(
+                    dump_symbols,
+                    "LazyIdalibSession",
+                    return_value=fake_lazy_session,
+                ),
+                patch.object(
+                    dump_symbols,
+                    "process_binary_dir",
+                    new=AsyncMock(side_effect=process_binary),
+                ),
+                patch.object(
+                    dump_symbols,
+                    "write_artifacts_manifest",
+                    side_effect=write_manifest,
+                ),
+            ):
+                ok, did_work = asyncio.run(
+                    dump_symbols._process_module_binary(
+                        module,
+                        binary_dir,
+                        pdb_path,
+                        args,
+                    )
+                )
+                manifest = symbol_artifacts.yaml.safe_load(
+                    (binary_dir / "artifacts.yaml").read_text(encoding="utf-8")
+                )
+
+        self.assertTrue(ok)
+        self.assertTrue(did_work)
+        self.assertEqual(["process", "close", "manifest"], events)
+        self.assertEqual(
+            {
+                "EpObjectTable": {
+                    "category": "struct_offset",
+                    "offset": "0x570",
+                },
+                "MissingSymbol": None,
+            },
+            manifest,
+        )
+
     def test_process_module_binary_passes_lazy_session_without_eager_start(
         self,
     ) -> None:
@@ -1313,7 +1405,11 @@ class TestDumpSymbols(unittest.TestCase):
             pdb_path = binary_dir / "ntkrnlmp.pdb"
             pdb_path.write_text("", encoding="utf-8")
 
-            module = SimpleNamespace(path=["ntoskrnl.exe"], skills=[], symbols=[])
+            module = SimpleNamespace(
+                path=["ntoskrnl.exe"],
+                skills=[],
+                symbols=[SimpleNamespace(name="EpObjectTable")],
+            )
             args = SimpleNamespace(agent="codex", debug=False, force=False, skill="find-EpObjectTable")
             fake_lazy_session = MagicMock()
             fake_lazy_session.close = AsyncMock()
@@ -1333,6 +1429,11 @@ class TestDumpSymbols(unittest.TestCase):
                     "process_binary_dir",
                     new=AsyncMock(return_value=True),
                 ) as mock_process_binary,
+                patch.object(
+                    dump_symbols,
+                    "_write_binary_artifacts_manifest",
+                    return_value=False,
+                ) as manifest_mock,
             ):
                 ok, did_work = asyncio.run(dump_symbols._process_module_binary(module, binary_dir, pdb_path, args))
 
@@ -1348,6 +1449,7 @@ class TestDumpSymbols(unittest.TestCase):
         mock_start.assert_not_called()
         mock_process_binary.assert_awaited_once()
         fake_lazy_session.close.assert_awaited_once()
+        manifest_mock.assert_called_once_with(binary_dir, module.symbols)
 
     def test_process_module_binary_real_empty_pipeline_does_not_eager_start(
         self,
@@ -1381,7 +1483,11 @@ class TestDumpSymbols(unittest.TestCase):
             pdb_path = binary_dir / "ntkrnlmp.pdb"
             pdb_path.write_text("", encoding="utf-8")
 
-            module = SimpleNamespace(path=["ntoskrnl.exe"], skills=[], symbols=[])
+            module = SimpleNamespace(
+                path=["ntoskrnl.exe"],
+                skills=[],
+                symbols=[SimpleNamespace(name="EpObjectTable")],
+            )
             args = SimpleNamespace(agent="codex", debug=False, force=False)
             fake_lazy_session = MagicMock()
             fake_lazy_session.close = AsyncMock(return_value=False)
@@ -1397,6 +1503,10 @@ class TestDumpSymbols(unittest.TestCase):
                     "process_binary_dir",
                     new=AsyncMock(return_value=True),
                 ),
+                patch.object(
+                    dump_symbols,
+                    "_write_binary_artifacts_manifest",
+                ) as manifest_mock,
                 patch("builtins.print") as mock_print,
             ):
                 ok, did_work = asyncio.run(
@@ -1406,6 +1516,7 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertFalse(ok)
         self.assertFalse(did_work)
         mock_print.assert_called_once_with(f"MCP cleanup failed for {binary_path}")
+        manifest_mock.assert_not_called()
 
     def test_process_binary_dir_marks_activity_when_work_is_required(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -2576,7 +2687,19 @@ class TestDumpSymbols(unittest.TestCase):
             pdb_path = binary_dir / "ntkrnlmp.pdb"
             pdb_path.write_text("", encoding="utf-8")
             output_path = binary_dir / "EpObjectTable.yaml"
-            output_path.write_text("ready", encoding="utf-8")
+            output_path.write_text(
+                "category: struct_offset\noffset: '0x570'\n",
+                encoding="utf-8",
+            )
+            symbol_artifacts.write_artifacts_manifest(
+                binary_dir,
+                {
+                    "EpObjectTable": {
+                        "category": "struct_offset",
+                        "offset": 0x570,
+                    }
+                },
+            )
 
             module = SimpleNamespace(
                 path=["ntoskrnl.exe"],

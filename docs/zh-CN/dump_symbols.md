@@ -12,6 +12,8 @@ uv run dump_symbols.py [-symboldir="path/to/symbols"] [-configyaml="config.yaml"
 
 脚本扫描 `<symboldir>/<arch>/<file>.<version>/<sha256>/`，将符号解析为 `{symbol}.yaml`，并把文件写在对应的 PE 与 PDB 文件旁边。
 
+每个二进制文件的处理流程和 MCP cleanup 成功后，脚本还会写入 `artifacts.yaml`。该 manifest 使用顶层映射，将模块配置中的每个 symbol 名称映射到对应 artifact payload；缺失的单符号 artifact 记为 `null`。现有单符号 YAML 会继续保留以兼容当前流程。成功的 `-skill` 局部运行会根据当前全部单符号文件重建 manifest；内容未变化时只刷新 manifest 时间戳。
+
 省略 `-symboldir` 时，脚本默认使用当前工作目录下的 `symbols`。`KPHTOOLS_SYMBOLDIR`（包括从 `.env` 加载的值）优先于命令行选项。
 
 ## Agent runner

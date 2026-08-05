@@ -8,7 +8,7 @@
 - Synchronize missing XML `<data>` entries from the on-disk symbol directory layout.
 - Validate symbol-directory path shape and SHA-256 directory names before using PE files.
 - Extract PE timestamp and image size with `pefile`, and verify SHA-256 in `-syncfile` mode.
-- Load configured module symbol specs and colocated `<symbol>.yaml` artifacts, then convert them into XML field values.
+- Prefer each binary's `artifacts.yaml` manifest, validate that it contains all configured symbols and is not older than any per-symbol YAML, and fall back to colocated `<symbol>.yaml` files when the manifest is absent, incomplete, or stale.
 - Reuse existing `<fields>` elements when values match, or allocate a new fields id when needed.
 - Ensure matching `<data>` entries exist and attach the resolved fields id during normal export.
 
@@ -17,13 +17,13 @@
 - `update_symbols.py` - `FilePathInfo`, `SyncStats`, `HashMismatchError`
 - `update_symbols.py` - `scan_symbol_directory`, `parse_file_path_info`, `find_data_entry`, `create_data_entry`, `find_insert_position`
 - `update_symbols.py` - `parse_pe_info`, `_calculate_sha256`, `_load_binary_metadata`
-- `update_symbols.py` - `collect_symbol_values`, `_load_module_yaml`, `_find_or_create_fields_id`, `_ensure_data_entry`
+- `update_symbols.py` - `collect_symbol_values`, `_load_module_yaml`, `_load_individual_module_yaml`, `_artifacts_manifest_is_current`, `_find_or_create_fields_id`, `_ensure_data_entry`
 - `symbol_config.py` - `load_config`, `ModuleSpec`, `SymbolSpec`
-- `symbol_artifacts.py` - `load_artifact`
+- `symbol_artifacts.py` - `artifact_path`, `artifacts_manifest_path`, `load_artifact`, `load_artifacts_manifest`
 - `tests/test_update_symbols.py` - unit coverage for CLI parsing, path parsing, syncfile behavior, PE metadata, YAML value conversion, and XML export behavior
 
 ## Architecture
-The script has two top-level workflows selected by `main()`. With `-syncfile`, it only scans `{symboldir}/{arch}/{binary}.{version}/{sha256}/{binary}` and adds missing `<data>0</data>` entries. Without `-syncfile`, it loads `config.yaml`, walks configured module paths under `amd64` and `arm64`, reads colocated symbol YAML artifacts, computes field values, and writes the matching fields id onto each `<data>` entry.
+The script has two top-level workflows selected by `main()`. With `-syncfile`, it only scans `{symboldir}/{arch}/{binary}.{version}/{sha256}/{binary}` and adds missing `<data>0</data>` entries. Without `-syncfile`, it loads `config.yaml`, walks configured module paths under `amd64` and `arm64`, prefers a validated `artifacts.yaml` snapshot with a per-symbol compatibility fallback, computes field values, and writes the matching fields id onto each `<data>` entry.
 
 ```mermaid
 flowchart TD
@@ -41,7 +41,7 @@ flowchart TD
     C -->|no| M["load_config(configyaml)"]
     M --> N["ET.parse(xml)"]
     N --> O["export_xml(tree, config, symboldir)"]
-    O --> P["_load_module_yaml() and load_artifact()"]
+    O --> P["_load_module_yaml(): manifest or per-symbol fallback"]
     P --> Q["collect_symbol_values()"]
     Q --> R["_find_or_create_fields_id()"]
     R --> S["_ensure_data_entry()"]
@@ -54,12 +54,13 @@ Important internal boundaries:
 - `find_data_entry` and `_ensure_data_entry` support both `hash` and legacy `sha256` XML attributes.
 - `collect_symbol_values` maps `struct_offset` to `offset` or bitfield bit position, `gv` to `gv_rva`, and `func` to `func_rva`.
 - Missing symbol artifacts are exported as fallback values: `uint16` -> `0xffff`, `uint32` -> `0xffffffff`.
+- A manifest is current only when it contains every configured symbol and every corresponding per-symbol file state agrees with the manifest: existing files must not be newer, missing files must map to `null`, and `null` entries must not have a corresponding file.
 - `_find_or_create_fields_id` compares sorted `(name, value)` pairs to reuse existing `<fields>` entries before appending a new one.
 
 ## Dependencies
 - Python standard library: `argparse`, `dataclasses`, `hashlib`, `os`, `pathlib.Path`, `xml.etree.ElementTree`.
 - Third-party library: `pefile` for PE timestamp and image-size extraction.
-- Internal modules: `symbol_config.load_config` for `config.yaml`; `symbol_artifacts.load_artifact` for generated YAML symbol artifacts.
+- Internal modules: `symbol_config.load_config` for `config.yaml`; `symbol_artifacts.load_artifacts_manifest` for aggregated snapshots and `load_artifact` for compatibility fallback.
 - Runtime inputs: `kphdyn.xml`, `config.yaml`, and the symbol directory layout `{symboldir}/{arch}/{binary}.{version}/{sha256}/`.
 - Tested behavior is concentrated in `tests/test_update_symbols.py`.
 
