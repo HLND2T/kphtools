@@ -12,6 +12,8 @@ uv run dump_symbols.py [-symboldir="path/to/symbols"] [-configyaml="config.yaml"
 
 The script scans `<symboldir>/<arch>/<file>.<version>/<sha256>/`, resolves symbols into `{symbol}.yaml`, and writes them next to the corresponding PE and PDB files.
 
+After a per-binary pipeline and MCP cleanup succeed, the script also writes `artifacts.yaml`. This manifest is a top-level mapping from every configured module symbol name to its artifact payload; a missing individual artifact is represented as `null`. Existing per-symbol YAML files remain unchanged for compatibility. Successful `-skill` partial runs rebuild the manifest from all current per-symbol files, and unchanged content only refreshes the manifest timestamp.
+
 When `-symboldir` is omitted, the script uses `symbols` under the current working directory. `KPHTOOLS_SYMBOLDIR`, including values loaded from `.env`, takes precedence over the command-line option.
 
 ## Agent runner

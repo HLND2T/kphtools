@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import update_symbols
+import symbol_artifacts
 
 
 XML_TEXT = """
@@ -139,6 +140,80 @@ class TestUpdateSymbols(unittest.TestCase):
 
         self.assertEqual(0x570, values["EpObjectTable"])
         self.assertEqual(0xFFFFFFFF, values["PspCreateProcessNotifyRoutine"])
+
+    def test_load_module_yaml_skips_missing_files_without_exists_probe(self) -> None:
+        symbol_specs = [
+            {"name": "EpObjectTable"},
+            {"name": "MissingSymbol"},
+        ]
+
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            (binary_dir / "EpObjectTable.yaml").write_text(
+                "category: struct_offset\noffset: 0x570\n",
+                encoding="utf-8",
+            )
+            with patch.object(
+                Path,
+                "exists",
+                side_effect=AssertionError("exists() must not be called"),
+            ):
+                payloads = update_symbols._load_module_yaml(binary_dir, symbol_specs)
+
+        self.assertEqual({"EpObjectTable"}, set(payloads))
+        self.assertEqual(0x570, payloads["EpObjectTable"]["offset"])
+
+    def test_load_module_yaml_prefers_current_artifacts_manifest(self) -> None:
+        symbol_specs = [{"name": "EpObjectTable"}]
+
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            (binary_dir / "EpObjectTable.yaml").write_text(
+                "category: struct_offset\noffset: '0x111'\n",
+                encoding="utf-8",
+            )
+            symbol_artifacts.write_artifacts_manifest(
+                binary_dir,
+                {
+                    "EpObjectTable": {
+                        "category": "struct_offset",
+                        "offset": 0x570,
+                    }
+                },
+            )
+            with patch.object(
+                update_symbols,
+                "load_artifact",
+                side_effect=AssertionError("individual artifact must not be loaded"),
+            ):
+                payloads = update_symbols._load_module_yaml(binary_dir, symbol_specs)
+
+        self.assertEqual(0x570, payloads["EpObjectTable"]["offset"])
+
+    def test_load_module_yaml_falls_back_when_manifest_is_stale(self) -> None:
+        symbol_specs = [{"name": "EpObjectTable"}]
+
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            symbol_artifacts.write_artifacts_manifest(
+                binary_dir,
+                {
+                    "EpObjectTable": {
+                        "category": "struct_offset",
+                        "offset": 0x111,
+                    }
+                },
+            )
+            manifest_path = binary_dir / "artifacts.yaml"
+            os.utime(manifest_path, ns=(1, 1))
+            (binary_dir / "EpObjectTable.yaml").write_text(
+                "category: struct_offset\noffset: '0x570'\n",
+                encoding="utf-8",
+            )
+
+            payloads = update_symbols._load_module_yaml(binary_dir, symbol_specs)
+
+        self.assertEqual(0x570, payloads["EpObjectTable"]["offset"])
 
     def test_collect_symbol_values_applies_bitfield_formula(self) -> None:
         symbol_specs = [
@@ -804,6 +879,7 @@ class TestUpdateSymbols(unittest.TestCase):
     def test_export_xml_reuses_existing_data_entry_with_hash_attribute(self) -> None:
         tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring(HASH_XML_TEXT))
         config = self._build_config()
+        stats = update_symbols.ExportStats()
 
         with TemporaryDirectory() as temp_dir:
             sha_dir = Path(temp_dir) / "amd64" / "ntoskrnl.exe.10.0.1" / "abc"
@@ -817,14 +893,16 @@ class TestUpdateSymbols(unittest.TestCase):
                 "_load_binary_metadata",
                 return_value={"timestamp": "0x10", "size": "0x20"},
                 create=True,
-            ):
-                update_symbols.export_xml(tree, config, Path(temp_dir))
+            ) as metadata_mock:
+                update_symbols.export_xml(tree, config, Path(temp_dir), stats)
 
         data_elems = tree.getroot().findall("data")
         self.assertEqual(1, len(data_elems))
         self.assertEqual("abc", data_elems[0].get("hash"))
         self.assertEqual("1", data_elems[0].text)
         self.assertIsNone(data_elems[0].get("fields"))
+        metadata_mock.assert_not_called()
+        self.assertEqual(0.0, stats.metadata_seconds)
 
     def test_export_xml_creates_data_entry_with_required_metadata(self) -> None:
         tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring("<kphdyn />"))
@@ -878,9 +956,12 @@ class TestUpdateSymbols(unittest.TestCase):
                 "_load_binary_metadata",
                 return_value={"timestamp": "0x123", "size": "0x456"},
                 create=True,
-            ):
+            ) as metadata_mock:
                 update_symbols.export_xml(tree, config, Path(temp_dir))
+                metadata_mock.assert_called_once_with(sha_dir / "ntoskrnl.exe")
 
         data_elem = tree.getroot().find("data")
         self.assertEqual("1", data_elem.text)
+        self.assertEqual("0x123", data_elem.get("timestamp"))
+        self.assertEqual("0x456", data_elem.get("size"))
         self.assertIsNone(data_elem.get("fields"))

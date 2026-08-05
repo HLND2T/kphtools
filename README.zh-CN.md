@@ -20,7 +20,7 @@ uv run update_symbols.py
 ## 工作流
 
 1. [`download_symbols.py`](docs/zh-CN/download_symbols.md) 从 Microsoft Symbol Server 下载 PE 文件及匹配的 PDB 符号。
-2. [`dump_symbols.py`](docs/zh-CN/dump_symbols.md) 分析每个二进制文件，并在其旁边写入每个符号的 YAML 工件。
+2. [`dump_symbols.py`](docs/zh-CN/dump_symbols.md) 分析每个二进制文件，并在其旁边写入单符号 YAML 工件及聚合的 `artifacts.yaml`。
 3. [`update_symbols.py`](docs/zh-CN/update_symbols.md) 将这些 YAML 工件导出回 `kphdyn.xml`。
 
 默认符号目录布局为：

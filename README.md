@@ -20,7 +20,7 @@ The first download may take hours. Later runs can reuse the PE, PDB, and YAML ar
 ## Workflow
 
 1. [`download_symbols.py`](docs/en/download_symbols.md) downloads PE files and matching PDB symbols from Microsoft Symbol Server.
-2. [`dump_symbols.py`](docs/en/dump_symbols.md) analyzes each binary and writes per-symbol YAML artifacts next to it.
+2. [`dump_symbols.py`](docs/en/dump_symbols.md) analyzes each binary and writes per-symbol YAML artifacts plus an `artifacts.yaml` manifest next to it.
 3. [`update_symbols.py`](docs/en/update_symbols.md) exports those YAML artifacts back into `kphdyn.xml`.
 
 The default symbol layout is:

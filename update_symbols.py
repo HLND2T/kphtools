@@ -35,7 +35,12 @@ import xml.etree.ElementTree as ET
 from dotenv import load_dotenv
 import pefile
 
-from symbol_artifacts import load_artifact
+from symbol_artifacts import (
+    artifact_path,
+    artifacts_manifest_path,
+    load_artifact,
+    load_artifacts_manifest,
+)
 from symbol_config import load_config
 
 DEFAULT_XML_PATH = "kphdyn.xml"
@@ -326,15 +331,60 @@ def collect_symbol_values(
     return values
 
 
-def _load_module_yaml(
+def _load_individual_module_yaml(
     binary_dir: Path, symbol_specs: list[dict[str, Any]]
 ) -> dict[str, dict[str, Any]]:
     payloads: dict[str, dict[str, Any]] = {}
     for spec in symbol_specs:
-        artifact_path = binary_dir / f"{spec['name']}.yaml"
-        if artifact_path.exists():
-            payloads[spec["name"]] = load_artifact(artifact_path)
+        symbol_artifact_path = artifact_path(binary_dir, spec["name"])
+        try:
+            payloads[spec["name"]] = load_artifact(symbol_artifact_path)
+        except FileNotFoundError:
+            continue
     return payloads
+
+
+def _artifacts_manifest_is_current(
+    binary_dir: Path,
+    symbol_specs: list[dict[str, Any]],
+    manifest: dict[str, dict | None],
+) -> bool:
+    symbol_names = [spec["name"] for spec in symbol_specs]
+    if any(symbol_name not in manifest for symbol_name in symbol_names):
+        return False
+    try:
+        manifest_mtime_ns = artifacts_manifest_path(binary_dir).stat().st_mtime_ns
+    except FileNotFoundError:
+        return False
+
+    for symbol_name in symbol_names:
+        payload = manifest[symbol_name]
+        try:
+            artifact_mtime_ns = artifact_path(binary_dir, symbol_name).stat().st_mtime_ns
+        except FileNotFoundError:
+            if payload is not None:
+                return False
+            continue
+        if payload is None or artifact_mtime_ns > manifest_mtime_ns:
+            return False
+    return True
+
+
+def _load_module_yaml(
+    binary_dir: Path, symbol_specs: list[dict[str, Any]]
+) -> dict[str, dict[str, Any]]:
+    try:
+        manifest = load_artifacts_manifest(binary_dir)
+    except FileNotFoundError:
+        return _load_individual_module_yaml(binary_dir, symbol_specs)
+
+    if not _artifacts_manifest_is_current(binary_dir, symbol_specs, manifest):
+        return _load_individual_module_yaml(binary_dir, symbol_specs)
+    return {
+        spec["name"]: manifest[spec["name"]]
+        for spec in symbol_specs
+        if manifest[spec["name"]] is not None
+    }
 
 
 def _collect_existing_fields(root: ET.Element) -> dict[FieldValuesKey, str]:
@@ -447,13 +497,21 @@ def _load_binary_metadata(binary_path: Path) -> dict[str, str]:
         pe.close()
 
 
+def _data_entry_needs_metadata(data_elem: ET.Element | None) -> bool:
+    return (
+        data_elem is None
+        or not data_elem.get("timestamp")
+        or not data_elem.get("size")
+    )
+
+
 def _ensure_data_entry(
     root: ET.Element,
     arch: str,
     file_name: str,
     version: str,
     sha256: str,
-    metadata: dict[str, str],
+    metadata: dict[str, str] | None,
     index: ExportXmlIndex,
 ) -> ET.Element:
     key = _data_entry_key(arch, file_name, version, sha256)
@@ -464,10 +522,16 @@ def _ensure_data_entry(
         if not data_elem.get("sha256"):
             data_elem.set("sha256", sha256)
         if not data_elem.get("timestamp"):
+            if metadata is None:
+                raise ValueError("binary metadata is required for an incomplete data entry")
             data_elem.set("timestamp", metadata["timestamp"])
         if not data_elem.get("size"):
+            if metadata is None:
+                raise ValueError("binary metadata is required for an incomplete data entry")
             data_elem.set("size", metadata["size"])
         return data_elem
+    if metadata is None:
+        raise ValueError("binary metadata is required for a new data entry")
     data_elem = ET.SubElement(root, "data")
     data_elem.set("arch", arch)
     data_elem.set("file", file_name)
@@ -520,9 +584,15 @@ def export_xml(
                         if not sha_dir.is_dir():
                             continue
                         stats.binaries += 1
-                        started = perf_counter()
-                        metadata = _load_binary_metadata(sha_dir / module_path)
-                        stats.metadata_seconds += perf_counter() - started
+                        data_key = _data_entry_key(
+                            arch, module_path, version, sha_dir.name
+                        )
+                        existing_data_elem = index.data_by_identity.get(data_key)
+                        metadata = None
+                        if _data_entry_needs_metadata(existing_data_elem):
+                            started = perf_counter()
+                            metadata = _load_binary_metadata(sha_dir / module_path)
+                            stats.metadata_seconds += perf_counter() - started
 
                         started = perf_counter()
                         payloads = _load_module_yaml(sha_dir, symbol_specs)
@@ -538,10 +608,7 @@ def export_xml(
                         fields_id = _find_or_create_fields_id(root, values, index)
                         stats.fields_seconds += perf_counter() - started
 
-                        data_key = _data_entry_key(
-                            arch, module_path, version, sha_dir.name
-                        )
-                        if data_key in index.data_by_identity:
+                        if existing_data_elem is not None:
                             stats.data_reused += 1
                         else:
                             stats.data_created += 1
