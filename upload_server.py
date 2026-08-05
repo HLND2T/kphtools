@@ -51,9 +51,8 @@ from pathlib import Path
 from typing import Protocol
 from urllib.parse import parse_qs, urlparse
 
-from dotenv import load_dotenv
-
 try:
+    from dotenv import load_dotenv
     import lief
     import pefile
     from asn1crypto import cms, tsp
