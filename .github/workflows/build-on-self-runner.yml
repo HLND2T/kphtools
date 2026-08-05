@@ -15,6 +15,8 @@ jobs:
     runs-on: [self-hosted, windows, x64]
     env:
       PERSISTED_WORKSPACE: ${{ secrets.PERSISTED_WORKSPACE }}
+      KPHTOOLS_AGENT: ${{ secrets.KPHTOOLS_AGENT }}
+      KPHTOOLS_AGENT_MODEL: ${{ secrets.KPHTOOLS_AGENT_MODEL }}
       KPHTOOLS_LLM_APIKEY: ${{ secrets.KPHTOOLS_LLM_APIKEY }}
       KPHTOOLS_LLM_BASEURL: ${{ secrets.KPHTOOLS_LLM_BASEURL }}
       KPHTOOLS_LLM_MODEL: ${{ secrets.KPHTOOLS_LLM_MODEL }}
