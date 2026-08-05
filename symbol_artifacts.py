@@ -5,6 +5,9 @@ from pathlib import Path
 import yaml
 
 
+_SAFE_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
+
 def artifact_path(binary_dir: str | Path, symbol_name: str) -> Path:
     return Path(binary_dir) / f"{symbol_name}.yaml"
 
@@ -49,7 +52,10 @@ def write_code_yaml(path: str | Path, payload: dict) -> None:
 
 
 def load_artifact(path: str | Path) -> dict:
-    raw = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    raw = yaml.load(
+        Path(path).read_text(encoding="utf-8"),
+        Loader=_SAFE_LOADER,
+    ) or {}
     loaded = dict(raw)
     for key in (
         "offset",

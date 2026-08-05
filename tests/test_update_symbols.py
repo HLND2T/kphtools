@@ -140,6 +140,28 @@ class TestUpdateSymbols(unittest.TestCase):
         self.assertEqual(0x570, values["EpObjectTable"])
         self.assertEqual(0xFFFFFFFF, values["PspCreateProcessNotifyRoutine"])
 
+    def test_load_module_yaml_skips_missing_files_without_exists_probe(self) -> None:
+        symbol_specs = [
+            {"name": "EpObjectTable"},
+            {"name": "MissingSymbol"},
+        ]
+
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            (binary_dir / "EpObjectTable.yaml").write_text(
+                "category: struct_offset\noffset: 0x570\n",
+                encoding="utf-8",
+            )
+            with patch.object(
+                Path,
+                "exists",
+                side_effect=AssertionError("exists() must not be called"),
+            ):
+                payloads = update_symbols._load_module_yaml(binary_dir, symbol_specs)
+
+        self.assertEqual({"EpObjectTable"}, set(payloads))
+        self.assertEqual(0x570, payloads["EpObjectTable"]["offset"])
+
     def test_collect_symbol_values_applies_bitfield_formula(self) -> None:
         symbol_specs = [
             {

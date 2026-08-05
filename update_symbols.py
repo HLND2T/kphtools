@@ -332,8 +332,10 @@ def _load_module_yaml(
     payloads: dict[str, dict[str, Any]] = {}
     for spec in symbol_specs:
         artifact_path = binary_dir / f"{spec['name']}.yaml"
-        if artifact_path.exists():
+        try:
             payloads[spec["name"]] = load_artifact(artifact_path)
+        except FileNotFoundError:
+            continue
     return payloads
 
 
