@@ -804,6 +804,7 @@ class TestUpdateSymbols(unittest.TestCase):
     def test_export_xml_reuses_existing_data_entry_with_hash_attribute(self) -> None:
         tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring(HASH_XML_TEXT))
         config = self._build_config()
+        stats = update_symbols.ExportStats()
 
         with TemporaryDirectory() as temp_dir:
             sha_dir = Path(temp_dir) / "amd64" / "ntoskrnl.exe.10.0.1" / "abc"
@@ -817,14 +818,16 @@ class TestUpdateSymbols(unittest.TestCase):
                 "_load_binary_metadata",
                 return_value={"timestamp": "0x10", "size": "0x20"},
                 create=True,
-            ):
-                update_symbols.export_xml(tree, config, Path(temp_dir))
+            ) as metadata_mock:
+                update_symbols.export_xml(tree, config, Path(temp_dir), stats)
 
         data_elems = tree.getroot().findall("data")
         self.assertEqual(1, len(data_elems))
         self.assertEqual("abc", data_elems[0].get("hash"))
         self.assertEqual("1", data_elems[0].text)
         self.assertIsNone(data_elems[0].get("fields"))
+        metadata_mock.assert_not_called()
+        self.assertEqual(0.0, stats.metadata_seconds)
 
     def test_export_xml_creates_data_entry_with_required_metadata(self) -> None:
         tree = update_symbols.ET.ElementTree(update_symbols.ET.fromstring("<kphdyn />"))
@@ -878,9 +881,12 @@ class TestUpdateSymbols(unittest.TestCase):
                 "_load_binary_metadata",
                 return_value={"timestamp": "0x123", "size": "0x456"},
                 create=True,
-            ):
+            ) as metadata_mock:
                 update_symbols.export_xml(tree, config, Path(temp_dir))
+                metadata_mock.assert_called_once_with(sha_dir / "ntoskrnl.exe")
 
         data_elem = tree.getroot().find("data")
         self.assertEqual("1", data_elem.text)
+        self.assertEqual("0x123", data_elem.get("timestamp"))
+        self.assertEqual("0x456", data_elem.get("size"))
         self.assertIsNone(data_elem.get("fields"))
