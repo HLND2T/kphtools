@@ -1,3 +1,9 @@
+---
+title: codebase_structure
+type: note
+permalink: kphtools/codebase-structure
+---
+
 # 代码结构
 
 最后核对日期：2026-05-04。
@@ -27,7 +33,7 @@
 - `ida_preprocessor_scripts/`：self-describing IDA-backed finder 脚本；包含大量 `find-*.py`、`generic_gv.py`、`generic_func.py`、`generic_struct_offset.py`、`_extract_ntapi.py`、`prompt/call_llm_decompile.md`、`references/ntoskrnl/*.yaml`。
 - `tests/`：`unittest` 测试，覆盖 download/dump/update、symbol config/artifacts、PDB resolver、IDA MCP resolver、reference export、preprocessor common 和具体 extractor。
 - `docs/`：专题说明与 Superpowers specs/plans，包含 `docs/find-AlpcpDeletePort.md` 和多份历史实现计划。
-- `.claude/`、`.codex/`、`.serena/`：本地 agent/skill/memory 配置。
+- `.claude/`、`.codex/`、`.mcp.json`、`memory/`：本地 agent/skill/MCP/知识库配置。
 
 ## 本地/生成内容
 

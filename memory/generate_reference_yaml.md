@@ -1,3 +1,9 @@
+---
+title: generate_reference_yaml
+type: note
+permalink: kphtools/generate-reference-yaml
+---
+
 # generate_reference_yaml.py
 
 ## Overview

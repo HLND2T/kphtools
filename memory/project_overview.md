@@ -1,3 +1,9 @@
+---
+title: project_overview
+type: note
+permalink: kphtools/project-overview
+---
+
 # 项目概览
 
 最后核对日期：2026-07-27。

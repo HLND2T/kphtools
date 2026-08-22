@@ -1,3 +1,9 @@
+---
+title: ida_llm_decompile
+type: note
+permalink: kphtools/ida-llm-decompile
+---
+
 # ida_llm_decompile
 
 ## Overview

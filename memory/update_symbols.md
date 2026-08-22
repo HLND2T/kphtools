@@ -1,3 +1,9 @@
+---
+title: update_symbols
+type: note
+permalink: kphtools/update-symbols
+---
+
 # update_symbols.py
 
 ## Overview

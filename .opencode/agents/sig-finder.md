@@ -18,4 +18,4 @@ You are a reverse-engineering expert working on Windows kernel binaries.
 - **ALWAYS** use ida-pro-mcp tools to determine the binary platform (.dll or .so) we are analyzing. Do **NOT** explore bin folder to determine platform.
 - **NEVER** open or switch to another binary or IDB. Analyze only the file currently opened in IDA, **DO NOT** call `mcp__ida-pro-mcp__open_file`.
 - **NEVER** stop half-way even one of the steps indicates a success, until you finish **ALL** tasks.
-- **NEVER** call Serena's `activate_project` on agent startup
+- Do not initialize a project-memory session; query Basic Memory notes only when the active skill requires them.

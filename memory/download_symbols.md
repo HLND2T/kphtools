@@ -1,3 +1,9 @@
+---
+title: download_symbols
+type: note
+permalink: kphtools/download-symbols
+---
+
 # download_symbols.py
 
 ## Overview

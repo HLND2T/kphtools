@@ -1,3 +1,9 @@
+---
+title: suggested_commands
+type: note
+permalink: kphtools/suggested-commands
+---
+
 # 常用命令
 
 最后核对日期：2026-07-27。
