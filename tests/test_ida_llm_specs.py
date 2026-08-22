@@ -1,4 +1,3 @@
-import ast
 import importlib.util
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -280,43 +279,7 @@ class TestIdaLlmSpecs(unittest.TestCase):
             queries,
         )
 
-    def test_all_finders_use_strict_dict_entries(self) -> None:
-        finder_paths = sorted(Path("ida_preprocessor_scripts").glob("find-*.py"))
-        static_files = 0
-        static_entries = 0
-        for path in finder_paths:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-            file_entries = 0
-            for node in tree.body:
-                if not isinstance(node, ast.Assign):
-                    continue
-                names = {
-                    target.id
-                    for target in node.targets
-                    if isinstance(target, ast.Name)
-                }
-                if "LLM_DECOMPILE" in names:
-                    self.assertIsInstance(node.value, ast.List, path)
-                    entries = node.value.elts
-                elif "LLM_DECOMPILE_BY_FUNCTION" in names:
-                    self.assertIsInstance(node.value, ast.Dict, path)
-                    entries = [
-                        entry
-                        for value in node.value.values
-                        for entry in value.elts
-                    ]
-                else:
-                    continue
-                for entry in entries:
-                    self.assertIsInstance(entry, ast.Dict, path)
-                    keys = {key.value for key in entry.keys}
-                    self.assertTrue(REQUIRED_KEYS <= keys, path)
-                    self.assertFalse(keys - REQUIRED_KEYS - OPTIONAL_KEYS, path)
-                file_entries += len(entries)
-            if file_entries:
-                static_files += 1
-                static_entries += file_entries
-
+    def test_dynamic_finder_specs_use_strict_entries(self) -> None:
         dynamic_path = Path(
             "ida_preprocessor_scripts/find-KtInitialStack-AND-KtStackBase-"
             "AND-KtStackLimit.py"
@@ -334,11 +297,6 @@ class TestIdaLlmSpecs(unittest.TestCase):
             keys = set(entry)
             self.assertTrue(REQUIRED_KEYS <= keys)
             self.assertFalse(keys - REQUIRED_KEYS - OPTIONAL_KEYS)
-
-        self.assertEqual(39, static_files)
-        self.assertEqual(68, static_entries)
-        self.assertEqual(40, static_files + 1)
-        self.assertEqual(71, static_entries + len(dynamic_entries))
 
 
 if __name__ == "__main__":

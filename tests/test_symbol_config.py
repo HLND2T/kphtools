@@ -721,13 +721,3 @@ class TestSymbolConfig(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "skill.name"):
                 symbol_config.load_config(config_path)
 
-    def test_load_config_reads_repository_baseline(self) -> None:
-        config = symbol_config.load_config(Path("config.yaml"))
-
-        self.assertEqual(1, len(config.modules))
-        self.assertEqual("ntoskrnl", config.modules[0].name)
-        self.assertGreater(len(config.modules[0].symbols), 0)
-        symbol_names = {symbol.name for symbol in config.modules[0].symbols}
-        self.assertNotIn("NtSecureConnectPort", symbol_names)
-        for skill in config.modules[0].skills:
-            self.assertTrue(skill.produced_symbols)

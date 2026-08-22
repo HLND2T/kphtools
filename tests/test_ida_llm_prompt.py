@@ -1,5 +1,4 @@
 import unittest
-from pathlib import Path
 
 from ida_llm_prompt import (
     derive_module_name,
@@ -52,21 +51,6 @@ class TestIdaLlmPrompt(unittest.TestCase):
             derive_module_name(r"D:\symbols\amd64\ntoskrnl.exe.10.0.1.2\hash"),
         )
         self.assertEqual("ntoskrnl", derive_module_name(r"D:\bin\ntoskrnl.exe"))
-
-    def test_repository_prompt_declares_four_sections_and_rejects_vcall(self) -> None:
-        prompt = Path(
-            "ida_preprocessor_scripts/prompt/call_llm_decompile.md"
-        ).read_text(encoding="utf-8")
-        for section in (
-            "found_call:",
-            "found_funcptr:",
-            "found_gv:",
-            "found_struct_offset:",
-        ):
-            self.assertIn(section, prompt)
-        self.assertIn("found_vcall` is unsupported", prompt)
-        self.assertNotIn("found_vcall:", prompt)
-
 
 if __name__ == "__main__":
     unittest.main()

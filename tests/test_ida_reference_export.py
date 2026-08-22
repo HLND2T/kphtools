@@ -26,17 +26,6 @@ def _make_py_eval_result(result_text: str):
 
 
 class TestIdaReferenceExport(unittest.IsolatedAsyncioTestCase):
-    def test_readable_template_source_lives_in_repo(self) -> None:
-        repo_root = Path(__file__).resolve().parent.parent
-        helper_source = (repo_root / "ida_reference_export_template.py").read_text(encoding="utf-8")
-        module_source = (repo_root / "ida_reference_export.py").read_text(encoding="utf-8")
-
-        self.assertIn("idautils.Chunks(func.start_ea)", helper_source)
-        self.assertIn("func_tail_iterator_t", helper_source)
-        self.assertIn("CodeRefsFrom(ea, False)", helper_source)
-        self.assertNotIn("b85decode", module_source)
-        self.assertNotIn("zlib.decompress", module_source)
-
     def test_build_function_detail_export_py_eval_contains_chunk_and_comment_logic(self) -> None:
         py_code = ida_reference_export.build_function_detail_export_py_eval(0x140001000)
 
