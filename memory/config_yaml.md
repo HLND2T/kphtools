@@ -1,3 +1,9 @@
+---
+title: config_yaml
+type: note
+permalink: kphtools/config-yaml
+---
+
 # config.yaml
 
 ## Overview

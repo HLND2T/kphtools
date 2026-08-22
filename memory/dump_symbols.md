@@ -1,3 +1,9 @@
+---
+title: dump_symbols
+type: note
+permalink: kphtools/dump-symbols
+---
+
 # dump_symbols.py
 
 ## Overview

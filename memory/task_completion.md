@@ -1,3 +1,9 @@
+---
+title: task_completion
+type: note
+permalink: kphtools/task-completion
+---
+
 # 任务完成检查
 
 最后核对日期：2026-07-27。

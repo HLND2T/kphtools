@@ -1,3 +1,9 @@
+---
+title: style_conventions
+type: note
+permalink: kphtools/style-conventions
+---
+
 # 代码风格与约定
 
 最后核对日期：2026-05-04。

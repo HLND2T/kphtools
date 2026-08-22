@@ -1,3 +1,9 @@
+---
+title: py_eval
+type: note
+permalink: kphtools/py-eval
+---
+
 # MCP / py_eval 返回格式经验
 
 最后核对日期：2026-05-04。

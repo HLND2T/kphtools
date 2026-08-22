@@ -11,3 +11,7 @@ uploads
 kphdyn.xml
 kphdyn.official.xml
 aliyun_oss_sync.log
+
+# Basic Memory runtime data (notes under memory/ are tracked)
+memory/*.db*
+memory/config.json
