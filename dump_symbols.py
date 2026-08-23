@@ -862,7 +862,7 @@ class LazyIdalibSession:
         host: str = "127.0.0.1",
         debug: bool = False,
     ) -> None:
-        self.binary_path = Path(binary_path)
+        self.binary_path = Path(binary_path).resolve()
         self.host = host
         self.debug = debug
         self.port: int | None = None
