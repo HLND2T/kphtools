@@ -1720,6 +1720,57 @@ class TestDumpSymbols(unittest.TestCase):
         fake_process.kill.assert_not_called()
         fake_process.wait.assert_called_once_with(timeout=dump_symbols.MCP_PROCESS_STOP_TIMEOUT)
 
+    def test_lazy_idalib_session_resolves_binary_path_through_directory_link(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            persisted_symbols = temp_root / "persisted" / "symbols"
+            binary_relative_path = Path("amd64") / "ntoskrnl.exe.10.0.1" / "hash" / "ntoskrnl.exe"
+            persisted_binary = persisted_symbols / binary_relative_path
+            persisted_binary.parent.mkdir(parents=True)
+            persisted_binary.write_text("", encoding="utf-8")
+
+            workspace_symbols = temp_root / "workspace" / "symbols"
+            workspace_symbols.parent.mkdir()
+            try:
+                workspace_symbols.symlink_to(persisted_symbols, target_is_directory=True)
+            except OSError as exc:
+                self.skipTest(f"directory links are unavailable: {exc}")
+
+            linked_binary = workspace_symbols / binary_relative_path
+            resolved_binary = persisted_binary.resolve()
+            fake_process = MagicMock()
+            fake_context = MagicMock()
+            fake_context.__aenter__ = AsyncMock(return_value=AsyncMock())
+
+            with (
+                patch.object(dump_symbols, "_allocate_local_port", return_value=24567),
+                patch.object(
+                    dump_symbols,
+                    "start_idalib_mcp",
+                    return_value=fake_process,
+                ) as mock_start,
+                patch.object(
+                    dump_symbols,
+                    "open_ida_mcp_session",
+                    return_value=fake_context,
+                ) as mock_open_session,
+            ):
+                session = dump_symbols.LazyIdalibSession(linked_binary)
+                asyncio.run(session.ensure_started())
+
+        mock_start.assert_called_once_with(
+            resolved_binary,
+            host="127.0.0.1",
+            port=24567,
+            debug=False,
+        )
+        mock_open_session.assert_called_once_with(
+            "127.0.0.1",
+            24567,
+            expected_binary=resolved_binary,
+            auto_started=True,
+        )
+
     def test_lazy_idalib_session_restarts_initial_unavailable_worker_once(self) -> None:
         binary_path = Path("/tmp/ntoskrnl.exe")
         original_process = MagicMock()
