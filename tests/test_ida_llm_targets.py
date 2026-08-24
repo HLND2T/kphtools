@@ -1,6 +1,9 @@
+import json
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import yaml
@@ -9,6 +12,97 @@ import ida_llm_targets
 
 
 class TestIdaLlmTargets(unittest.IsolatedAsyncioTestCase):
+    async def _resolve_funcptr_with_fake_ida(
+        self,
+        *,
+        drefs=(),
+        operand_types=(1, 2),
+        operand_values=(0, 0x140001000),
+        valid_segment_targets=None,
+        loaded_targets=None,
+        code_targets=None,
+        function_starts=None,
+    ):
+        all_targets = {
+            int(target)
+            for target in (*drefs, *operand_values)
+            if int(target) not in {0, -1}
+        }
+        if valid_segment_targets is None:
+            valid_segment_targets = set(all_targets)
+        if loaded_targets is None:
+            loaded_targets = set(all_targets)
+        if code_targets is None:
+            code_targets = set(all_targets)
+        if function_starts is None:
+            function_starts = {target: target for target in all_targets}
+
+        fake_modules = {
+            "ida_bytes": SimpleNamespace(
+                get_flags=lambda target_ea: int(target_ea),
+                is_code=lambda flags: int(flags) in code_targets,
+                is_loaded=lambda target_ea: int(target_ea) in loaded_targets,
+            ),
+            "ida_funcs": SimpleNamespace(
+                get_func=lambda target_ea: (
+                    SimpleNamespace(start_ea=function_starts[int(target_ea)])
+                    if int(target_ea) in function_starts
+                    else None
+                ),
+            ),
+            "ida_segment": SimpleNamespace(
+                getseg=lambda target_ea: (
+                    SimpleNamespace()
+                    if int(target_ea) in valid_segment_targets
+                    else None
+                ),
+            ),
+            "ida_ua": SimpleNamespace(
+                o_void=0,
+                o_reg=1,
+                o_mem=2,
+                o_phrase=3,
+                o_displ=4,
+                o_imm=5,
+                o_far=6,
+                o_near=7,
+                insn_t=lambda: SimpleNamespace(
+                    ops=[
+                        *(SimpleNamespace(type=operand_type) for operand_type in operand_types),
+                        SimpleNamespace(type=0),
+                    ]
+                ),
+                decode_insn=lambda _insn, _ea: 7,
+            ),
+            "idautils": SimpleNamespace(
+                DataRefsFrom=lambda _insn_ea: list(drefs),
+            ),
+            "idc": SimpleNamespace(
+                BADADDR=-1,
+                get_operand_value=lambda _insn_ea, op_index: operand_values[op_index],
+            ),
+        }
+
+        async def call_tool(_name, arguments):
+            namespace = {}
+            with patch.dict(sys.modules, fake_modules):
+                exec(arguments["code"], namespace)
+            return SimpleNamespace(
+                content=[
+                    SimpleNamespace(
+                        text=json.dumps({"result": namespace["result"]}),
+                    )
+                ]
+            )
+
+        session = AsyncMock()
+        session.call_tool.side_effect = call_tool
+        resolution = await ida_llm_targets.resolve_funcptr_target_via_mcp(
+            session,
+            "0x140000100",
+        )
+        return resolution, session.call_tool.await_args.args[1]["code"]
+
     async def test_loads_function_target_from_artifact(self) -> None:
         with TemporaryDirectory() as temp_dir:
             Path(temp_dir, "Target.yaml").write_text(
@@ -75,6 +169,75 @@ class TestIdaLlmTargets(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((0x140001000, 0x140002000), result.matches)
         code = session.call_tool.await_args.args[1]["code"]
         self.assertIn("int(func.start_ea) == int(target_ea)", code)
+
+    async def test_funcptr_uses_valid_direct_operand_when_data_xref_is_missing(
+        self,
+    ) -> None:
+        result, _code = await self._resolve_funcptr_with_fake_ida()
+
+        self.assertEqual(
+            ida_llm_targets.ReferenceResolutionStatus.SUCCESS,
+            result.status,
+        )
+        self.assertEqual(0x140001000, result.address)
+        self.assertEqual((0x140001000,), result.matches)
+
+    async def test_funcptr_rejects_unsafe_operand_types(self) -> None:
+        for operand_type in (3, 4, 5):
+            with self.subTest(operand_type=operand_type):
+                result, _code = await self._resolve_funcptr_with_fake_ida(
+                    operand_types=(1, operand_type),
+                )
+
+                self.assertEqual(
+                    ida_llm_targets.ReferenceResolutionStatus.NO_MATCH,
+                    result.status,
+                )
+
+    async def test_funcptr_rejects_invalid_operand_targets(self) -> None:
+        target_ea = 0x140001000
+        invalid_cases = {
+            "no_segment": {"valid_segment_targets": set()},
+            "not_loaded": {"loaded_targets": set()},
+            "not_code": {"code_targets": set()},
+            "not_function_start": {
+                "function_starts": {target_ea: target_ea - 0x10},
+            },
+        }
+        for case_name, kwargs in invalid_cases.items():
+            with self.subTest(case_name=case_name):
+                result, _code = await self._resolve_funcptr_with_fake_ida(**kwargs)
+
+                self.assertEqual(
+                    ida_llm_targets.ReferenceResolutionStatus.NO_MATCH,
+                    result.status,
+                )
+
+    async def test_funcptr_merges_xref_and_operand_candidates_before_uniqueness_check(
+        self,
+    ) -> None:
+        result, _code = await self._resolve_funcptr_with_fake_ida(
+            drefs=(0x140002000,),
+        )
+
+        self.assertEqual(
+            ida_llm_targets.ReferenceResolutionStatus.AMBIGUOUS,
+            result.status,
+        )
+        self.assertEqual((0x140001000, 0x140002000), result.matches)
+
+    async def test_funcptr_deduplicates_matching_xref_and_operand_candidates(
+        self,
+    ) -> None:
+        result, _code = await self._resolve_funcptr_with_fake_ida(
+            drefs=(0x140001000,),
+        )
+
+        self.assertEqual(
+            ida_llm_targets.ReferenceResolutionStatus.SUCCESS,
+            result.status,
+        )
+        self.assertEqual((0x140001000,), result.matches)
 
     async def test_reference_resolution_returns_success_with_unique_match(self) -> None:
         session = AsyncMock()
