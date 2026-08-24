@@ -16,7 +16,10 @@ FUNC_XREFS = [
         "exclude_strings": [],
         "exclude_unicode_strings": [],
         "exclude_gvs": [],
-        "exclude_signatures": ["35 02 00 C0"],
+        "exclude_signatures": [
+            "35 02 00 C0",
+            "0F BA E7 09 0F 82 ? ? ? ? 0F BA F7 09",
+        ],
     },
 ]
 
@@ -25,7 +28,9 @@ GENERATE_YAML_DESIRED_FIELDS = {
 }
 
 
-async def preprocess_skill(session, skill, symbol, binary_dir, pdb_path, debug, llm_config):
+async def preprocess_skill(
+    session, skill, symbol, binary_dir, pdb_path, debug, llm_config
+):
     return await preprocessor_common.preprocess_common_skill(
         session=session,
         skill=skill,
