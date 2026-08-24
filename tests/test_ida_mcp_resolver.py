@@ -1,7 +1,9 @@
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import ida_mcp_resolver
+from ida_llm_targets import ReferenceResolution, ReferenceResolutionStatus
+from ida_mcp_session import McpDatabaseUnavailableError
 
 
 class TestIdaMcpResolver(unittest.IsolatedAsyncioTestCase):
@@ -66,6 +68,83 @@ class TestIdaMcpResolver(unittest.IsolatedAsyncioTestCase):
                 symbol_name="PspCreateProcessNotifyRoutine",
                 image_base=0x140000000,
             )
+
+    async def test_function_result_tries_next_candidate_after_no_match(self) -> None:
+        result = {
+            "found_call": [
+                {"insn_va": "0x1000", "func_name": "Target"},
+            ],
+            "found_funcptr": [
+                {"insn_va": "0x1010", "funcptr_name": "Target"},
+            ],
+        }
+        direct_call = AsyncMock(
+            return_value=ReferenceResolution(
+                status=ReferenceResolutionStatus.NO_MATCH,
+            )
+        )
+        funcptr = AsyncMock(
+            return_value=ReferenceResolution(
+                status=ReferenceResolutionStatus.SUCCESS,
+                address=0x140002000,
+                matches=(0x140002000,),
+            )
+        )
+
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "_resolve_direct_call_target_via_mcp",
+                direct_call,
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "_resolve_funcptr_target_via_mcp",
+                funcptr,
+            ),
+        ):
+            payload = await ida_mcp_resolver._consume_function_result(
+                AsyncMock(),
+                result,
+                "Target",
+                "Target",
+                0x140000000,
+                debug=True,
+            )
+
+        self.assertEqual(0x2000, payload["func_rva"])
+        direct_call.assert_awaited_once()
+        funcptr.assert_awaited_once()
+
+    async def test_function_result_reraises_transport_error(self) -> None:
+        transport_error = McpDatabaseUnavailableError("worker unavailable")
+        resolution = ReferenceResolution(
+            status=ReferenceResolutionStatus.TRANSPORT_ERROR,
+            error=transport_error,
+            detail="MCP call failed",
+        )
+        result = {
+            "found_call": [
+                {"insn_va": "0x1000", "func_name": "Target"},
+            ],
+        }
+
+        with patch.object(
+            ida_mcp_resolver,
+            "_resolve_direct_call_target_via_mcp",
+            AsyncMock(return_value=resolution),
+        ):
+            with self.assertRaises(McpDatabaseUnavailableError) as context:
+                await ida_mcp_resolver._consume_function_result(
+                    AsyncMock(),
+                    result,
+                    "Target",
+                    "Target",
+                    0x140000000,
+                    debug=True,
+                )
+
+        self.assertIs(transport_error, context.exception)
 
 
 if __name__ == "__main__":

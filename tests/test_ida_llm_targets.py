@@ -67,9 +67,137 @@ class TestIdaLlmTargets(unittest.IsolatedAsyncioTestCase):
             session,
             "0x140000100",
         )
-        self.assertIsNone(result)
+        self.assertEqual(
+            ida_llm_targets.ReferenceResolutionStatus.AMBIGUOUS,
+            result.status,
+        )
+        self.assertIsNone(result.address)
+        self.assertEqual((0x140001000, 0x140002000), result.matches)
         code = session.call_tool.await_args.args[1]["code"]
         self.assertIn("int(func.start_ea) == int(target_ea)", code)
+
+    async def test_reference_resolution_returns_success_with_unique_match(self) -> None:
+        session = AsyncMock()
+        session.call_tool.return_value.content = [
+            type(
+                "Text",
+                (),
+                {"text": '{"result":"{\\"matches\\":[\\"0x140001000\\"]}"}'},
+            )()
+        ]
+
+        result = await ida_llm_targets.resolve_funcptr_target_via_mcp(
+            session,
+            "0x140000100",
+        )
+
+        self.assertEqual(
+            ida_llm_targets.ReferenceResolutionStatus.SUCCESS,
+            result.status,
+        )
+        self.assertEqual(0x140001000, result.address)
+        self.assertEqual((0x140001000,), result.matches)
+
+    async def test_reference_resolution_distinguishes_no_match(self) -> None:
+        session = AsyncMock()
+        session.call_tool.return_value.content = [
+            type("Text", (), {"text": '{"result":"{\\"matches\\":[]}"}'})()
+        ]
+
+        result = await ida_llm_targets.resolve_funcptr_target_via_mcp(
+            session,
+            "0x140000100",
+        )
+
+        self.assertEqual(
+            ida_llm_targets.ReferenceResolutionStatus.NO_MATCH,
+            result.status,
+        )
+        self.assertIsNone(result.address)
+
+    async def test_reference_resolution_reports_malformed_response_with_debug_context(
+        self,
+    ) -> None:
+        session = AsyncMock()
+        session.call_tool.return_value.content = [
+            type("Text", (), {"text": "not-json"})()
+        ]
+
+        with patch("builtins.print") as mock_print:
+            result = await ida_llm_targets.resolve_funcptr_target_via_mcp(
+                session,
+                "0x140000100",
+                debug=True,
+            )
+
+        self.assertEqual(
+            ida_llm_targets.ReferenceResolutionStatus.MALFORMED_RESPONSE,
+            result.status,
+        )
+        messages = [
+            call.args[0]
+            for call in mock_print.call_args_list
+            if call.args and isinstance(call.args[0], str)
+        ]
+        self.assertTrue(
+            any(
+                "malformed_response" in message
+                and "0x140000100" in message
+                and "JSONDecodeError" in message
+                and "not-json" in message
+                for message in messages
+            )
+        )
+
+    async def test_reference_resolution_classifies_transport_error_and_logs_context(
+        self,
+    ) -> None:
+        session = AsyncMock()
+        transport_error = RuntimeError("worker disconnected")
+        session.call_tool.side_effect = transport_error
+
+        with patch("builtins.print") as mock_print:
+            result = await ida_llm_targets.resolve_funcptr_target_via_mcp(
+                session,
+                "0x140000100",
+                debug=True,
+            )
+
+        self.assertEqual(
+            ida_llm_targets.ReferenceResolutionStatus.TRANSPORT_ERROR,
+            result.status,
+        )
+        self.assertIs(transport_error, result.error)
+        messages = [
+            call.args[0]
+            for call in mock_print.call_args_list
+            if call.args and isinstance(call.args[0], str)
+        ]
+        self.assertTrue(
+            any(
+                "transport_error" in message
+                and "0x140000100" in message
+                and "RuntimeError" in message
+                and "response=<unavailable>" in message
+                for message in messages
+            )
+        )
+
+    async def test_reference_resolution_rejects_invalid_instruction_address_without_calling_mcp(
+        self,
+    ) -> None:
+        session = AsyncMock()
+
+        result = await ida_llm_targets.resolve_funcptr_target_via_mcp(
+            session,
+            "not-an-address",
+        )
+
+        self.assertEqual(
+            ida_llm_targets.ReferenceResolutionStatus.MALFORMED_RESPONSE,
+            result.status,
+        )
+        session.call_tool.assert_not_awaited()
 
 
 if __name__ == "__main__":

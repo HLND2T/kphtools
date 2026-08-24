@@ -1720,6 +1720,79 @@ class TestDumpSymbols(unittest.TestCase):
         fake_process.kill.assert_not_called()
         fake_process.wait.assert_called_once_with(timeout=dump_symbols.MCP_PROCESS_STOP_TIMEOUT)
 
+    def test_lazy_idalib_session_recovers_and_retries_failed_tool_call_once(self) -> None:
+        session = dump_symbols.LazyIdalibSession(Path("/tmp/ntoskrnl.exe"))
+        failed_call = RuntimeError("worker disconnected")
+        stale_session = AsyncMock()
+        stale_session.call_tool = AsyncMock(side_effect=failed_call)
+        recovered_result = object()
+        recovered_session = AsyncMock()
+        recovered_session.call_tool = AsyncMock(return_value=recovered_result)
+        session.session = stale_session
+
+        async def recover(reason):
+            self.assertIs(failed_call, reason)
+            session.session = recovered_session
+            return True
+
+        with (
+            patch.object(
+                session,
+                "ensure_available",
+                new=AsyncMock(return_value=True),
+            ),
+            patch.object(
+                session,
+                "_recover_unavailable_worker",
+                new=AsyncMock(side_effect=recover),
+            ) as recover_worker,
+        ):
+            result = asyncio.run(
+                session.call_tool("py_eval", {"code": "resolve reference"})
+            )
+
+        self.assertIs(recovered_result, result)
+        self.assertFalse(session.recovery_failed)
+        recover_worker.assert_awaited_once_with(failed_call)
+        stale_session.call_tool.assert_awaited_once_with(
+            name="py_eval",
+            arguments={"code": "resolve reference"},
+        )
+        recovered_session.call_tool.assert_awaited_once_with(
+            name="py_eval",
+            arguments={"code": "resolve reference"},
+        )
+
+    def test_lazy_idalib_session_raises_unavailable_when_tool_call_recovery_fails(
+        self,
+    ) -> None:
+        session = dump_symbols.LazyIdalibSession(Path("/tmp/ntoskrnl.exe"))
+        failed_call = RuntimeError("worker disconnected")
+        stale_session = AsyncMock()
+        stale_session.call_tool = AsyncMock(side_effect=failed_call)
+        session.session = stale_session
+
+        with (
+            patch.object(
+                session,
+                "ensure_available",
+                new=AsyncMock(return_value=True),
+            ),
+            patch.object(
+                session,
+                "_recover_unavailable_worker",
+                new=AsyncMock(return_value=False),
+            ) as recover_worker,
+        ):
+            with self.assertRaises(dump_symbols.McpDatabaseUnavailableError) as context:
+                asyncio.run(
+                    session.call_tool("py_eval", {"code": "resolve reference"})
+                )
+
+        self.assertIn("failed during py_eval", str(context.exception))
+        self.assertTrue(session.recovery_failed)
+        recover_worker.assert_awaited_once_with(failed_call)
+
     def test_lazy_idalib_session_resolves_binary_path_through_directory_link(self) -> None:
         with TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)

@@ -12,8 +12,12 @@ from ida_llm_prompt import derive_module_name
 from ida_llm_response import empty_llm_decompile_result, parse_llm_decompile_response
 from ida_llm_specs import build_llm_decompile_specs_map
 from ida_llm_targets import (
-    has_all_required_target_details, load_llm_decompile_target_details_via_mcp,
-    resolve_direct_call_target_via_mcp, resolve_direct_gv_target_via_mcp,
+    ReferenceResolution,
+    ReferenceResolutionStatus,
+    has_all_required_target_details,
+    load_llm_decompile_target_details_via_mcp,
+    resolve_direct_call_target_via_mcp,
+    resolve_direct_gv_target_via_mcp,
     resolve_funcptr_target_via_mcp,
 )
 from ida_reference_export import validate_reference_yaml_payload
@@ -449,6 +453,7 @@ async def _consume_function_result(
     symbol_name: str,
     query_name: str,
     image_base: int,
+    debug: bool = False,
 ) -> dict[str, Any] | None:
     resolvers = (
         ("found_call", "func_name", _resolve_direct_call_target_via_mcp),
@@ -458,7 +463,12 @@ async def _consume_function_result(
         for entry in result.get(section, []):
             if entry.get(field_name) not in {symbol_name, query_name}:
                 continue
-            func_va = await resolver(session, entry.get("insn_va"))
+            resolution = await resolver(
+                session,
+                entry.get("insn_va"),
+                debug=debug,
+            )
+            func_va = _resolved_reference_address(resolution)
             if func_va is not None:
                 return {
                     "func_name": symbol_name,
@@ -474,13 +484,33 @@ async def _consume_gv_result(
     symbol_name: str,
     query_name: str,
     image_base: int,
+    debug: bool = False,
 ) -> dict[str, Any] | None:
     for entry in result.get("found_gv", []):
         if entry.get("gv_name") not in {symbol_name, query_name}:
             continue
-        gv_va = await _resolve_direct_gv_target_via_mcp(session, entry.get("insn_va"))
+        resolution = await _resolve_direct_gv_target_via_mcp(
+            session,
+            entry.get("insn_va"),
+            debug=debug,
+        )
+        gv_va = _resolved_reference_address(resolution)
         if gv_va is not None:
             return {"gv_name": symbol_name, "gv_va": gv_va, "gv_rva": gv_va - image_base}
+    return None
+
+
+def _resolved_reference_address(resolution: Any) -> int | None:
+    if isinstance(resolution, ReferenceResolution):
+        if resolution.status == ReferenceResolutionStatus.TRANSPORT_ERROR:
+            if resolution.error is not None:
+                raise resolution.error
+            raise RuntimeError(resolution.detail or "IDA MCP reference resolution failed")
+        if resolution.status == ReferenceResolutionStatus.SUCCESS:
+            return resolution.address
+        return None
+    if isinstance(resolution, int) and not isinstance(resolution, bool):
+        return resolution
     return None
 
 
@@ -555,11 +585,21 @@ async def resolve_symbol_via_llm_decompile(
     query_name = str(request["llm_symbol_name"]).strip()
     if category == "func":
         return await _consume_function_result(
-            session, result, symbol_name, query_name, image_base
+            session,
+            result,
+            symbol_name,
+            query_name,
+            image_base,
+            debug=debug,
         )
     if category == "gv":
         return await _consume_gv_result(
-            session, result, symbol_name, query_name, image_base
+            session,
+            result,
+            symbol_name,
+            query_name,
+            image_base,
+            debug=debug,
         )
     if category == "struct_offset":
         return _consume_struct_offset_result(result, symbol_name, struct_metadata)

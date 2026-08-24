@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +17,26 @@ from ida_reference_export import (
     build_function_detail_export_py_eval,
     build_remote_text_export_py_eval,
 )
+
+
+_DEBUG_RESPONSE_PREVIEW_LIMIT = 1000
+
+
+class ReferenceResolutionStatus(str, Enum):
+    SUCCESS = "success"
+    NO_MATCH = "no_match"
+    AMBIGUOUS = "ambiguous"
+    TRANSPORT_ERROR = "transport_error"
+    MALFORMED_RESPONSE = "malformed_response"
+
+
+@dataclass(frozen=True)
+class ReferenceResolution:
+    status: ReferenceResolutionStatus
+    address: int | None = None
+    matches: tuple[int, ...] = ()
+    detail: str = ""
+    error: Exception | None = field(default=None, compare=False, repr=False)
 
 
 def _debug_log(debug: bool, message: str) -> None:
@@ -33,6 +55,71 @@ def _parse_offset_value(value: Any) -> int:
         return value
     text = str(value).strip()
     return int(text, 0 if text.lower().startswith("0x") else 10)
+
+
+def _tool_result_response_preview(tool_result: Any) -> str:
+    content = getattr(tool_result, "content", None)
+    try:
+        item = content[0] if content else None
+    except (IndexError, KeyError, TypeError):
+        item = None
+    text = getattr(item, "text", None)
+    if not isinstance(text, str):
+        return f"<{type(tool_result).__name__}>"
+    if len(text) > _DEBUG_RESPONSE_PREVIEW_LIMIT:
+        text = text[:_DEBUG_RESPONSE_PREVIEW_LIMIT] + "..."
+    return repr(text)
+
+
+def _debug_reference_resolution(
+    debug: bool,
+    insn_va: Any,
+    resolution: ReferenceResolution,
+    *,
+    response_preview: str,
+) -> None:
+    if not debug or resolution.status == ReferenceResolutionStatus.SUCCESS:
+        return
+    exception = resolution.error
+    exception_text = (
+        f"{type(exception).__name__}: {exception}"
+        if exception is not None
+        else "<none>"
+    )
+    _debug_log(
+        True,
+        "reference resolution "
+        f"{resolution.status.value}: insn_va={insn_va} "
+        f"detail={resolution.detail or '<none>'} "
+        f"exception={exception_text} response={response_preview}",
+    )
+
+
+def _reference_resolution(
+    status: ReferenceResolutionStatus,
+    *,
+    insn_va: Any,
+    debug: bool,
+    response_preview: str,
+    address: int | None = None,
+    matches: tuple[int, ...] = (),
+    detail: str = "",
+    error: Exception | None = None,
+) -> ReferenceResolution:
+    resolution = ReferenceResolution(
+        status=status,
+        address=address,
+        matches=matches,
+        detail=detail,
+        error=error,
+    )
+    _debug_reference_resolution(
+        debug,
+        insn_va,
+        resolution,
+        response_preview=response_preview,
+    )
+    return resolution
 
 
 def _is_valid_remote_json_ack(ack: Any, output_path: Path) -> bool:
@@ -293,30 +380,105 @@ def has_all_required_target_details(
     return all(name in available_names for name in required_target_func_names)
 
 
-async def _resolve_unique_reference(session, insn_va: Any, producer_code: str) -> int | None:
+async def _resolve_unique_reference(
+    session,
+    insn_va: Any,
+    producer_code: str,
+    *,
+    debug: bool = False,
+) -> ReferenceResolution:
     try:
         insn_va_int = _parse_offset_value(insn_va)
-    except Exception:
-        return None
-    try:
-        payload = _parse_py_eval_result(
-            await session.call_tool(
-                "py_eval",
-                {"code": producer_code.replace("{insn_va}", str(insn_va_int))},
-            )
+    except (TypeError, ValueError) as exc:
+        return _reference_resolution(
+            ReferenceResolutionStatus.MALFORMED_RESPONSE,
+            insn_va=insn_va,
+            debug=debug,
+            response_preview="<not-called>",
+            detail="invalid instruction address",
+            error=exc,
         )
-    except Exception:
-        return None
-    matches = payload.get("matches") if isinstance(payload, dict) else None
-    if not isinstance(matches, list) or len(matches) != 1:
-        return None
+
     try:
-        return int(str(matches[0]), 0)
-    except (TypeError, ValueError):
-        return None
+        tool_result = await session.call_tool(
+            "py_eval",
+            {"code": producer_code.replace("{insn_va}", str(insn_va_int))},
+        )
+    except Exception as exc:
+        return _reference_resolution(
+            ReferenceResolutionStatus.TRANSPORT_ERROR,
+            insn_va=insn_va,
+            debug=debug,
+            response_preview="<unavailable>",
+            detail="IDA MCP py_eval call failed",
+            error=exc,
+        )
+
+    try:
+        payload = _parse_py_eval_result(tool_result)
+    except (AttributeError, IndexError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        return _reference_resolution(
+            ReferenceResolutionStatus.MALFORMED_RESPONSE,
+            insn_va=insn_va,
+            debug=debug,
+            response_preview=_tool_result_response_preview(tool_result),
+            detail="invalid IDA MCP py_eval response",
+            error=exc,
+        )
+
+    matches = payload.get("matches") if isinstance(payload, dict) else None
+    if not isinstance(matches, list):
+        return _reference_resolution(
+            ReferenceResolutionStatus.MALFORMED_RESPONSE,
+            insn_va=insn_va,
+            debug=debug,
+            response_preview=_tool_result_response_preview(tool_result),
+            detail="py_eval response field 'matches' must be a list",
+        )
+
+    parsed_matches: list[int] = []
+    try:
+        parsed_matches.extend(int(str(match), 0) for match in matches)
+    except (TypeError, ValueError) as exc:
+        return _reference_resolution(
+            ReferenceResolutionStatus.MALFORMED_RESPONSE,
+            insn_va=insn_va,
+            debug=debug,
+            response_preview=_tool_result_response_preview(tool_result),
+            detail="py_eval response contains an invalid match address",
+            error=exc,
+        )
+
+    normalized_matches = tuple(parsed_matches)
+    if not normalized_matches:
+        status = ReferenceResolutionStatus.NO_MATCH
+        detail = "IDA found no matching reference"
+        address = None
+    elif len(normalized_matches) > 1:
+        status = ReferenceResolutionStatus.AMBIGUOUS
+        detail = f"IDA found {len(normalized_matches)} matching references"
+        address = None
+    else:
+        status = ReferenceResolutionStatus.SUCCESS
+        detail = ""
+        address = normalized_matches[0]
+    return _reference_resolution(
+        status,
+        insn_va=insn_va,
+        debug=debug,
+        response_preview=_tool_result_response_preview(tool_result),
+        address=address,
+        matches=normalized_matches,
+        detail=detail,
+    )
 
 
-async def resolve_direct_call_target_via_mcp(session, insn_va: Any) -> int | None:
+async def resolve_direct_call_target_via_mcp(
+    session,
+    insn_va: Any,
+    *,
+    debug: bool = False,
+) -> ReferenceResolution:
     code = (
         "import ida_funcs, idautils, json\n"
         "insn_ea = {insn_va}\n"
@@ -327,10 +489,15 @@ async def resolve_direct_call_target_via_mcp(session, insn_va: Any) -> int | Non
         "        matches.append(hex(int(func.start_ea)))\n"
         "result = json.dumps({'matches': sorted(set(matches))})\n"
     )
-    return await _resolve_unique_reference(session, insn_va, code)
+    return await _resolve_unique_reference(session, insn_va, code, debug=debug)
 
 
-async def resolve_funcptr_target_via_mcp(session, insn_va: Any) -> int | None:
+async def resolve_funcptr_target_via_mcp(
+    session,
+    insn_va: Any,
+    *,
+    debug: bool = False,
+) -> ReferenceResolution:
     code = (
         "import ida_funcs, idautils, json\n"
         "insn_ea = {insn_va}\n"
@@ -341,17 +508,22 @@ async def resolve_funcptr_target_via_mcp(session, insn_va: Any) -> int | None:
         "        matches.append(hex(int(target_ea)))\n"
         "result = json.dumps({'matches': sorted(set(matches))})\n"
     )
-    return await _resolve_unique_reference(session, insn_va, code)
+    return await _resolve_unique_reference(session, insn_va, code, debug=debug)
 
 
-async def resolve_direct_gv_target_via_mcp(session, insn_va: Any) -> int | None:
+async def resolve_direct_gv_target_via_mcp(
+    session,
+    insn_va: Any,
+    *,
+    debug: bool = False,
+) -> ReferenceResolution:
     code = (
         "import idautils, json\n"
         "insn_ea = {insn_va}\n"
         "matches = [hex(int(target_ea)) for target_ea in idautils.DataRefsFrom(insn_ea)]\n"
         "result = json.dumps({'matches': sorted(set(matches))})\n"
     )
-    return await _resolve_unique_reference(session, insn_va, code)
+    return await _resolve_unique_reference(session, insn_va, code, debug=debug)
 
 
 # Thin compatibility aliases during the resolver split.

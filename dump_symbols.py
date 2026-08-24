@@ -1013,7 +1013,28 @@ class LazyIdalibSession:
         session = self.session
         if session is None:
             raise McpDatabaseUnavailableError(f"owned MCP worker for {self.binary_path} did not yield a session")
-        return await session.call_tool(name=name, arguments=arguments)
+        try:
+            return await session.call_tool(name=name, arguments=arguments)
+        except Exception as exc:
+            _debug_log(
+                self.debug,
+                f"MCP tool {name} failed; attempting one recovery: "
+                f"{type(exc).__name__}: {exc}",
+            )
+            available = await self._recover_unavailable_worker(exc)
+            self.recovery_failed = not available
+            if not available:
+                raise McpDatabaseUnavailableError(
+                    f"owned MCP worker for {self.binary_path} failed during {name} and could not recover"
+                ) from exc
+
+            recovered_session = self.session
+            if recovered_session is None:
+                self.recovery_failed = True
+                raise McpDatabaseUnavailableError(
+                    f"owned MCP worker for {self.binary_path} recovered without a bound session"
+                ) from exc
+            return await recovered_session.call_tool(name=name, arguments=arguments)
 
     async def _close_handles(self) -> None:
         session_context = self.session_context
