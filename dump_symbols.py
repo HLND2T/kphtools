@@ -261,6 +261,7 @@ def _run_fallback_skill_and_log_outputs(
     required_outputs: list[str],
     max_retries: int,
     agent_model: str = DEFAULT_AGENT_MODEL,
+    mcp_url: str | None = None,
 ) -> bool:
     run_kwargs = {
         "agent": agent,
@@ -270,6 +271,8 @@ def _run_fallback_skill_and_log_outputs(
     }
     if agent_model:
         run_kwargs["agent_model"] = agent_model
+    if mcp_url:
+        run_kwargs["mcp_url"] = mcp_url
     fallback_ok = run_skill(skill_name, **run_kwargs)
     if fallback_ok:
         for output_path in required_outputs:
@@ -375,6 +378,9 @@ async def _process_one_skill(
         return False
 
     skill_max_retries = _field(skill, "max_retries") or 3
+    mcp_url = None
+    if isinstance(session, LazyIdalibSession) and session.port is not None:
+        mcp_url = f"http://{session.host}:{session.port}/mcp"
     _debug_log(debug, f"falling back to run_skill for {skill_name}")
     return _run_fallback_skill_and_log_outputs(
         skill_name=skill_name,
@@ -383,6 +389,7 @@ async def _process_one_skill(
         required_outputs=required_outputs,
         max_retries=skill_max_retries,
         agent_model=agent_model,
+        mcp_url=mcp_url,
     )
 
 

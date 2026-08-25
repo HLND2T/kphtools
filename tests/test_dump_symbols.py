@@ -2042,6 +2042,48 @@ class TestDumpSymbols(unittest.TestCase):
         preprocess.assert_awaited_once()
         run_skill.assert_not_called()
 
+    def test_process_skill_injects_owned_dynamic_mcp_endpoint_into_fallback(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            session = dump_symbols.LazyIdalibSession(binary_dir / "ntoskrnl.exe")
+            session.port = 54321
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_FAILED),
+                ),
+                patch.object(dump_symbols, "run_skill", return_value=True) as run_skill,
+            ):
+                ok = asyncio.run(
+                    dump_symbols._process_one_skill(
+                        skill_name="find-Example",
+                        skill={
+                            "name": "find-Example",
+                            "expected_output": ["Example.yaml"],
+                        },
+                        symbol_map={"Example": {"name": "Example"}},
+                        binary_dir=binary_dir,
+                        pdb_path=None,
+                        agent="codex",
+                        debug=False,
+                        force=False,
+                        llm_config=None,
+                        session=session,
+                        activity={"did_work": False},
+                    )
+                )
+
+        self.assertTrue(ok)
+        run_skill.assert_called_once_with(
+            "find-Example",
+            agent="codex",
+            debug=False,
+            expected_yaml_paths=[str(binary_dir / "Example.yaml")],
+            max_retries=3,
+            mcp_url="http://127.0.0.1:54321/mcp",
+        )
+
     def test_lazy_idalib_session_debug_logs_startup(self) -> None:
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
