@@ -184,6 +184,7 @@ def _build_effective_llm_config_for_skill(
     effective.setdefault("retry_max_delay", 8.0)
     effective["_expected_inputs"] = _unique_strings(expected_inputs)
     effective["_optional_inputs"] = _unique_strings(optional_inputs)
+    effective["_required_output_symbols"] = list(_required_output_symbol_names(skill))
     return effective
 
 

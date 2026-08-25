@@ -171,6 +171,7 @@ def _parse_and_validate(
     content: str,
     *,
     requested_symbol_names: tuple[str, ...],
+    required_result_symbols: tuple[str, ...],
     expected_result_sections: dict[str, set[str]],
     instruction_validations: dict[str, dict[str, Any]],
     disasm_index: tuple[dict[int, set[str]], dict[str, set[int]]],
@@ -185,6 +186,7 @@ def _parse_and_validate(
         disasm_index,
         expected_result_sections,
         requested_symbol_names=requested_symbol_names,
+        required_result_symbols=required_result_symbols,
         instruction_validations=instruction_validations,
     )
     issues = outcome["issues"] + semantic_issues
@@ -211,6 +213,7 @@ async def _run_llm_attempts(
     retry_backoff: float,
     retry_max_delay: float,
     requested_symbols: tuple[str, ...],
+    required_symbols: tuple[str, ...],
     expected_sections: dict[str, set[str]],
     instruction_validations: dict[str, dict[str, Any]],
     disasm_index: tuple[dict[int, set[str]], dict[str, set[int]]],
@@ -245,6 +248,7 @@ async def _run_llm_attempts(
         outcome, parsed_result, issues = _parse_and_validate(
             content,
             requested_symbol_names=requested_symbols,
+            required_result_symbols=required_symbols,
             expected_result_sections=expected_sections,
             instruction_validations=instruction_validations,
             disasm_index=disasm_index,
@@ -281,6 +285,7 @@ async def call_llm_decompile(
     model: str,
     symbol_name_list: Any,
     expected_result_sections: Any,
+    required_result_symbols: Any = None,
     instruction_validations: Any = None,
     reference_items: Any,
     target_items: Any,
@@ -303,6 +308,11 @@ async def call_llm_decompile(
 ) -> dict[str, list[dict[str, str]]]:
     transport = call_llm_text_func or call_llm_text
     requested_symbols = normalize_requested_symbol_names(symbol_name_list)
+    required_symbols = (
+        requested_symbols
+        if required_result_symbols is None
+        else normalize_requested_symbol_names(required_result_symbols)
+    )
     symbol_name_text = ", ".join(requested_symbols)
     expected_sections = normalize_expected_result_sections(expected_result_sections)
     module_name = derive_module_name(binary_path)
@@ -362,6 +372,7 @@ async def call_llm_decompile(
         retry_backoff=backoff,
         retry_max_delay=max_delay,
         requested_symbols=requested_symbols,
+        required_symbols=required_symbols,
         expected_sections=expected_sections,
         instruction_validations=normalized_instruction_validations,
         disasm_index=disasm_index,

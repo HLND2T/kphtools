@@ -217,10 +217,17 @@ def _validate_symbols_and_sections(
     result: dict[str, Any],
     requested_symbol_names: Any,
     expected_result_sections: Any,
+    required_result_symbols: Any,
 ) -> list[dict[str, Any]]:
     requested = set(normalize_requested_symbol_names(requested_symbol_names))
+    required = (
+        requested
+        if required_result_symbols is None
+        else set(normalize_requested_symbol_names(required_result_symbols))
+    )
     expected = normalize_expected_result_sections(expected_result_sections)
     issues = []
+    symbols_in_expected_sections: set[str] = set()
     for section_name, entry_index, entry in iter_llm_instruction_entries(result):
         symbol_name = get_llm_result_symbol_name(section_name, entry)
         if requested and symbol_name not in requested:
@@ -249,6 +256,23 @@ def _validate_symbols_and_sections(
                     "expected_sections": sorted(expected_sections),
                 }
             )
+        elif expected_sections:
+            symbols_in_expected_sections.add(symbol_name)
+    for symbol_name in sorted(requested & required & expected.keys()):
+        if symbol_name in symbols_in_expected_sections:
+            continue
+        expected_sections = sorted(expected[symbol_name])
+        issues.append(
+            {
+                "issue_type": "missing_result_symbol",
+                "symbol_name": symbol_name,
+                "expected_sections": expected_sections,
+                "message": (
+                    f"Requested symbol {symbol_name!r} is missing; return it in "
+                    f"one of these sections: {', '.join(expected_sections)}."
+                ),
+            }
+        )
     return issues
 
 
@@ -360,6 +384,7 @@ def validate_llm_decompile_result(
     expected_result_sections: Any,
     *,
     requested_symbol_names: Any = None,
+    required_result_symbols: Any = None,
     instruction_validations: Any = None,
 ) -> list[dict[str, Any]]:
     normalized_validations = normalize_instruction_validations(
@@ -373,6 +398,7 @@ def validate_llm_decompile_result(
             result,
             requested_symbol_names,
             expected_result_sections,
+            required_result_symbols,
         )
         + _validate_instruction_constraints(result, normalized_validations)
     )

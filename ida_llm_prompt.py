@@ -19,6 +19,7 @@ _LLM_SCHEMA_ISSUE_TYPES = frozenset(
         "yaml_entry_shape_mismatch",
         "wrapped_symbol_mismatch",
         "unexpected_result_symbol",
+        "missing_result_symbol",
     }
 )
 

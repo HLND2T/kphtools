@@ -23,7 +23,7 @@ from ida_llm_targets import (
 from ida_reference_export import validate_reference_yaml_payload
 
 _LLM_DECOMPILE_RESULT_CACHE: dict[tuple[Any, ...], dict[str, list[dict[str, str]]]] = {}
-_LLM_RESULT_CONTRACT_VERSION = "kphtools-four-section-v2"
+_LLM_RESULT_CONTRACT_VERSION = "kphtools-atomic-batch-v3"
 
 
 def _debug_log(debug: bool, message: str) -> None:
@@ -141,15 +141,18 @@ def _collect_batch_context(
     specs_map: dict[str, dict[str, Any]],
     llm_spec: dict[str, Any],
     semantic_query_names: dict[str, str],
+    required_artifact_names: set[str] | None = None,
 ) -> tuple[
     list[str],
     dict[str, list[str]],
     dict[str, dict[str, Any]],
+    list[str],
 ] | None:
     signature = _llm_decompile_specs_signature(llm_spec)
     names: list[str] = []
     expected_sections: dict[str, list[str]] = {}
     instruction_validations: dict[str, dict[str, Any]] = {}
+    required_names: list[str] = []
     semantic_owners: dict[str, str] = {}
     for artifact_name, candidate_spec in specs_map.items():
         if _llm_decompile_specs_signature(candidate_spec) != signature:
@@ -165,6 +168,8 @@ def _collect_batch_context(
         semantic_owners[semantic_name] = artifact_name
         if semantic_name not in names:
             names.append(semantic_name)
+        if required_artifact_names is None or artifact_name in required_artifact_names:
+            required_names.append(semantic_name)
         expected_sections[semantic_name] = sections
         validation = {
             key: candidate_spec[key]
@@ -173,7 +178,7 @@ def _collect_batch_context(
         }
         if validation:
             instruction_validations[semantic_name] = validation
-    return names, expected_sections, instruction_validations
+    return names, expected_sections, instruction_validations, required_names
 
 
 def _append_unique_text(items: list[str], seen: set[str], value: Any) -> None:
@@ -275,7 +280,20 @@ def _prepare_llm_decompile_request(
         symbol_name=symbol_name,
         debug=debug,
     )
-    batch = _collect_batch_context(specs_map or {}, llm_spec, semantic_names)
+    raw_required_artifacts = llm_config.get("_required_output_symbols")
+    required_artifacts = None
+    if isinstance(raw_required_artifacts, str):
+        required_artifacts = {raw_required_artifacts}
+    elif isinstance(raw_required_artifacts, (list, tuple, set, frozenset)):
+        required_artifacts = {
+            str(name).strip() for name in raw_required_artifacts if str(name).strip()
+        }
+    batch = _collect_batch_context(
+        specs_map or {},
+        llm_spec,
+        semantic_names,
+        required_artifacts,
+    )
     if references is None or batch is None or not batch[0]:
         _debug_log(debug, f"llm_decompile skipped for {symbol_name}: invalid request context")
         return None
@@ -288,6 +306,7 @@ def _prepare_llm_decompile_request(
         "llm_symbol_names": batch[0],
         "expected_result_sections": batch[1],
         "instruction_validations": batch[2],
+        "required_result_symbols": batch[3],
         "arch": arch,
     }
 
@@ -355,6 +374,12 @@ def _build_llm_decompile_result_cache_key(
         tuple(map(str, request.get("required_target_func_names", []))),
         tuple(sorted(request.get("dependency_policy", {}).items())),
         query_names,
+        tuple(
+            map(
+                str,
+                request.get("required_result_symbols", request.get("llm_symbol_names", [])),
+            )
+        ),
         _normalized_expected_sections(request),
         _normalized_instruction_validations(request),
         _LLM_RESULT_CONTRACT_VERSION,
@@ -374,6 +399,7 @@ async def call_llm_decompile(
     return await _validated_call_llm_decompile(
         model=llm_config.get("model", ""),
         symbol_name_list=symbol_name_list,
+        required_result_symbols=llm_config.get("_required_result_symbols"),
         expected_result_sections=llm_config.get("_expected_result_sections", {}),
         instruction_validations=llm_config.get("_instruction_validations", {}),
         reference_items=reference_items,
@@ -431,6 +457,10 @@ async def _load_or_call_llm_result(
         **llm_config,
         "_expected_result_sections": request.get("expected_result_sections", {}),
         "_instruction_validations": request.get("instruction_validations", {}),
+        "_required_result_symbols": request.get(
+            "required_result_symbols",
+            request.get("llm_symbol_names", []),
+        ),
         "_binary_path": binary_dir,
     }
     result = await call_llm_decompile(
@@ -442,7 +472,7 @@ async def _load_or_call_llm_result(
         arch=request.get("arch", ""),
         debug=debug,
     )
-    if cache_key is not None and any(result.values()):
+    if cache_key is not None:
         _LLM_DECOMPILE_RESULT_CACHE[cache_key] = result
     return result
 

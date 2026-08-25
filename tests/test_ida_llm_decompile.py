@@ -17,6 +17,13 @@ found_gv: []
 found_struct_offset: []
 """
 
+EMPTY = """\
+found_call: []
+found_funcptr: []
+found_gv: []
+found_struct_offset: []
+"""
+
 
 class TestIdaLlmDecompile(unittest.IsolatedAsyncioTestCase):
     async def call(self, transport, **kwargs):
@@ -73,6 +80,92 @@ found_struct_offset: []
         transport = AsyncMock(side_effect=[wrong, VALID])
         result = await self.call(transport)
         self.assertTrue(result["found_call"])
+
+    async def test_explicit_empty_batch_is_retried_until_complete(self) -> None:
+        complete = """\
+found_call:
+  - insn_va: '0x1000'
+    insn_disasm: call sub_2000
+    func_name: First
+  - insn_va: '0x1010'
+    insn_disasm: call sub_3000
+    func_name: Second
+found_funcptr: []
+found_gv: []
+found_struct_offset: []
+"""
+        transport = AsyncMock(side_effect=[EMPTY, complete])
+
+        result = await call_llm_decompile(
+            model="test-model",
+            symbol_name_list=["First", "Second"],
+            expected_result_sections={
+                "First": ["found_call"],
+                "Second": ["found_call"],
+            },
+            reference_items=[
+                {"func_name": "Ref", "disasm_code": "00001000 nop"}
+            ],
+            target_items=[
+                {
+                    "func_name": "TargetFunc",
+                    "disasm_code": (
+                        "00001000 call sub_2000\n"
+                        "00001010 call sub_3000"
+                    ),
+                }
+            ],
+            prompt_template="{symbol_name_list}\n{target_blocks}",
+            arch="amd64",
+            max_retries=2,
+            retry_initial_delay=0,
+            call_llm_text_func=transport,
+        )
+
+        self.assertEqual(
+            ["First", "Second"],
+            [entry["func_name"] for entry in result["found_call"]],
+        )
+        self.assertEqual(2, transport.await_count)
+
+    async def test_optional_batch_symbol_may_be_absent(self) -> None:
+        complete_required = """\
+found_call:
+  - insn_va: '0x1000'
+    insn_disasm: call sub_2000
+    func_name: Required
+found_funcptr: []
+found_gv: []
+found_struct_offset: []
+"""
+        transport = AsyncMock(return_value=complete_required)
+
+        result = await call_llm_decompile(
+            model="test-model",
+            symbol_name_list=["Required", "Optional"],
+            required_result_symbols=["Required"],
+            expected_result_sections={
+                "Required": ["found_call"],
+                "Optional": ["found_call"],
+            },
+            reference_items=[
+                {"func_name": "Ref", "disasm_code": "00001000 nop"}
+            ],
+            target_items=[
+                {
+                    "func_name": "TargetFunc",
+                    "disasm_code": "00001000 call sub_2000",
+                }
+            ],
+            prompt_template="{symbol_name_list}\n{target_blocks}",
+            arch="amd64",
+            max_retries=2,
+            retry_initial_delay=0,
+            call_llm_text_func=transport,
+        )
+
+        self.assertEqual("Required", result["found_call"][0]["func_name"])
+        self.assertEqual(1, transport.await_count)
 
     async def test_instruction_constraint_mismatch_is_corrected(self) -> None:
         corrected = VALID.replace("0x1000", "0x1010").replace(
@@ -259,7 +352,10 @@ found_struct_offset: []
         self.assertEqual(empty_llm_decompile_result(), result)
         self.assertIn("validation retry exhausted for Target", output.getvalue())
         self.assertIn("schema_kind=invalid", output.getvalue())
-        self.assertIn("issue_types=yaml_root_type_mismatch", output.getvalue())
+        self.assertIn(
+            "issue_types=missing_result_symbol,yaml_root_type_mismatch",
+            output.getvalue(),
+        )
 
     async def test_transport_and_validation_share_budget(self) -> None:
         transport = AsyncMock(side_effect=[TimeoutError("timeout"), "not yaml", VALID])

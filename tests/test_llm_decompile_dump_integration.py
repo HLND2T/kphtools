@@ -37,6 +37,9 @@ class TestLlmDecompileDumpIntegration(unittest.TestCase):
             expected_input_amd64=["Arch.yaml", "Base.yaml"],
             optional_input=["Optional.yaml"],
             optional_input_amd64=["ArchOptional.yaml"],
+            expected_output=["Required.yaml"],
+            preprocessor_only_output=["Internal.yaml"],
+            optional_output=["BestEffort.yaml"],
         )
         first = dump_symbols._build_effective_llm_config_for_skill(
             original,
@@ -56,6 +59,10 @@ class TestLlmDecompileDumpIntegration(unittest.TestCase):
         )
         self.assertEqual(["Base.yaml", "Arch.yaml"], first["_expected_inputs"])
         self.assertEqual(["Optional.yaml", "ArchOptional.yaml"], first["_optional_inputs"])
+        self.assertEqual(
+            {"Required", "Internal"},
+            set(first["_required_output_symbols"]),
+        )
         self.assertEqual(["Other.yaml"], second["_expected_inputs"])
         self.assertEqual({"model": "test", "max_retries": 99}, original)
 

@@ -80,6 +80,7 @@ class TestLlmDecompileRequestIntegration(unittest.TestCase):
             config = {
                 "model": "test-model",
                 "api_key": "test-key",
+                "_required_output_symbols": ["ArtifactFunc"],
                 "_semantic_query_names": {
                     "ArtifactFunc": "ArtifactFunc",
                     "ArtifactMember": "_ITEM->Member",
@@ -97,6 +98,7 @@ class TestLlmDecompileRequestIntegration(unittest.TestCase):
                     binary_dir=scripts_dir / "amd64" / "module",
                 )
         self.assertEqual(["ArtifactFunc", "_ITEM->Member"], request["llm_symbol_names"])
+        self.assertEqual(["ArtifactFunc"], request["required_result_symbols"])
         self.assertEqual(["Ref", "Optional"], request["target_func_names"])
         self.assertEqual(["Ref"], request["required_target_func_names"])
         self.assertEqual(
@@ -256,7 +258,7 @@ class TestLlmDecompileResolverIntegration(unittest.IsolatedAsyncioTestCase):
             call.await_args.kwargs["llm_config"]["_instruction_validations"],
         )
 
-    async def test_empty_result_is_not_cached(self) -> None:
+    async def test_empty_result_is_cached_as_terminal_batch_result(self) -> None:
         with (
             patch.object(ida_mcp_resolver, "_prepare_llm_decompile_request", return_value=self.request),
             patch.object(
@@ -272,7 +274,7 @@ class TestLlmDecompileResolverIntegration(unittest.IsolatedAsyncioTestCase):
         ):
             self.assertIsNone(await self._resolve("First"))
             self.assertIsNone(await self._resolve("First"))
-        self.assertEqual(2, call.await_count)
+        self.assertEqual(1, call.await_count)
 
     def test_instruction_validations_are_part_of_cache_key(self) -> None:
         llm_config = {"model": "test-model"}
@@ -297,7 +299,7 @@ class TestLlmDecompileResolverIntegration(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertNotEqual(first, second)
-        self.assertEqual("kphtools-four-section-v2", ida_mcp_resolver._LLM_RESULT_CONTRACT_VERSION)
+        self.assertEqual("kphtools-atomic-batch-v3", ida_mcp_resolver._LLM_RESULT_CONTRACT_VERSION)
 
     async def test_found_call_precedes_function_pointer_resolution(self) -> None:
         request = {**self.request, "llm_symbol_name": "Target", "llm_symbol_names": ["Target"]}
