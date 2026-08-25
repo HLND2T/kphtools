@@ -6,7 +6,7 @@
 
 ## 快速开始
 
-先安装[依赖](docs/zh-CN/requirements.md)，然后运行主要符号流水线：
+先安装[依赖](docs/zh-CN/requirements.md)，然后运行完整流水线：
 
 ```bash
 curl -O https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml

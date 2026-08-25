@@ -6,7 +6,7 @@ Several scripts are included to generate offsets for [SystemInformer](https://gi
 
 ## Quick start
 
-Install the [requirements](docs/en/requirements.md), then run the main symbol pipeline:
+Install the [requirements](docs/en/requirements.md), then run the full pipeline:
 
 ```bash
 curl -O https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml
