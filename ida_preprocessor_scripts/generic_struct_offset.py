@@ -25,4 +25,6 @@ async def preprocess_struct_symbol(
             bits=bits,
         )
     except KeyError:
+        if debug:
+            print(f"    Preprocess: PDB type lookup missed: {symbol_expr}")
         return None

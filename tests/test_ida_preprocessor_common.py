@@ -824,10 +824,13 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
     async def test_preprocess_struct_symbol_returns_none_after_pdb_miss(
         self,
     ) -> None:
-        with patch.object(
-            generic_struct_offset,
-            "resolve_struct_symbol",
-            side_effect=KeyError("AlpcAttributes"),
+        with (
+            patch.object(
+                generic_struct_offset,
+                "resolve_struct_symbol",
+                side_effect=KeyError("AlpcAttributes"),
+            ),
+            patch("builtins.print") as mock_print,
         ):
             payload = await generic_struct_offset.preprocess_struct_symbol(
                 session=AsyncMock(),
@@ -856,3 +859,35 @@ class TestIdaPreprocessorCommon(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertIsNone(payload)
+        mock_print.assert_called_once_with(
+            "    Preprocess: PDB type lookup missed: _ALPC_PORT->PortAttributes"
+        )
+
+    async def test_preprocess_struct_symbol_does_not_log_pdb_miss_without_debug(
+        self,
+    ) -> None:
+        with (
+            patch.object(
+                generic_struct_offset,
+                "resolve_struct_symbol",
+                side_effect=KeyError("KpDirectoryTableBase"),
+            ),
+            patch("builtins.print") as mock_print,
+        ):
+            payload = await generic_struct_offset.preprocess_struct_symbol(
+                session=AsyncMock(),
+                symbol_name="KpDirectoryTableBase",
+                metadata={
+                    "symbol_expr": "_KPROCESS->DirectoryTableBase",
+                    "struct_name": "_KPROCESS",
+                    "member_name": "DirectoryTableBase",
+                    "bits": False,
+                },
+                pdb_path="ntkrnlmp.pdb",
+                debug=False,
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                binary_dir="/tmp/amd64/ntoskrnl",
+            )
+
+        self.assertIsNone(payload)
+        mock_print.assert_not_called()
