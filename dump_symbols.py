@@ -29,6 +29,7 @@ import os
 import socket
 import subprocess
 import time
+from contextlib import AsyncExitStack
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +37,7 @@ from dotenv import load_dotenv
 
 from agent_runner import DEFAULT_AGENT_MODEL, run_skill
 from ida_mcp_session import McpDatabaseUnavailableError, open_ida_mcp_session
+from ida_llm_utils import create_openai_client
 from ida_skill_preprocessor import (
     PREPROCESS_STATUS_ABSENT_OK as _PREPROCESS_STATUS_ABSENT_OK,
 )
@@ -1190,31 +1192,48 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
         debug=args.debug,
     )
     activity = {"did_work": False}
-    try:
-        ok = await process_binary_dir(
-            binary_dir=Path(binary_dir),
-            pdb_path=resolved_pdb_path,
-            skills=module.skills,
-            symbols=module.symbols,
-            agent=args.agent,
-            agent_model=getattr(args, "agent_model", DEFAULT_AGENT_MODEL),
-            debug=args.debug,
-            force=args.force,
-            llm_config=_build_llm_config(args),
-            session=session,
-            activity=activity,
-            arch=getattr(args, "current_arch", None),
-            skill=getattr(args, "skill", None),
-        )
-    finally:
-        closed = await session.close()
-    if closed is False:
-        print(f"MCP cleanup failed for {binary_path}")
-        ok = False
-    if ok and module.symbols:
-        if _write_binary_artifacts_manifest(Path(binary_dir), module.symbols):
-            activity["did_work"] = True
-    return ok, bool(activity["did_work"])
+    llm_config = _build_llm_config(args)
+    async with AsyncExitStack() as llm_stack:
+        if (
+            isinstance(llm_config, dict)
+            and str(llm_config.get("fake_as") or "").strip().lower() != "codex"
+        ):
+            llm_client = await llm_stack.enter_async_context(
+                create_openai_client(
+                    llm_config["api_key"],
+                    llm_config.get("base_url"),
+                    api_key_required_message=(
+                        "api_key is required for OpenAI-compatible LLM requests"
+                    ),
+                )
+            )
+            llm_config["client"] = llm_client
+
+        try:
+            ok = await process_binary_dir(
+                binary_dir=Path(binary_dir),
+                pdb_path=resolved_pdb_path,
+                skills=module.skills,
+                symbols=module.symbols,
+                agent=args.agent,
+                agent_model=getattr(args, "agent_model", DEFAULT_AGENT_MODEL),
+                debug=args.debug,
+                force=args.force,
+                llm_config=llm_config,
+                session=session,
+                activity=activity,
+                arch=getattr(args, "current_arch", None),
+                skill=getattr(args, "skill", None),
+            )
+        finally:
+            closed = await session.close()
+        if closed is False:
+            print(f"MCP cleanup failed for {binary_path}")
+            ok = False
+        if ok and module.symbols:
+            if _write_binary_artifacts_manifest(Path(binary_dir), module.symbols):
+                activity["did_work"] = True
+        return ok, bool(activity["did_work"])
 
 
 def main(argv=None):

@@ -1451,6 +1451,114 @@ class TestDumpSymbols(unittest.TestCase):
         fake_lazy_session.close.assert_awaited_once()
         manifest_mock.assert_called_once_with(binary_dir, module.symbols)
 
+    def test_process_module_binary_reuses_and_closes_llm_client(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            binary_path = binary_dir / "ntoskrnl.exe"
+            binary_path.write_text("", encoding="utf-8")
+            module = SimpleNamespace(path=["ntoskrnl.exe"], skills=[], symbols=[])
+            args = SimpleNamespace(
+                agent="codex",
+                debug=False,
+                force=False,
+                llm_apikey="test-api-key",
+                llm_baseurl="https://example.invalid/v1",
+            )
+            events = []
+            fake_lazy_session = MagicMock()
+
+            async def close_session():
+                events.append("session_close")
+                return True
+
+            fake_lazy_session.close = AsyncMock(side_effect=close_session)
+            fake_llm_client = MagicMock()
+
+            async def enter_llm_client(*_args):
+                events.append("client_enter")
+                return fake_llm_client
+
+            async def exit_llm_client(*_args):
+                events.append("client_exit")
+                return False
+
+            fake_llm_client.__aenter__ = AsyncMock(side_effect=enter_llm_client)
+            fake_llm_client.__aexit__ = AsyncMock(side_effect=exit_llm_client)
+
+            async def process_binary(**kwargs):
+                events.append("process")
+                self.assertIs(fake_llm_client, kwargs["llm_config"]["client"])
+                return True
+
+            with (
+                patch.object(dump_symbols, "LazyIdalibSession", return_value=fake_lazy_session),
+                patch.object(
+                    dump_symbols,
+                    "create_openai_client",
+                    return_value=fake_llm_client,
+                ) as create_client,
+                patch.object(
+                    dump_symbols,
+                    "process_binary_dir",
+                    new=AsyncMock(side_effect=process_binary),
+                ),
+                patch.object(dump_symbols, "_write_binary_artifacts_manifest", return_value=False),
+            ):
+                ok, did_work = asyncio.run(
+                    dump_symbols._process_module_binary(module, binary_dir, None, args)
+                )
+
+        self.assertTrue(ok)
+        self.assertFalse(did_work)
+        create_client.assert_called_once_with(
+            "test-api-key",
+            "https://example.invalid/v1",
+            api_key_required_message="api_key is required for OpenAI-compatible LLM requests",
+        )
+        fake_llm_client.__aenter__.assert_awaited_once()
+        fake_llm_client.__aexit__.assert_awaited_once()
+        self.assertEqual(
+            ["client_enter", "process", "session_close", "client_exit"],
+            events,
+        )
+
+    def test_process_module_binary_closes_llm_client_when_processing_fails(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            binary_path = binary_dir / "ntoskrnl.exe"
+            binary_path.write_text("", encoding="utf-8")
+            module = SimpleNamespace(path=["ntoskrnl.exe"], skills=[], symbols=[])
+            args = SimpleNamespace(
+                agent="codex",
+                debug=False,
+                force=False,
+                llm_apikey="test-api-key",
+            )
+            fake_lazy_session = MagicMock()
+            fake_lazy_session.close = AsyncMock(return_value=True)
+            fake_llm_client = MagicMock()
+            fake_llm_client.__aenter__ = AsyncMock(return_value=fake_llm_client)
+            fake_llm_client.__aexit__ = AsyncMock(return_value=False)
+
+            with (
+                patch.object(dump_symbols, "LazyIdalibSession", return_value=fake_lazy_session),
+                patch.object(
+                    dump_symbols,
+                    "create_openai_client",
+                    return_value=fake_llm_client,
+                ),
+                patch.object(
+                    dump_symbols,
+                    "process_binary_dir",
+                    new=AsyncMock(side_effect=RuntimeError("processing failed")),
+                ),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "processing failed"):
+                    asyncio.run(dump_symbols._process_module_binary(module, binary_dir, None, args))
+
+        fake_lazy_session.close.assert_awaited_once_with()
+        fake_llm_client.__aexit__.assert_awaited_once()
+
     def test_process_module_binary_real_empty_pipeline_does_not_eager_start(
         self,
     ) -> None:

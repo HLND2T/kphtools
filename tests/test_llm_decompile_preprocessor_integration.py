@@ -213,6 +213,27 @@ class TestLlmDecompileResolverIntegration(unittest.IsolatedAsyncioTestCase):
             }
         ]
 
+    async def test_configured_client_is_forwarded_to_validated_decompiler(self) -> None:
+        client = object()
+        with patch.object(
+            ida_mcp_resolver,
+            "_validated_call_llm_decompile",
+            AsyncMock(return_value=empty_llm_decompile_result()),
+        ) as call:
+            await ida_mcp_resolver.call_llm_decompile(
+                llm_config={
+                    "client": client,
+                    "model": "test-model",
+                    "api_key": "test-key",
+                },
+                symbol_name_list=["Target"],
+                reference_items=[],
+                target_items=[],
+                prompt_template="{symbol_name_list}",
+            )
+
+        self.assertIs(client, call.await_args.kwargs["client"])
+
     async def test_batched_result_is_called_once_and_consumed_by_two_artifacts(self) -> None:
         result = {
             **empty_llm_decompile_result(),

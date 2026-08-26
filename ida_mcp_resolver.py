@@ -397,6 +397,7 @@ async def call_llm_decompile(
     debug: bool = False,
 ) -> dict[str, list[dict[str, str]]]:
     return await _validated_call_llm_decompile(
+        client=llm_config.get("client"),
         model=llm_config.get("model", ""),
         symbol_name_list=symbol_name_list,
         required_result_symbols=llm_config.get("_required_result_symbols"),
