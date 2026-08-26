@@ -26,6 +26,7 @@ permalink: kphtools/dump-symbols
 - `symbol_config.py` - `load_config`, `SkillSpec`, `SymbolSpec`, `ModuleSpec`, `ConfigSpec`, `symbol_name_from_artifact_name`
 - `symbol_artifacts.py` - `artifact_path`, `load_artifact`, `write_artifacts_manifest`, `ARTIFACTS_MANIFEST_NAME`
 - `ida_skill_preprocessor.py` - `preprocess_single_skill_via_mcp`, `PREPROCESS_STATUS_SUCCESS`, `PREPROCESS_STATUS_FAILED`, `PREPROCESS_STATUS_ABSENT_OK`
+- `ida_mcp_resolver.py` - resolves LLM-backed symbols and keeps the bound IDALIB worker active while awaiting remote LLM responses
 - `generate_reference_yaml.py` - reuses `SURVEY_CURRENT_IDB_PATH_PY_EVAL`, `_parse_py_eval_result_json`, `start_idalib_mcp`, and `IDALIB_QEXIT_TIMEOUT_SECONDS`, while opening sessions through `ida_mcp_session`
 - `tests/test_dump_symbols.py` - covers CLI parsing, skill ordering, preprocessing/fallback behavior, lazy MCP startup/cleanup, binary directory enumeration, and `main` summaries
 - `README.md` - documents the `dump_symbols.py` usage and symbol directory layout
@@ -67,6 +68,8 @@ flowchart TD
 `topological_sort_skills()` infers producers from `expected_output` and `preprocessor_only_output`, then links consumers through `expected_input`, `expected_input_amd64`, `expected_input_arm64`, and explicit `prerequisite` names. Optional outputs are intentionally excluded from dependency production. If a cycle or unresolved ordering remains, unsorted skills are appended in original config order.
 
 `_preprocess_skill_outputs()` derives output symbol names from expected, optional, and preprocessor-only artifacts, then calls `preprocess_single_skill_via_mcp()` for each one. Required outputs must succeed unless they are internal outputs with `PREPROCESS_STATUS_ABSENT_OK`; internal required failures return `False` without Agent fallback. Regular required failures fall back to `run_skill()`.
+
+`ida_mcp_resolver._load_or_call_llm_result()` wraps only the actual remote LLM await with a 240-second worker keepalive. MCP protocol `ping` is handled by the supervisor and does not reach the worker, so the keepalive calls `py_eval("1")` through the already bound database session to refresh the worker's 600-second idle TTL. The keepalive task is cancelled and awaited when the LLM call succeeds or fails; a keepalive failure is logged in debug mode and does not replace the LLM result or trigger background recovery.
 
 `LazyIdalibSession.ensure_started()` allocates a local TCP port, starts `uv run idalib-mcp --unsafe --host <host> --port <port> <binary>`, and opens the shared `ida_mcp_session.open_ida_mcp_session()` adapter with the expected binary and auto-start ownership metadata. Before pending MCP skill work, the lazy session checks its bound worker. An inactive or unreachable owned worker is rebound without restart if it has recovered; otherwise the session stops the owned supervisor, waits for its port to be released, and restarts it once for that binary lifecycle. A second unavailable-worker failure aborts the binary before preprocessor or Agent fallback work. `close()` sends `idc.qexit(0)` only when the binding is an owned auto-started worker, closes the MCP context, waits for the subprocess, and confirms port release.
 

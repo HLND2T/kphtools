@@ -1,6 +1,8 @@
+import asyncio
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import yaml
@@ -233,6 +235,153 @@ class TestLlmDecompileResolverIntegration(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertIs(client, call.await_args.kwargs["client"])
+
+    async def test_llm_request_keeps_worker_alive_and_stops_task_afterward(self) -> None:
+        keepalive_called = asyncio.Event()
+
+        async def keepalive(*_args, **_kwargs):
+            keepalive_called.set()
+
+        raw_session = SimpleNamespace(call_tool=AsyncMock(side_effect=keepalive))
+        lazy_session = SimpleNamespace(session=raw_session, call_tool=AsyncMock())
+        result = empty_llm_decompile_result()
+
+        async def wait_for_keepalive(**_kwargs):
+            await keepalive_called.wait()
+            return result
+
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "_load_llm_decompile_target_details_via_mcp",
+                AsyncMock(return_value=self.target_items),
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "call_llm_decompile",
+                AsyncMock(side_effect=wait_for_keepalive),
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "LLM_WORKER_KEEPALIVE_INTERVAL_SECONDS",
+                0.001,
+            ),
+        ):
+            actual = await ida_mcp_resolver._load_or_call_llm_result(
+                session=lazy_session,
+                symbol_name="Target",
+                request=self.request,
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                binary_dir=Path("binary"),
+                image_base=0x140000000,
+                debug=False,
+            )
+            keepalive_count = raw_session.call_tool.await_count
+            await asyncio.sleep(0.005)
+            self.assertEqual(keepalive_count, raw_session.call_tool.await_count)
+
+        self.assertIs(result, actual)
+        raw_session.call_tool.assert_awaited()
+        self.assertTrue(
+            all(
+                call.kwargs
+                == {"name": "py_eval", "arguments": {"code": "1"}}
+                for call in raw_session.call_tool.await_args_list
+            )
+        )
+        lazy_session.call_tool.assert_not_awaited()
+
+    async def test_keepalive_failure_does_not_replace_llm_result(self) -> None:
+        keepalive_called = asyncio.Event()
+
+        async def fail_keepalive(*_args, **_kwargs):
+            keepalive_called.set()
+            raise RuntimeError("worker unavailable")
+
+        raw_session = SimpleNamespace(call_tool=AsyncMock(side_effect=fail_keepalive))
+        lazy_session = SimpleNamespace(session=raw_session)
+        result = empty_llm_decompile_result()
+
+        async def wait_for_keepalive(**_kwargs):
+            await keepalive_called.wait()
+            await asyncio.sleep(0)
+            return result
+
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "_load_llm_decompile_target_details_via_mcp",
+                AsyncMock(return_value=self.target_items),
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "call_llm_decompile",
+                AsyncMock(side_effect=wait_for_keepalive),
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "LLM_WORKER_KEEPALIVE_INTERVAL_SECONDS",
+                0.001,
+            ),
+            patch("builtins.print") as mock_print,
+        ):
+            actual = await ida_mcp_resolver._load_or_call_llm_result(
+                session=lazy_session,
+                symbol_name="Target",
+                request=self.request,
+                llm_config={"model": "test-model", "api_key": "test-key"},
+                binary_dir=Path("binary"),
+                image_base=0x140000000,
+                debug=True,
+            )
+
+        self.assertIs(result, actual)
+        raw_session.call_tool.assert_awaited()
+        mock_print.assert_called()
+
+    async def test_llm_failure_stops_keepalive_task(self) -> None:
+        keepalive_called = asyncio.Event()
+
+        async def keepalive(*_args, **_kwargs):
+            keepalive_called.set()
+
+        raw_session = SimpleNamespace(call_tool=AsyncMock(side_effect=keepalive))
+        lazy_session = SimpleNamespace(session=raw_session)
+
+        async def fail_after_keepalive(**_kwargs):
+            await keepalive_called.wait()
+            raise RuntimeError("LLM failed")
+
+        with (
+            patch.object(
+                ida_mcp_resolver,
+                "_load_llm_decompile_target_details_via_mcp",
+                AsyncMock(return_value=self.target_items),
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "call_llm_decompile",
+                AsyncMock(side_effect=fail_after_keepalive),
+            ),
+            patch.object(
+                ida_mcp_resolver,
+                "LLM_WORKER_KEEPALIVE_INTERVAL_SECONDS",
+                0.001,
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "LLM failed"):
+                await ida_mcp_resolver._load_or_call_llm_result(
+                    session=lazy_session,
+                    symbol_name="Target",
+                    request=self.request,
+                    llm_config={"model": "test-model", "api_key": "test-key"},
+                    binary_dir=Path("binary"),
+                    image_base=0x140000000,
+                    debug=False,
+                )
+            keepalive_count = raw_session.call_tool.await_count
+            await asyncio.sleep(0.005)
+            self.assertEqual(keepalive_count, raw_session.call_tool.await_count)
 
     async def test_batched_result_is_called_once_and_consumed_by_two_artifacts(self) -> None:
         result = {
