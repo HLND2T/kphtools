@@ -2,6 +2,7 @@ import asyncio
 import os
 import subprocess
 import sys
+import threading
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -2191,6 +2192,61 @@ class TestDumpSymbols(unittest.TestCase):
             max_retries=3,
             mcp_url="http://127.0.0.1:54321/mcp",
         )
+
+    def test_process_skill_keeps_owned_worker_alive_during_agent_fallback(self) -> None:
+        keepalive_called = threading.Event()
+
+        async def keepalive(*_args, **_kwargs) -> None:
+            keepalive_called.set()
+
+        def wait_for_keepalive(*_args, **_kwargs) -> bool:
+            if not keepalive_called.wait(timeout=2):
+                raise AssertionError("Agent fallback blocked the asyncio keepalive task")
+            return True
+
+        async def exercise(binary_dir: Path) -> tuple[bool, int, int]:
+            session = dump_symbols.LazyIdalibSession(binary_dir / "ntoskrnl.exe")
+            session.port = 54321
+            raw_session = SimpleNamespace(call_tool=AsyncMock(side_effect=keepalive))
+            session.session = raw_session
+            with (
+                patch.object(
+                    dump_symbols,
+                    "preprocess_single_skill_via_mcp",
+                    new=AsyncMock(return_value=dump_symbols.PREPROCESS_STATUS_FAILED),
+                ),
+                patch.object(dump_symbols, "run_skill", side_effect=wait_for_keepalive),
+                patch(
+                    "ida_mcp_keepalive.WORKER_KEEPALIVE_INTERVAL_SECONDS",
+                    0.001,
+                ),
+            ):
+                ok = await dump_symbols._process_one_skill(
+                    skill_name="find-Example",
+                    skill={
+                        "name": "find-Example",
+                        "expected_output": ["Example.yaml"],
+                    },
+                    symbol_map={"Example": {"name": "Example"}},
+                    binary_dir=binary_dir,
+                    pdb_path=None,
+                    agent="codex",
+                    debug=False,
+                    force=False,
+                    llm_config=None,
+                    session=session,
+                    activity={"did_work": False},
+                )
+                keepalive_count = raw_session.call_tool.await_count
+                await asyncio.sleep(0.005)
+                return ok, keepalive_count, raw_session.call_tool.await_count
+
+        with TemporaryDirectory() as temp_dir:
+            ok, keepalive_count, final_keepalive_count = asyncio.run(exercise(Path(temp_dir)))
+
+        self.assertTrue(ok)
+        self.assertGreaterEqual(keepalive_count, 1)
+        self.assertEqual(keepalive_count, final_keepalive_count)
 
     def test_lazy_idalib_session_debug_logs_startup(self) -> None:
         with TemporaryDirectory() as temp_dir:

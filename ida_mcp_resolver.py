@@ -20,6 +20,7 @@ from ida_llm_targets import (
     resolve_direct_gv_target_via_mcp,
     resolve_funcptr_target_via_mcp,
 )
+from ida_mcp_keepalive import keepalive_worker_during
 from ida_reference_export import validate_reference_yaml_payload
 
 _LLM_DECOMPILE_RESULT_CACHE: dict[tuple[Any, ...], dict[str, list[dict[str, str]]]] = {}
@@ -464,15 +465,16 @@ async def _load_or_call_llm_result(
         ),
         "_binary_path": binary_dir,
     }
-    result = await call_llm_decompile(
-        llm_config=call_config,
-        symbol_name_list=request.get("llm_symbol_names", []),
-        reference_items=request.get("reference_items", []),
-        target_items=target_items,
-        prompt_template=request["prompt_template"],
-        arch=request.get("arch", ""),
-        debug=debug,
-    )
+    async with keepalive_worker_during(session, debug=debug, activity="llm_decompile"):
+        result = await call_llm_decompile(
+            llm_config=call_config,
+            symbol_name_list=request.get("llm_symbol_names", []),
+            reference_items=request.get("reference_items", []),
+            target_items=target_items,
+            prompt_template=request["prompt_template"],
+            arch=request.get("arch", ""),
+            debug=debug,
+        )
     if cache_key is not None:
         _LLM_DECOMPILE_RESULT_CACHE[cache_key] = result
     return result
