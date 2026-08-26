@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 import yaml
 
+import ida_mcp_keepalive
 import ida_mcp_resolver
 from ida_llm_response import empty_llm_decompile_result
 
@@ -262,8 +263,8 @@ class TestLlmDecompileResolverIntegration(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(side_effect=wait_for_keepalive),
             ),
             patch.object(
-                ida_mcp_resolver,
-                "LLM_WORKER_KEEPALIVE_INTERVAL_SECONDS",
+                ida_mcp_keepalive,
+                "WORKER_KEEPALIVE_INTERVAL_SECONDS",
                 0.001,
             ),
         ):
@@ -319,8 +320,8 @@ class TestLlmDecompileResolverIntegration(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(side_effect=wait_for_keepalive),
             ),
             patch.object(
-                ida_mcp_resolver,
-                "LLM_WORKER_KEEPALIVE_INTERVAL_SECONDS",
+                ida_mcp_keepalive,
+                "WORKER_KEEPALIVE_INTERVAL_SECONDS",
                 0.001,
             ),
             patch("builtins.print") as mock_print,
@@ -364,8 +365,8 @@ class TestLlmDecompileResolverIntegration(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(side_effect=fail_after_keepalive),
             ),
             patch.object(
-                ida_mcp_resolver,
-                "LLM_WORKER_KEEPALIVE_INTERVAL_SECONDS",
+                ida_mcp_keepalive,
+                "WORKER_KEEPALIVE_INTERVAL_SECONDS",
                 0.001,
             ),
         ):

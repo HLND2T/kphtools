@@ -36,8 +36,9 @@ from typing import Any
 from dotenv import load_dotenv
 
 from agent_runner import DEFAULT_AGENT_MODEL, run_skill
-from ida_mcp_session import McpDatabaseUnavailableError, open_ida_mcp_session
 from ida_llm_utils import create_openai_client
+from ida_mcp_keepalive import keepalive_worker_during
+from ida_mcp_session import McpDatabaseUnavailableError, open_ida_mcp_session
 from ida_skill_preprocessor import (
     PREPROCESS_STATUS_ABSENT_OK as _PREPROCESS_STATUS_ABSENT_OK,
 )
@@ -255,7 +256,7 @@ def _debug_log_written_yaml(debug: bool, path: str | Path) -> None:
     )
 
 
-def _run_fallback_skill_and_log_outputs(
+async def _run_fallback_skill_and_log_outputs(
     *,
     skill_name: str,
     agent: str,
@@ -264,6 +265,7 @@ def _run_fallback_skill_and_log_outputs(
     max_retries: int,
     agent_model: str = DEFAULT_AGENT_MODEL,
     mcp_url: str | None = None,
+    session: Any = None,
 ) -> bool:
     run_kwargs = {
         "agent": agent,
@@ -275,7 +277,16 @@ def _run_fallback_skill_and_log_outputs(
         run_kwargs["agent_model"] = agent_model
     if mcp_url:
         run_kwargs["mcp_url"] = mcp_url
-    fallback_ok = run_skill(skill_name, **run_kwargs)
+    bound_session = getattr(session, "session", None)
+    if mcp_url and bound_session is not None:
+        async with keepalive_worker_during(
+            session,
+            debug=debug,
+            activity=f"Agent skill {skill_name}",
+        ):
+            fallback_ok = await asyncio.to_thread(run_skill, skill_name, **run_kwargs)
+    else:
+        fallback_ok = await asyncio.to_thread(run_skill, skill_name, **run_kwargs)
     if fallback_ok:
         for output_path in required_outputs:
             _debug_log_written_yaml(debug, output_path)
@@ -384,7 +395,7 @@ async def _process_one_skill(
     if isinstance(session, LazyIdalibSession) and session.port is not None:
         mcp_url = f"http://{session.host}:{session.port}/mcp"
     _debug_log(debug, f"falling back to run_skill for {skill_name}")
-    return _run_fallback_skill_and_log_outputs(
+    return await _run_fallback_skill_and_log_outputs(
         skill_name=skill_name,
         agent=agent,
         debug=debug,
@@ -392,6 +403,7 @@ async def _process_one_skill(
         max_retries=skill_max_retries,
         agent_model=agent_model,
         mcp_url=mcp_url,
+        session=session,
     )
 
 

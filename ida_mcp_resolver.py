@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import os
-from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import Any
 
@@ -22,59 +20,16 @@ from ida_llm_targets import (
     resolve_direct_gv_target_via_mcp,
     resolve_funcptr_target_via_mcp,
 )
+from ida_mcp_keepalive import keepalive_worker_during
 from ida_reference_export import validate_reference_yaml_payload
 
 _LLM_DECOMPILE_RESULT_CACHE: dict[tuple[Any, ...], dict[str, list[dict[str, str]]]] = {}
 _LLM_RESULT_CONTRACT_VERSION = "kphtools-atomic-batch-v3"
-LLM_WORKER_KEEPALIVE_INTERVAL_SECONDS = 240.0
-_LLM_WORKER_KEEPALIVE_TASK_NAME = "llm-mcp-worker-keepalive"
 
 
 def _debug_log(debug: bool, message: str) -> None:
     if debug:
         print(f"[debug] {message}")
-
-
-def _worker_keepalive_session(session: Any) -> Any:
-    bound_session = getattr(session, "session", None)
-    return bound_session if bound_session is not None else session
-
-
-async def _keepalive_worker(session: Any, *, debug: bool) -> None:
-    keepalive_session = _worker_keepalive_session(session)
-    while True:
-        await asyncio.sleep(LLM_WORKER_KEEPALIVE_INTERVAL_SECONDS)
-        try:
-            # MCP protocol ping is handled by the supervisor itself. py_eval is
-            # forwarded to the bound worker and therefore refreshes its idle TTL.
-            await keepalive_session.call_tool(
-                name="py_eval",
-                arguments={"code": "1"},
-            )
-            _debug_log(debug, "refreshed MCP worker TTL during llm_decompile")
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:  # noqa: BLE001 - keepalive failures must not replace the LLM result
-            _debug_log(
-                debug,
-                "MCP worker keepalive stopped during llm_decompile: "
-                f"{type(exc).__name__}: {exc}",
-            )
-            return
-
-
-@asynccontextmanager
-async def _keepalive_worker_during_llm(session: Any, *, debug: bool):
-    task = asyncio.create_task(
-        _keepalive_worker(session, debug=debug),
-        name=_LLM_WORKER_KEEPALIVE_TASK_NAME,
-    )
-    try:
-        yield
-    finally:
-        task.cancel()
-        with suppress(asyncio.CancelledError):
-            await task
 
 
 def _parse_py_eval_result(tool_result: Any) -> dict[str, Any]:
@@ -510,7 +465,7 @@ async def _load_or_call_llm_result(
         ),
         "_binary_path": binary_dir,
     }
-    async with _keepalive_worker_during_llm(session, debug=debug):
+    async with keepalive_worker_during(session, debug=debug, activity="llm_decompile"):
         result = await call_llm_decompile(
             llm_config=call_config,
             symbol_name_list=request.get("llm_symbol_names", []),
