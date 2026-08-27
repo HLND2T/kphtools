@@ -30,6 +30,7 @@ import socket
 import subprocess
 import time
 from contextlib import AsyncExitStack
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -49,7 +50,13 @@ from ida_skill_preprocessor import (
     PREPROCESS_STATUS_SUCCESS,
     preprocess_single_skill_via_mcp,
 )
-from symbol_artifacts import artifact_path, load_artifact, write_artifacts_manifest
+from symbol_artifacts import (
+    ARTIFACTS_MANIFEST_NAME,
+    artifact_path,
+    artifacts_manifest_path,
+    load_artifact,
+    write_artifacts_manifest,
+)
 from symbol_config import load_config, symbol_name_from_artifact_name
 
 SURVEY_CURRENT_IDB_PATH_PY_EVAL = (
@@ -79,6 +86,134 @@ DEFAULT_SYMBOL_DIR = "symbols"
 DEFAULT_LLM_MODEL = "gpt-5.4"
 PREPROCESS_STATUS_ABSENT_OK = _PREPROCESS_STATUS_ABSENT_OK
 PREPROCESS_STATUS_FAILED = _PREPROCESS_STATUS_FAILED
+
+
+@dataclass
+class BinaryDirectorySnapshot:
+    """One-pass inventory for direct children of a binary artifact directory."""
+
+    binary_dir: Path
+    file_names: set[str]
+    original_names: dict[str, str]
+    mtimes_ns: dict[str, int]
+    directory_mtime_ns: int
+
+    @staticmethod
+    def _name_key(name: str) -> str:
+        return os.path.normcase(os.path.normpath(name))
+
+    @classmethod
+    def capture(cls, binary_dir: str | Path) -> BinaryDirectorySnapshot:
+        root = Path(binary_dir)
+        file_names: set[str] = set()
+        original_names: dict[str, str] = {}
+        mtimes_ns: dict[str, int] = {}
+        with os.scandir(root) as entries:
+            for entry in entries:
+                key = cls._name_key(entry.name)
+                original_names[key] = entry.name
+                try:
+                    if not entry.is_file():
+                        continue
+                    file_names.add(key)
+                    if entry.name.lower().endswith(".yaml"):
+                        mtimes_ns[key] = entry.stat().st_mtime_ns
+                except FileNotFoundError:
+                    file_names.discard(key)
+                    original_names.pop(key, None)
+                    mtimes_ns.pop(key, None)
+        return cls(
+            binary_dir=root,
+            file_names=file_names,
+            original_names=original_names,
+            mtimes_ns=mtimes_ns,
+            directory_mtime_ns=root.stat().st_mtime_ns,
+        )
+
+    def _direct_entry(self, path: str | Path) -> tuple[str, Path] | None:
+        candidate = Path(path)
+        if not candidate.is_absolute() and len(candidate.parts) == 1:
+            return self._name_key(candidate.name), self.binary_dir / candidate
+        try:
+            relative = candidate.relative_to(self.binary_dir)
+        except ValueError:
+            return None
+        if len(relative.parts) != 1:
+            return None
+        return self._name_key(relative.name), candidate
+
+    def name_exists(self, name: str) -> bool:
+        candidate = Path(name)
+        if candidate.is_absolute() or len(candidate.parts) != 1:
+            return self.path_exists(self.binary_dir / candidate)
+        return self._name_key(candidate.name) in self.original_names
+
+    def name_is_file(self, name: str) -> bool:
+        candidate = Path(name)
+        if candidate.is_absolute() or len(candidate.parts) != 1:
+            return self.path_is_file(self.binary_dir / candidate)
+        return self._name_key(candidate.name) in self.file_names
+
+    def name_mtime_ns(self, name: str) -> int | None:
+        candidate = Path(name)
+        if candidate.is_absolute() or len(candidate.parts) != 1:
+            return self.mtime_ns(self.binary_dir / candidate)
+        return self.mtimes_ns.get(self._name_key(candidate.name))
+
+    def path_exists(self, path: str | Path) -> bool:
+        direct_entry = self._direct_entry(path)
+        if direct_entry is None:
+            return Path(path).exists()
+        key, _candidate = direct_entry
+        return key in self.original_names
+
+    def path_is_file(self, path: str | Path) -> bool:
+        direct_entry = self._direct_entry(path)
+        if direct_entry is None:
+            return Path(path).is_file()
+        key, _candidate = direct_entry
+        return key in self.file_names
+
+    def mtime_ns(self, path: str | Path) -> int | None:
+        direct_entry = self._direct_entry(path)
+        if direct_entry is None:
+            try:
+                return Path(path).stat().st_mtime_ns
+            except FileNotFoundError:
+                return None
+        key, _candidate = direct_entry
+        return self.mtimes_ns.get(key)
+
+    def paths_ending_with(self, suffix: str) -> list[Path]:
+        normalized_suffix = suffix.lower()
+        return sorted(
+            self.binary_dir / name
+            for name in self.original_names.values()
+            if name.lower().endswith(normalized_suffix)
+        )
+
+    def refresh_paths(self, paths: list[str | Path]) -> None:
+        for path in paths:
+            direct_entry = self._direct_entry(path)
+            if direct_entry is None:
+                continue
+            key, candidate = direct_entry
+            try:
+                stat_result = candidate.stat()
+            except FileNotFoundError:
+                self.file_names.discard(key)
+                self.original_names.pop(key, None)
+                self.mtimes_ns.pop(key, None)
+                continue
+            self.original_names[key] = candidate.name
+            if candidate.is_file():
+                self.file_names.add(key)
+                if candidate.name.lower().endswith(".yaml"):
+                    self.mtimes_ns[key] = stat_result.st_mtime_ns
+            else:
+                self.file_names.discard(key)
+                self.mtimes_ns.pop(key, None)
+        self.directory_mtime_ns = self.binary_dir.stat().st_mtime_ns
 
 
 class McpRecoveryBudget:
@@ -191,27 +326,86 @@ def _build_effective_llm_config_for_skill(
     return effective
 
 
-def _all_paths_exist(paths: list[str]) -> bool:
-    return bool(paths) and all(Path(path).exists() for path in paths)
+def _path_exists(path: str | Path, snapshot: BinaryDirectorySnapshot | None = None) -> bool:
+    if snapshot is not None:
+        return snapshot.path_exists(path)
+    return Path(path).exists()
 
 
-def _any_path_exists(paths: list[str]) -> bool:
-    return bool(paths) and any(Path(path).exists() for path in paths)
+def _all_paths_exist(
+    paths: list[str],
+    snapshot: BinaryDirectorySnapshot | None = None,
+) -> bool:
+    return bool(paths) and all(_path_exists(path, snapshot) for path in paths)
+
+
+def _any_path_exists(
+    paths: list[str],
+    snapshot: BinaryDirectorySnapshot | None = None,
+) -> bool:
+    return bool(paths) and any(_path_exists(path, snapshot) for path in paths)
 
 
 def _should_skip_for_existing_outputs(
     required_outputs: list[str],
     optional_outputs: list[str],
+    snapshot: BinaryDirectorySnapshot | None = None,
 ) -> bool:
     if required_outputs:
-        return _all_paths_exist(required_outputs)
-    return _all_paths_exist(optional_outputs)
+        return _all_paths_exist(required_outputs, snapshot)
+    return _all_paths_exist(optional_outputs, snapshot)
 
 
-def _should_skip_for_existing_artifacts(binary_dir: str | Path, skill: Any) -> bool:
+def _should_skip_for_existing_artifacts(
+    binary_dir: str | Path,
+    skill: Any,
+    snapshot: BinaryDirectorySnapshot | None = None,
+) -> bool:
     any_paths = _artifact_paths(binary_dir, _string_list(skill, "skip_if_any_exists"))
     all_paths = _artifact_paths(binary_dir, _string_list(skill, "skip_if_all_exists"))
-    return _any_path_exists(any_paths) or _all_paths_exist(all_paths)
+    return _any_path_exists(any_paths, snapshot) or _all_paths_exist(all_paths, snapshot)
+
+
+def _all_snapshot_names_exist(
+    names: list[str],
+    snapshot: BinaryDirectorySnapshot,
+) -> bool:
+    return bool(names) and all(snapshot.name_exists(name) for name in names)
+
+
+def _any_snapshot_name_exists(
+    names: list[str],
+    snapshot: BinaryDirectorySnapshot,
+) -> bool:
+    return bool(names) and any(snapshot.name_exists(name) for name in names)
+
+
+def _should_skip_skill_for_existing_outputs(
+    skill: Any,
+    snapshot: BinaryDirectorySnapshot,
+) -> bool:
+    required_names = _unique_strings(
+        _string_list(skill, "expected_output")
+        + _string_list(skill, "preprocessor_only_output")
+    )
+    if required_names:
+        return _all_snapshot_names_exist(required_names, snapshot)
+    return _all_snapshot_names_exist(
+        _string_list(skill, "optional_output"),
+        snapshot,
+    )
+
+
+def _should_skip_skill_for_existing_artifacts(
+    skill: Any,
+    snapshot: BinaryDirectorySnapshot,
+) -> bool:
+    any_names = _string_list(skill, "skip_if_any_exists")
+    all_names = _string_list(skill, "skip_if_all_exists")
+    return _any_snapshot_name_exists(
+        any_names,
+        snapshot,
+    ) or _all_snapshot_names_exist(all_names, snapshot)
 
 
 def _skill_output_paths(
@@ -247,6 +441,8 @@ def _internal_output_symbol_names(skill: Any, symbol_map: dict[str, Any]) -> set
 
 
 def _debug_log_written_yaml(debug: bool, path: str | Path) -> None:
+    if not debug:
+        return
     output_path = Path(path)
     if not output_path.exists():
         return
@@ -354,15 +550,32 @@ async def _process_one_skill(
     session: Any,
     activity: dict[str, bool] | None,
     agent_model: str = DEFAULT_AGENT_MODEL,
+    snapshot: BinaryDirectorySnapshot | None = None,
 ) -> bool:
     _debug_log(debug, f"skill {skill_name} started")
     required_outputs, optional_outputs = _skill_output_paths(binary_dir, skill)
-    if not force and _should_skip_for_existing_outputs(required_outputs, optional_outputs):
-        _debug_log(debug, f"skipping {skill_name}; expected outputs already exist")
-        return True
-    if not force and _should_skip_for_existing_artifacts(binary_dir, skill):
-        _debug_log(debug, f"skipping {skill_name}; skip_if artifacts exist")
-        return True
+    if not force:
+        if snapshot is not None:
+            outputs_exist = _should_skip_skill_for_existing_outputs(skill, snapshot)
+            skip_artifacts_exist = _should_skip_skill_for_existing_artifacts(
+                skill,
+                snapshot,
+            )
+        else:
+            outputs_exist = _should_skip_for_existing_outputs(
+                required_outputs,
+                optional_outputs,
+            )
+            skip_artifacts_exist = _should_skip_for_existing_artifacts(
+                binary_dir,
+                skill,
+            )
+        if outputs_exist:
+            _debug_log(debug, f"skipping {skill_name}; expected outputs already exist")
+            return True
+        if skip_artifacts_exist:
+            _debug_log(debug, f"skipping {skill_name}; skip_if artifacts exist")
+            return True
     if activity is not None:
         activity["did_work"] = True
 
@@ -376,6 +589,10 @@ async def _process_one_skill(
         llm_config=llm_config,
         session=session,
     )
+    if snapshot is not None:
+        snapshot.refresh_paths(
+            [output_path for _symbol_name, output_path in _output_symbol_path_pairs(binary_dir, skill)]
+        )
     if isinstance(session, LazyIdalibSession) and session.recovery_failed:
         _debug_log(debug, f"aborting {skill_name}; owned MCP worker is unavailable")
         return False
@@ -395,7 +612,7 @@ async def _process_one_skill(
     if isinstance(session, LazyIdalibSession) and session.port is not None:
         mcp_url = f"http://{session.host}:{session.port}/mcp"
     _debug_log(debug, f"falling back to run_skill for {skill_name}")
-    return await _run_fallback_skill_and_log_outputs(
+    fallback_ok = await _run_fallback_skill_and_log_outputs(
         skill_name=skill_name,
         agent=agent,
         debug=debug,
@@ -405,6 +622,11 @@ async def _process_one_skill(
         mcp_url=mcp_url,
         session=session,
     )
+    if snapshot is not None:
+        snapshot.refresh_paths(
+            [output_path for _symbol_name, output_path in _output_symbol_path_pairs(binary_dir, skill)]
+        )
+    return fallback_ok
 
 
 def _parse_arches(raw_value: str) -> list[str]:
@@ -687,6 +909,50 @@ def _select_skills_by_name(skills, selected_skill_name):
     return None
 
 
+def _module_skills_are_satisfied(
+    *,
+    module: Any,
+    arch: str | None,
+    selected_skill_name: str | None,
+    force: bool,
+    debug: bool,
+    snapshot: BinaryDirectorySnapshot,
+) -> bool:
+    if force:
+        return False
+    if not any(snapshot.name_exists(candidate) for candidate in module.path):
+        return False
+
+    if selected_skill_name is None:
+        selected_skills = module.skills
+    else:
+        selected_skills = [
+            skill_item
+            for skill_item in module.skills
+            if _field(skill_item, "name") == selected_skill_name
+        ]
+        if not selected_skills:
+            return False
+
+    for current_skill in selected_skills:
+        skill_name = _field(current_skill, "name")
+        _debug_log(debug, f"skill {skill_name} started")
+        if not _skill_matches_arch(current_skill, arch):
+            _debug_log(
+                debug,
+                f"skipping {skill_name}; skill arch {_skill_arch(current_skill)} does not match {arch}",
+            )
+            continue
+        if _should_skip_skill_for_existing_outputs(current_skill, snapshot):
+            _debug_log(debug, f"skipping {skill_name}; expected outputs already exist")
+            continue
+        if _should_skip_skill_for_existing_artifacts(current_skill, snapshot):
+            _debug_log(debug, f"skipping {skill_name}; skip_if artifacts exist")
+            continue
+        return False
+    return True
+
+
 async def process_binary_dir(
     binary_dir,
     pdb_path,
@@ -701,6 +967,7 @@ async def process_binary_dir(
     arch=None,
     skill=None,
     agent_model=DEFAULT_AGENT_MODEL,
+    snapshot: BinaryDirectorySnapshot | None = None,
 ):
     if activity is not None and "did_work" not in activity:
         activity["did_work"] = False
@@ -734,6 +1001,7 @@ async def process_binary_dir(
             llm_config=llm_config,
             session=session,
             activity=activity,
+            snapshot=snapshot,
         )
         if not ok:
             return False
@@ -1149,17 +1417,25 @@ def _iter_binary_dirs(symboldir: Path, arch: str, config, version: str | None = 
                 for sha_dir in sorted(version_dir.iterdir()):
                     if not sha_dir.is_dir():
                         continue
-                    pdb_candidates = sorted(sha_dir.glob("*.pdb"))
-                    if not pdb_candidates and not (sha_dir / module_path).is_file():
+                    snapshot = BinaryDirectorySnapshot.capture(sha_dir)
+                    pdb_candidates = snapshot.paths_ending_with(".pdb")
+                    if not pdb_candidates and not snapshot.path_is_file(sha_dir / module_path):
                         continue
                     pdb_path = pdb_candidates[0] if pdb_candidates else None
-                    yield module, sha_dir, pdb_path
+                    yield module, sha_dir, pdb_path, snapshot
 
 
-def _resolve_binary_path(module, binary_dir: Path) -> Path:
+def _resolve_binary_path(
+    module,
+    binary_dir: Path,
+    snapshot: BinaryDirectorySnapshot | None = None,
+) -> Path:
     for candidate in module.path:
         binary_path = binary_dir / candidate
-        if binary_path.exists():
+        if snapshot is not None:
+            if snapshot.path_exists(binary_path):
+                return binary_path
+        elif binary_path.exists():
             return binary_path
     raise FileNotFoundError(f"binary file not found in {binary_dir}")
 
@@ -1195,8 +1471,68 @@ def _write_binary_artifacts_manifest(binary_dir: Path, symbols) -> bool:
     return write_artifacts_manifest(binary_dir, artifacts)
 
 
-async def _process_module_binary(module, binary_dir, pdb_path, args):
-    binary_path = _resolve_binary_path(module, Path(binary_dir))
+def _binary_artifacts_manifest_is_fresh(
+    binary_dir: Path,
+    symbols,
+    *,
+    snapshot: BinaryDirectorySnapshot,
+    config_mtime_ns: int | None,
+) -> bool:
+    if not snapshot.name_is_file(ARTIFACTS_MANIFEST_NAME):
+        return False
+    manifest_mtime_ns = snapshot.name_mtime_ns(ARTIFACTS_MANIFEST_NAME)
+    if manifest_mtime_ns is None:
+        return False
+
+    newest_dependency_mtime_ns = snapshot.directory_mtime_ns
+    if config_mtime_ns is not None:
+        newest_dependency_mtime_ns = max(newest_dependency_mtime_ns, config_mtime_ns)
+    for symbol in symbols:
+        symbol_name = str(_field(symbol, "name"))
+        artifact_mtime_ns = snapshot.name_mtime_ns(f"{symbol_name}.yaml")
+        if artifact_mtime_ns is not None:
+            newest_dependency_mtime_ns = max(
+                newest_dependency_mtime_ns,
+                artifact_mtime_ns,
+            )
+    return manifest_mtime_ns >= newest_dependency_mtime_ns
+
+
+def _sync_binary_artifacts_manifest(
+    binary_dir: Path,
+    symbols,
+    *,
+    snapshot: BinaryDirectorySnapshot,
+    config_mtime_ns: int | None,
+    allow_cached: bool,
+) -> bool:
+    manifest_path = artifacts_manifest_path(binary_dir)
+    if allow_cached and _binary_artifacts_manifest_is_fresh(
+        binary_dir,
+        symbols,
+        snapshot=snapshot,
+        config_mtime_ns=config_mtime_ns,
+    ):
+        manifest_path.touch()
+        snapshot.refresh_paths([manifest_path])
+        return False
+
+    changed = _write_binary_artifacts_manifest(binary_dir, symbols)
+    snapshot.refresh_paths([manifest_path])
+    return changed
+
+
+async def _process_module_binary(
+    module,
+    binary_dir,
+    pdb_path,
+    args,
+    snapshot: BinaryDirectorySnapshot | None = None,
+):
+    binary_dir = Path(binary_dir)
+    if snapshot is None:
+        snapshot = BinaryDirectorySnapshot.capture(binary_dir)
+    binary_path = _resolve_binary_path(module, binary_dir, snapshot)
     resolved_pdb_path = Path(pdb_path) if pdb_path is not None else None
     session = LazyIdalibSession(
         binary_path,
@@ -1236,6 +1572,7 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
                 activity=activity,
                 arch=getattr(args, "current_arch", None),
                 skill=getattr(args, "skill", None),
+                snapshot=snapshot,
             )
         finally:
             closed = await session.close()
@@ -1243,7 +1580,13 @@ async def _process_module_binary(module, binary_dir, pdb_path, args):
             print(f"MCP cleanup failed for {binary_path}")
             ok = False
         if ok and module.symbols:
-            if _write_binary_artifacts_manifest(Path(binary_dir), module.symbols):
+            if _sync_binary_artifacts_manifest(
+                binary_dir,
+                module.symbols,
+                snapshot=snapshot,
+                config_mtime_ns=getattr(args, "config_mtime_ns", None),
+                allow_cached=not args.force and not activity["did_work"],
+            ):
                 activity["did_work"] = True
         return ok, bool(activity["did_work"])
 
@@ -1252,7 +1595,12 @@ def main(argv=None):
     load_dotenv(dotenv_path=Path(__file__).resolve().with_name(".env"), override=False)
     args = parse_args(argv)
     arches = getattr(args, "arches", _parse_arches(args.arch))
-    config = load_config(args.configyaml)
+    config_path = Path(args.configyaml)
+    config = load_config(config_path)
+    try:
+        args.config_mtime_ns = config_path.stat().st_mtime_ns
+    except FileNotFoundError:
+        args.config_mtime_ns = None
     succeeded = 0
     failed = 0
     skipped = 0
@@ -1267,11 +1615,47 @@ def main(argv=None):
             candidates = list(_iter_binary_dirs(Path(args.symboldir), arch, config))
         total_candidates += len(candidates)
         _progress(f"Found {len(candidates)} candidate binary directories")
-        for module, binary_dir, pdb_path in candidates:
+        for candidate in candidates:
+            if len(candidate) == 4:
+                module, binary_dir, pdb_path, snapshot = candidate
+            else:
+                module, binary_dir, pdb_path = candidate
+                snapshot = None
             _progress(f"Processing {binary_dir}")
             try:
                 args.current_arch = arch
-                ok, did_work = asyncio.run(_process_module_binary(module, binary_dir, pdb_path, args))
+                if snapshot is not None and _module_skills_are_satisfied(
+                    module=module,
+                    arch=arch,
+                    selected_skill_name=getattr(args, "skill", None),
+                    force=args.force,
+                    debug=args.debug,
+                    snapshot=snapshot,
+                ):
+                    ok = True
+                    did_work = False
+                    if module.symbols:
+                        did_work = _sync_binary_artifacts_manifest(
+                            Path(binary_dir),
+                            module.symbols,
+                            snapshot=snapshot,
+                            config_mtime_ns=args.config_mtime_ns,
+                            allow_cached=True,
+                        )
+                elif snapshot is not None:
+                    ok, did_work = asyncio.run(
+                        _process_module_binary(
+                            module,
+                            binary_dir,
+                            pdb_path,
+                            args,
+                            snapshot=snapshot,
+                        )
+                    )
+                else:
+                    ok, did_work = asyncio.run(
+                        _process_module_binary(module, binary_dir, pdb_path, args)
+                    )
             except Exception:
                 failed += 1
                 _progress(f"Processing {binary_dir} failed")
