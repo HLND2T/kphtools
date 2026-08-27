@@ -7,10 +7,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: kphtools-pr-self-runner-${{ github.repository }}-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 jobs:
   validate:
     if: >-
