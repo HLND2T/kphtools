@@ -45,3 +45,23 @@ C:\Symbols\amd64\ntoskrnl.exe.10.0.10240.16393\{sha256}\ntkrnlmp.pdb
 `{sha256}` is the lowercase SHA256 hash of the PE file, for example `68d5867b5e66fce486c863c11cf69020658cadbbacbbda1e167766f236fefe78`.
 
 Continue with [`dump_symbols.py`](dump_symbols.md) after the required PE and PDB files have been downloaded.
+
+## Get `kphdyn.xml`
+
+Using `wget`:
+
+```bash
+wget https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml
+```
+
+Using `curl`:
+
+```bash
+curl -O https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml
+```
+
+Using PowerShell:
+
+```powershell
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml" -OutFile "kphdyn.xml"
+```

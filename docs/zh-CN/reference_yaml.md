@@ -105,4 +105,3 @@ found_struct_offset: []
 将列表传递给 `preprocess_common_skill(..., llm_decompile_specs=LLM_DECOMPILE)`。已校验的 direct call、function-pointer 和 global-variable 结果通过 IDA references 解析；已校验的 struct 结果使用 finder metadata 和 bit-offset constraints。
 
 LLM provider 与重试配置见 [`dump_symbols.py`](dump_symbols.md)。
-

@@ -34,7 +34,7 @@ set KPHTOOLS_SYMBOLDIR=path/to/symbols
 uv run download_symbols.py -fast -symboldir="C:\\Symbols"
 ```
 
-下载文件使用以下目录布局：
+下载的文件会使用以下目录布局：
 
 ```text
 C:\Symbols\amd64\ntoskrnl.exe.10.0.10240.16393\{sha256}\ntoskrnl.exe
@@ -46,3 +46,22 @@ C:\Symbols\amd64\ntoskrnl.exe.10.0.10240.16393\{sha256}\ntkrnlmp.pdb
 
 下载所需的 PE 和 PDB 文件后，继续阅读 [`dump_symbols.py` 指南](dump_symbols.md)。
 
+## 获取 `kphdyn.xml`
+
+使用 `wget`：
+
+```bash
+wget https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml
+```
+
+使用 `curl`：
+
+```bash
+curl -O https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml
+```
+
+使用 PowerShell：
+
+```powershell
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml" -OutFile "kphdyn.xml"
+```

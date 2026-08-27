@@ -16,28 +16,3 @@
 ```bash
 uv sync
 ```
-
-## 获取 `kphdyn.xml`
-
-使用 `wget`：
-
-```bash
-wget https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml
-```
-
-使用 `curl`：
-
-```bash
-curl -O https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml
-```
-
-使用 PowerShell：
-
-```powershell
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml" -OutFile "kphdyn.xml"
-```
-
-## Linux 依赖
-
-上传服务器使用已发布的 LIEF 和 cryptography wheel，不需要 OpenSSL 开发头文件或 `oscrypto` 源码兼容方案。在 Ubuntu 24.04 或其他受支持平台上执行 `uv sync` 即可安装声明的 Python 依赖。
-

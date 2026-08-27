@@ -1,4 +1,4 @@
-# 将 YAML 工件导出到 `kphdyn.xml`
+# 将 YAML 产物导出到 `kphdyn.xml`
 
 [返回 README](../../README.zh-CN.md)
 
@@ -6,13 +6,13 @@
 
 ## 用法
 
-导出 YAML 工件：
+导出 YAML 产物：
 
 ```bash
 uv run update_symbols.py [-xml="kphdyn.xml"] [-symboldir="path/to/symbols"] [-configyaml="config.yaml"]
 ```
 
-导出器读取 [`dump_symbols.py`](dump_symbols.md) 生成的 YAML 工件，并更新 `kphdyn.xml` 中对应的条目。它会优先只解析一次每个二进制文件的 `artifacts.yaml`；如果 manifest 不存在、缺少配置中的 symbol，或早于任一对应单符号 YAML，则兼容回退到 `{symbol}.yaml` 逐文件加载。格式损坏的 manifest 会明确报错，不会被静默忽略。
+导出脚本会读取 [`dump_symbols.py`](dump_symbols.md) 生成的 YAML 工件，并更新 `kphdyn.xml` 中对应的条目。它会优先解析一次每个二进制文件的 `artifacts.yaml`；如果 manifest 不存在、缺少配置中的 symbol，或早于任一对应单符号 YAML，则兼容回退到 `{symbol}.yaml` 逐文件加载。
 
 将符号目录下发现的、未由配置管理的 PE 文件同步到 XML：
 
