@@ -10,9 +10,9 @@
 uv run dump_symbols.py [-symboldir="path/to/symbols"] [-configyaml="config.yaml"] [-version=10.0.26100.8246] [-arch=amd64] [-agent=claude/codex/opencode/"claude.cmd"/"codex.cmd"/"opencode.cmd"] [-agent_model=model] [-debug]
 ```
 
-脚本扫描 `<symboldir>/<arch>/<file>.<version>/<sha256>/`，将符号解析为 `{symbol}.yaml`，并把文件写在对应的 PE 与 PDB 文件旁边。
+脚本扫描 `<symboldir>/<arch>/<file>.<version>/<sha256>/`，每个 SHA 目录只建立一次文件快照，将符号解析为 `{symbol}.yaml`，并把文件写在对应的 PE 与 PDB 文件旁边。现有输出和 `skip_if_*` 判定会复用内存快照，不再反复查询文件系统。
 
-每个二进制文件的处理流程和 MCP cleanup 成功后，脚本还会写入 `artifacts.yaml`。该 manifest 使用顶层映射，将模块配置中的每个 symbol 名称映射到对应 artifact payload；缺失的单符号 artifact 记为 `null`。现有单符号 YAML 会继续保留以兼容当前流程。成功的 `-skill` 局部运行会根据当前全部单符号文件重建 manifest；内容未变化时只刷新 manifest 时间戳。
+每个二进制文件的处理流程成功后，脚本还会同步 `artifacts.yaml`。该 manifest 使用顶层映射，将模块配置中的每个 symbol 名称映射到对应 artifact payload；缺失的单符号 artifact 记为 `null`。现有单符号 YAML 会继续保留以兼容当前流程。无工作运行中，如果 manifest 不早于配置文件、二进制目录和已配置的单符号 YAML，脚本只刷新其时间戳，不再解析这些 YAML；manifest 缺失或过期、本轮实际执行了 skill，或者指定了 `-force` 时，才根据当前单符号文件重建。
 
 省略 `-symboldir` 时，脚本默认使用当前工作目录下的 `symbols`。`KPHTOOLS_SYMBOLDIR`（包括从 `.env` 加载的值）优先于命令行选项。
 

@@ -10,9 +10,9 @@
 uv run dump_symbols.py [-symboldir="path/to/symbols"] [-configyaml="config.yaml"] [-version=10.0.26100.8246] [-arch=amd64] [-agent=claude/codex/opencode/"claude.cmd"/"codex.cmd"/"opencode.cmd"] [-agent_model=model] [-debug]
 ```
 
-The script scans `<symboldir>/<arch>/<file>.<version>/<sha256>/`, resolves symbols into `{symbol}.yaml`, and writes them next to the corresponding PE and PDB files.
+The script scans `<symboldir>/<arch>/<file>.<version>/<sha256>/`, inventories each SHA directory once, resolves symbols into `{symbol}.yaml`, and writes them next to the corresponding PE and PDB files. Existing-output and `skip_if_*` checks reuse that in-memory inventory instead of repeatedly querying the filesystem.
 
-After a per-binary pipeline and MCP cleanup succeed, the script also writes `artifacts.yaml`. This manifest is a top-level mapping from every configured module symbol name to its artifact payload; a missing individual artifact is represented as `null`. Existing per-symbol YAML files remain unchanged for compatibility. Successful `-skill` partial runs rebuild the manifest from all current per-symbol files, and unchanged content only refreshes the manifest timestamp.
+After a per-binary pipeline succeeds, the script also synchronizes `artifacts.yaml`. This manifest is a top-level mapping from every configured module symbol name to its artifact payload; a missing individual artifact is represented as `null`. Existing per-symbol YAML files remain unchanged for compatibility. A no-op run reuses the manifest when it is at least as new as the config, binary directory, and configured per-symbol YAML files, refreshing only its timestamp without parsing those files again. A missing or stale manifest, actual skill work, and `-force` rebuild it from the current per-symbol files.
 
 When `-symboldir` is omitted, the script uses `symbols` under the current working directory. `KPHTOOLS_SYMBOLDIR`, including values loaded from `.env`, takes precedence over the command-line option.
 

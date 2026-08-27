@@ -12,16 +12,16 @@ permalink: kphtools/dump-symbols
 ## Responsibilities
 - Parse CLI and `.env` configuration for symbol root, module config YAML, target architectures, exact version filtering via `-version`, single-skill execution via `-skill`, force/debug behavior, external Agent CLI, and optional OpenAI-compatible LLM settings.
 - Load module, skill, and symbol definitions from `config.yaml` through `symbol_config.load_config`.
-- Enumerate candidate binary directories under `symboldir/<arch>/<module_path>.<version>/<sha256>/`, accepting directories with either a PDB or the configured binary file, and optionally narrowing to a single exact version suffix when `-version` is set.
+- Enumerate candidate binary directories under `symboldir/<arch>/<module_path>.<version>/<sha256>/`, accepting directories with either a PDB or the configured binary file, optionally narrowing to a single exact version suffix when `-version` is set, and capturing each SHA directory's direct children and YAML mtimes in one `os.scandir()` pass.
 - Sort skills topologically from declared produced artifacts, expected inputs, architecture-specific expected inputs, and explicit prerequisites; when `-skill` is provided, execute only the exact matching skill and fail fast if the name is missing.
-- Skip work when required/optional outputs already exist or when `skip_if_exists` artifacts are present, unless `-force` requires regeneration.
+- Skip work from the per-directory in-memory snapshot when required/optional outputs already exist or when `skip_if_exists` artifacts are present, unless `-force` requires regeneration. The snapshot is refreshed after a skill writes or removes declared outputs.
 - Run preprocessor output generation through `ida_skill_preprocessor.preprocess_single_skill_via_mcp`, using a lazily started IDA MCP session.
 - Fall back to `.claude/skills/<skill>/SKILL.md` via an external Agent CLI when regular required outputs fail preprocessing.
-- After any successful per-binary pipeline, including `-skill`, and successful MCP cleanup, aggregate every configured module symbol into `artifacts.yaml`; missing individual artifacts are represented as `null`. Unchanged content is not rewritten, but the manifest timestamp is refreshed as a synchronization marker.
+- Synchronize every configured module symbol into `artifacts.yaml`; missing individual artifacts are represented as `null`. A no-op binary takes a synchronous fast path before creating the async/MCP lifecycle. When the manifest is at least as new as `config.yaml`, the binary directory, and configured symbol YAML files, only its timestamp is refreshed. Missing/stale manifests, actual skill work, and `-force` use the full rebuild path.
 - Track per-binary work activity and report succeeded, failed, skipped, and no-candidate summaries.
 
 ## Involved Files & Symbols
-- `dump_symbols.py` - `main`, `parse_args`, `_iter_binary_dirs`, `_resolve_binary_path`, `_process_module_binary`, `_write_binary_artifacts_manifest`, `process_binary_dir`, `_select_skills_by_name`, `_process_one_skill`, `_preprocess_skill_outputs`, `topological_sort_skills`, `run_skill`, `LazyIdalibSession`, `start_idalib_mcp`
+- `dump_symbols.py` - `main`, `parse_args`, `BinaryDirectorySnapshot`, `_iter_binary_dirs`, `_module_skills_are_satisfied`, `_resolve_binary_path`, `_process_module_binary`, `_sync_binary_artifacts_manifest`, `_write_binary_artifacts_manifest`, `process_binary_dir`, `_select_skills_by_name`, `_process_one_skill`, `_preprocess_skill_outputs`, `topological_sort_skills`, `run_skill`, `LazyIdalibSession`, `start_idalib_mcp`
 - `ida_mcp_session.py` - `open_ida_mcp_session`, `DatabaseBoundSession`, `McpDatabaseBinding`, `detect_database_requirement`, `select_database_session`
 - `symbol_config.py` - `load_config`, `SkillSpec`, `SymbolSpec`, `ModuleSpec`, `ConfigSpec`, `symbol_name_from_artifact_name`
 - `symbol_artifacts.py` - `artifact_path`, `load_artifact`, `write_artifacts_manifest`, `ARTIFACTS_MANIFEST_NAME`
@@ -32,13 +32,15 @@ permalink: kphtools/dump-symbols
 - `README.md` - documents the `dump_symbols.py` usage and symbol directory layout
 
 ## Architecture
-The script is organized as a CLI orchestration layer over three boundaries: repository config parsing, skill pipeline execution, and IDA/MCP session lifecycle management. `main()` owns architecture-level scanning and summary accounting. `_process_module_binary()` resolves the concrete PE path, constructs a `LazyIdalibSession`, and delegates all skill execution to `process_binary_dir()`. `process_binary_dir()` uses `_select_skills_by_name()` to narrow execution when `-skill` is set, otherwise it runs the full configured skill pipeline. The lazy session starts `idalib-mcp` only when a preprocessor actually calls a tool, so binaries whose outputs already exist can be skipped without launching IDA. After the selected pipeline returns success and the lazy session closes successfully, `_process_module_binary()` calls `_write_binary_artifacts_manifest()` to write a complete top-level symbol mapping. Successful `-skill` partial runs also rebuild the manifest from all current per-symbol files.
+The script is organized as a CLI orchestration layer over three boundaries: repository config parsing, skill pipeline execution, and IDA/MCP session lifecycle management. `main()` owns architecture-level scanning and summary accounting. `_iter_binary_dirs()` attaches a `BinaryDirectorySnapshot` to each candidate. `main()` uses `_module_skills_are_satisfied()` to bypass async setup entirely when the selected skills are already satisfied, then synchronizes the manifest from snapshot mtimes. `_process_module_binary()` handles candidates that need work, resolves the concrete PE path, constructs a `LazyIdalibSession`, and delegates skill execution to `process_binary_dir()`. `process_binary_dir()` uses `_select_skills_by_name()` to narrow execution when `-skill` is set, otherwise it runs the full configured skill pipeline. The lazy session starts `idalib-mcp` only when a preprocessor actually calls a tool. `_sync_binary_artifacts_manifest()` touches a fresh cached manifest on no-op runs and delegates missing, stale, forced, or modified cases to `_write_binary_artifacts_manifest()`.
 
 ```mermaid
 flowchart TD
     A["main(argv)"]
     B["parse_args(); load_config()"]
-    C["_iter_binary_dirs(symboldir, arch, config)"]
+    C["_iter_binary_dirs(...); capture directory snapshot"]
+    N{"selected skills already satisfied?"}
+    O["touch fresh manifest or rebuild stale manifest"]
     D["_process_module_binary(module, binary_dir, pdb_path, args)"]
     E["LazyIdalibSession(binary_path)"]
     F["process_binary_dir(...)"]
@@ -51,7 +53,9 @@ flowchart TD
     M["success, failure, or skipped summary"]
     A --> B
     B --> C
-    C --> D
+    C --> N
+    N -->|yes| O
+    N -->|no| D
     D --> E
     D --> F
     F --> G
@@ -63,6 +67,7 @@ flowchart TD
     K -->|"yes"| M
     K -->|"no"| L
     L --> M
+    O --> M
 ```
 
 `topological_sort_skills()` infers producers from `expected_output` and `preprocessor_only_output`, then links consumers through `expected_input`, `expected_input_amd64`, `expected_input_arm64`, and explicit `prerequisite` names. Optional outputs are intentionally excluded from dependency production. If a cycle or unresolved ordering remains, unsorted skills are appended in original config order.
@@ -75,7 +80,7 @@ flowchart TD
 
 ## Dependencies
 - Internal modules: `symbol_config` for config schema loading and artifact-to-symbol name mapping; `ida_skill_preprocessor` for skill-specific MCP preprocessors and status constants.
-- Standard library: `argparse`, `asyncio`, `json`, `os`, `socket`, `subprocess`, `time`, `pathlib.Path`, and `typing.Any`.
+- Standard library: `argparse`, `asyncio`, `dataclasses`, `json`, `os`, `socket`, `subprocess`, `time`, `pathlib.Path`, and `typing.Any`.
 - Internal MCP adapter: `ida_mcp_session` owns `httpx`, `mcp.ClientSession`, streamable HTTP setup, legacy/new contract detection, IDB selection, and `database` injection.
 - External tools: `uv`, `idalib-mcp`, IDA APIs reachable through MCP `py_eval`, and an external Agent CLI executable named by `-agent` (`codex` by default).
 - Repository resources: `config.yaml`, `.env`, `.claude/skills/<skill>/SKILL.md`, `.claude/agents/sig-finder.md`, and symbol directories under `symbols/` by default.
@@ -84,13 +89,13 @@ flowchart TD
 ## Notes
 - Supported architectures are currently `amd64` and `arm64`; the default scans both.
 - `-version` is an exact directory suffix match, so `10.0.26100.8246` matches `module_path.10.0.26100.8246` but not nearby prefixes.
-- `-skill` is an exact skill-name filter. It skips every non-matching skill, still applies arch/output/force behavior to the selected skill, and fails the binary when the requested skill name is not present. Successful partial runs refresh `artifacts.yaml` from all current per-symbol files.
-- `artifacts.yaml` contains every configured `module.symbols` name as a top-level key; missing per-symbol files use `null`. Internal/preprocessor-only artifacts are intentionally excluded. Identical content is not rewritten, but its timestamp is touched so consumers can detect a synchronized snapshot.
+- `-skill` is an exact skill-name filter. It skips every non-matching skill, still applies arch/output/force behavior to the selected skill, and fails the binary when the requested skill name is not present. A selected skill whose outputs already exist can use the same whole-binary fast path.
+- `artifacts.yaml` contains every configured `module.symbols` name as a top-level key; missing per-symbol files use `null`. Internal/preprocessor-only artifacts are intentionally excluded. Freshness compares nanosecond mtimes for the config, binary directory, manifest, and existing configured symbol YAML files. Directory mtime invalidates deletions/additions; `-force` bypasses this cache. A fresh no-op manifest is touched so consumers still observe a synchronized snapshot.
 - `MCP_STARTUP_TIMEOUT` remains `1200` seconds but is used only for the initial MCP TCP port startup. Inactive supervisor databases fail immediately at the adapter boundary and are handled by the analyzer's one-restart-per-binary recovery budget.
 - `run_skill()` accepts `max_retries`, but the implementation calls the external Agent CLI once and then verifies that all expected YAML paths exist.
 - `run_skill()` requires both `.claude/skills/<skill>/SKILL.md` and non-empty `.claude/agents/sig-finder.md`; missing files cause a `False` result instead of raising.
 - Optional-only skills are skipped when preprocessing does not generate optional outputs; required output failures can fail the binary or trigger Agent fallback depending on whether the failed symbol is considered internal.
-- `LazyIdalibSession` deliberately avoids eager MCP startup, which is important for fast no-op runs where artifacts already exist.
+- `main()` bypasses `_process_module_binary()` for snapshot-complete no-op binaries; `LazyIdalibSession` remains lazy for partial-work paths that enter the async pipeline without immediately needing MCP.
 - New supervisor sessions are selected by normalized binary identity from `idb_list`; `.i64`/`.idb` suffixes, Windows case, and WSL mount paths are normalized before matching. Multiple or missing matches fail closed.
 - `close()` suppresses known MCP cancel-scope cancellation noise during normal MCP context shutdown but re-raises unrelated cancellation errors after cleanup.
 

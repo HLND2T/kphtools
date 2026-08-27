@@ -1056,7 +1056,12 @@ class TestDumpSymbols(unittest.TestCase):
 
             candidates = list(dump_symbols._iter_binary_dirs(symboldir, "amd64", config))
 
-        self.assertEqual([(module, sha_dir, None)], candidates)
+        self.assertEqual(1, len(candidates))
+        candidate_module, candidate_dir, pdb_path, snapshot = candidates[0]
+        self.assertIs(module, candidate_module)
+        self.assertEqual(sha_dir, candidate_dir)
+        self.assertIsNone(pdb_path)
+        self.assertTrue(snapshot.path_is_file(sha_dir / "ntoskrnl.exe"))
 
     def test_iter_binary_dirs_filters_by_exact_version(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -1089,7 +1094,99 @@ class TestDumpSymbols(unittest.TestCase):
                 )
             )
 
-        self.assertEqual([(module, matched_dir, None)], candidates)
+        self.assertEqual(1, len(candidates))
+        candidate_module, candidate_dir, pdb_path, snapshot = candidates[0]
+        self.assertIs(module, candidate_module)
+        self.assertEqual(matched_dir, candidate_dir)
+        self.assertIsNone(pdb_path)
+        self.assertTrue(snapshot.path_is_file(matched_dir / "ntoskrnl.exe"))
+
+    def test_snapshot_backed_skip_checks_do_not_restat_direct_artifacts(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            existing_path = binary_dir / "Existing.yaml"
+            existing_path.write_text("name: Existing\n", encoding="utf-8")
+            snapshot = dump_symbols.BinaryDirectorySnapshot.capture(binary_dir)
+
+            with patch.object(
+                Path,
+                "exists",
+                side_effect=AssertionError("direct artifact paths must use the snapshot"),
+            ):
+                self.assertTrue(
+                    dump_symbols._should_skip_for_existing_outputs(
+                        [str(existing_path)],
+                        [],
+                        snapshot=snapshot,
+                    )
+                )
+                self.assertFalse(
+                    dump_symbols._should_skip_for_existing_outputs(
+                        [str(binary_dir / "Missing.yaml")],
+                        [],
+                        snapshot=snapshot,
+                    )
+                )
+
+    def test_snapshot_refresh_tracks_generated_and_deleted_artifacts(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            artifact_file = binary_dir / "Generated.yaml"
+            snapshot = dump_symbols.BinaryDirectorySnapshot.capture(binary_dir)
+
+            self.assertFalse(snapshot.name_exists("Generated.yaml"))
+            artifact_file.write_text("name: Generated\n", encoding="utf-8")
+            snapshot.refresh_paths([artifact_file])
+            self.assertTrue(snapshot.name_exists("Generated.yaml"))
+
+            artifact_file.unlink()
+            snapshot.refresh_paths([artifact_file])
+            self.assertFalse(snapshot.name_exists("Generated.yaml"))
+
+    def test_module_skill_fast_check_honors_selected_skill_and_force(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            (binary_dir / "ntoskrnl.exe").write_text("", encoding="utf-8")
+            (binary_dir / "Existing.yaml").write_text("name: Existing\n", encoding="utf-8")
+            module = SimpleNamespace(
+                path=["ntoskrnl.exe"],
+                skills=[
+                    {"name": "find-Missing", "expected_output": ["Missing.yaml"]},
+                    {"name": "find-Existing", "expected_output": ["Existing.yaml"]},
+                ],
+            )
+            snapshot = dump_symbols.BinaryDirectorySnapshot.capture(binary_dir)
+
+            self.assertTrue(
+                dump_symbols._module_skills_are_satisfied(
+                    module=module,
+                    arch="amd64",
+                    selected_skill_name="find-Existing",
+                    force=False,
+                    debug=False,
+                    snapshot=snapshot,
+                )
+            )
+            self.assertFalse(
+                dump_symbols._module_skills_are_satisfied(
+                    module=module,
+                    arch="amd64",
+                    selected_skill_name="find-Missing",
+                    force=False,
+                    debug=False,
+                    snapshot=snapshot,
+                )
+            )
+            self.assertFalse(
+                dump_symbols._module_skills_are_satisfied(
+                    module=module,
+                    arch="amd64",
+                    selected_skill_name="find-Existing",
+                    force=True,
+                    debug=False,
+                    snapshot=snapshot,
+                )
+            )
 
     def test_process_binary_dir_passes_missing_pdb_to_preprocessor(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -1304,6 +1401,81 @@ class TestDumpSymbols(unittest.TestCase):
 
     def test_run_skill_uses_shared_agent_runner(self) -> None:
         self.assertIs(agent_runner.run_skill, dump_symbols.run_skill)
+
+    def test_sync_manifest_touches_fresh_manifest_without_loading_symbol_yamls(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            artifact_file = binary_dir / "EpObjectTable.yaml"
+            artifact_file.write_text(
+                "category: struct_offset\noffset: '0x570'\n",
+                encoding="utf-8",
+            )
+            symbols = [SimpleNamespace(name="EpObjectTable")]
+            symbol_artifacts.write_artifacts_manifest(
+                binary_dir,
+                {"EpObjectTable": {"category": "struct_offset", "offset": 0x570}},
+            )
+            manifest_path = binary_dir / "artifacts.yaml"
+            fresh_mtime = max(
+                binary_dir.stat().st_mtime_ns,
+                artifact_file.stat().st_mtime_ns,
+                manifest_path.stat().st_mtime_ns,
+            ) + 1_000_000_000
+            os.utime(manifest_path, ns=(fresh_mtime, fresh_mtime))
+            snapshot = dump_symbols.BinaryDirectorySnapshot.capture(binary_dir)
+
+            with (
+                patch.object(
+                    dump_symbols,
+                    "_write_binary_artifacts_manifest",
+                ) as rebuild_manifest,
+                patch.object(Path, "touch") as touch_manifest,
+            ):
+                changed = dump_symbols._sync_binary_artifacts_manifest(
+                    binary_dir,
+                    symbols,
+                    snapshot=snapshot,
+                    config_mtime_ns=None,
+                    allow_cached=True,
+                )
+
+        self.assertFalse(changed)
+        rebuild_manifest.assert_not_called()
+        touch_manifest.assert_called_once_with()
+
+    def test_sync_manifest_rebuilds_when_config_is_newer(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            artifact_file = binary_dir / "EpObjectTable.yaml"
+            artifact_file.write_text(
+                "category: struct_offset\noffset: '0x570'\n",
+                encoding="utf-8",
+            )
+            symbols = [SimpleNamespace(name="EpObjectTable")]
+            symbol_artifacts.write_artifacts_manifest(
+                binary_dir,
+                {"EpObjectTable": {"category": "struct_offset", "offset": 0x570}},
+            )
+            snapshot = dump_symbols.BinaryDirectorySnapshot.capture(binary_dir)
+            manifest_mtime = (binary_dir / "artifacts.yaml").stat().st_mtime_ns
+
+            with patch.object(
+                dump_symbols,
+                "_write_binary_artifacts_manifest",
+                return_value=False,
+            ) as rebuild_manifest:
+                changed = dump_symbols._sync_binary_artifacts_manifest(
+                    binary_dir,
+                    symbols,
+                    snapshot=snapshot,
+                    config_mtime_ns=manifest_mtime + 1,
+                    allow_cached=True,
+                )
+
+        self.assertFalse(changed)
+        rebuild_manifest.assert_called_once_with(binary_dir, symbols)
 
     def test_process_module_binary_writes_manifest_after_cleanup(self) -> None:
         events = []
@@ -3073,6 +3245,84 @@ class TestDumpSymbols(unittest.TestCase):
             ]
         )
         self.assertEqual(5, mock_print.call_count)
+
+    def test_main_fast_skips_fresh_binary_without_async_processing(self) -> None:
+        args = SimpleNamespace(
+            symboldir="symbols",
+            arch="amd64",
+            arches=["amd64"],
+            configyaml="config.yaml",
+            agent="codex",
+            debug=False,
+            force=False,
+            version=None,
+            skill=None,
+        )
+        with TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            binary_path = binary_dir / "ntoskrnl.exe"
+            binary_path.write_text("", encoding="utf-8")
+            pdb_path = binary_dir / "ntkrnlmp.pdb"
+            pdb_path.write_text("", encoding="utf-8")
+            artifact_file = binary_dir / "EpObjectTable.yaml"
+            artifact_file.write_text(
+                "category: struct_offset\noffset: '0x570'\n",
+                encoding="utf-8",
+            )
+            symbol_artifacts.write_artifacts_manifest(
+                binary_dir,
+                {"EpObjectTable": {"category": "struct_offset", "offset": 0x570}},
+            )
+            manifest_path = binary_dir / "artifacts.yaml"
+            fresh_mtime = max(
+                Path(args.configyaml).stat().st_mtime_ns,
+                binary_dir.stat().st_mtime_ns,
+                artifact_file.stat().st_mtime_ns,
+                manifest_path.stat().st_mtime_ns,
+            ) + 1_000_000_000
+            os.utime(manifest_path, ns=(fresh_mtime, fresh_mtime))
+            module = SimpleNamespace(
+                path=["ntoskrnl.exe"],
+                skills=[
+                    {
+                        "name": "find-EpObjectTable",
+                        "expected_output": ["EpObjectTable.yaml"],
+                    }
+                ],
+                symbols=[SimpleNamespace(name="EpObjectTable")],
+            )
+            config = SimpleNamespace(modules=[module])
+            snapshot = dump_symbols.BinaryDirectorySnapshot.capture(binary_dir)
+            process_binary = AsyncMock()
+
+            with (
+                patch.object(dump_symbols, "parse_args", return_value=args),
+                patch.object(dump_symbols, "load_config", return_value=config),
+                patch.object(
+                    dump_symbols,
+                    "_iter_binary_dirs",
+                    return_value=[(module, binary_dir, pdb_path, snapshot)],
+                ),
+                patch.object(
+                    dump_symbols,
+                    "_process_module_binary",
+                    new=process_binary,
+                ),
+                patch("builtins.print") as mock_print,
+            ):
+                exit_code = dump_symbols.main([])
+
+        self.assertEqual(0, exit_code)
+        process_binary.assert_not_awaited()
+        mock_print.assert_has_calls(
+            [
+                call(f"Scanning {Path('symbols') / 'amd64'}"),
+                call("Found 1 candidate binary directories"),
+                call(f"Processing {binary_dir}"),
+                call(f"Skipped {binary_dir} (no work required)"),
+                call("Summary: 0 succeeded, 0 failed, 1 skipped"),
+            ]
+        )
 
     def test_main_reports_failure_summary_before_reraising_exception(self) -> None:
         args = SimpleNamespace(
