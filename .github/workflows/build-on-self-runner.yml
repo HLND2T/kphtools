@@ -4,13 +4,24 @@ on:
   push:
     tags:
       - "*"
+      - "!nightly"
+  schedule:
+    - cron: "17 19 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: kphtools-release
+  cancel-in-progress: false
+
 jobs:
   build:
-    if: github.repository == 'HLND2T/kphtools'
+    if: >-
+      github.repository == 'HLND2T/kphtools' &&
+      (github.event_name == 'push' ||
+       github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
     environment: win64
     runs-on: [self-hosted, windows, x64]
     env:
@@ -99,10 +110,48 @@ jobs:
 
       - name: Create release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           name: kphdyn-${{ github.ref_name }}
           files: kphdyn.xml
+
+      - name: Check nightly XML changes
+        id: nightly_changes
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          Set-Location $env:WORKSPACE
+          uv run python check_nightly_release.py --repository $env:GITHUB_REPOSITORY --xml kphdyn.xml --tag nightly
+          if ($LASTEXITCODE -ne 0) { throw "Nightly XML comparison failed." }
+
+      - name: Publish changed nightly XML
+        if: steps.nightly_changes.outputs.changed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: kphdyn-nightly
+          tag_name: nightly
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          draft: false
+          make_latest: "false"
+          files: kphdyn.xml
+          fail_on_unmatched_files: true
+          body: |
+            Latest nightly kphdyn.xml with changed XML data.
+            Source commit: ${{ github.sha }}
+            Build: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Update nightly tag after publication
+        if: steps.nightly_changes.outputs.changed == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Set-Location $env:WORKSPACE
+          git push origin "$($env:GITHUB_SHA):refs/tags/nightly" --force
+          if ($LASTEXITCODE -ne 0) { throw "Unable to update the nightly tag." }
 
       - name: Sync symbols back to OSS
         shell: cmd

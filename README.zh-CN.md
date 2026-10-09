@@ -31,6 +31,14 @@ symbols/<arch>/<file>.<version>/<sha256>/
 
 四个主流程脚本默认使用当前工作目录下的 `symbols`。设置 `KPHTOOLS_SYMBOLDIR` 可以覆盖该目录；该环境变量优先于 `-symboldir`。
 
+## Nightly 发布
+
+构建工作流每天在**新加坡时间 03:17（UTC 19:17）**从默认分支 `main` 运行。也可以通过 **Build On Self Runner → Run workflow** 手动触发；手动 nightly 发布仅允许默认分支。
+
+从固定的 [`nightly` 预发布](https://github.com/HLND2T/kphtools/releases/tag/nightly)下载 [`kphdyn.xml`](https://github.com/HLND2T/kphtools/releases/download/nightly/kphdyn.xml)。首次运行创建预发布，后续运行将生成的 XML 与该预发布的附件比较，只有 XML 数据变化才更新 Release、附件和 tag。更新后的 tag 指向本次构建使用的源码 commit。
+
+比较忽略缩进、换行、注释及属性顺序，保留节点顺序、字段编号、文本和所有属性值。比较或下载失败时停止发布；XML 数据相同时跳过发布，符号同步仍继续执行。正式 tag 发布保持现有行为，nightly 预发布不会替换最新正式版本。
+
 ## 文档
 
 - [依赖与环境配置](docs/zh-CN/requirements.md)
