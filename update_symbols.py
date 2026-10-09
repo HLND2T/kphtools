@@ -35,6 +35,8 @@ import xml.etree.ElementTree as ET
 from dotenv import load_dotenv
 import pefile
 
+from symbol_cache_metadata import cached_pe_metadata, load_cached_entry
+
 from symbol_artifacts import (
     artifact_path,
     artifacts_manifest_path,
@@ -171,6 +173,11 @@ def scan_symbol_directory(symboldir: Path) -> list[Path]:
     for arch_dir in sorted(path for path in root.iterdir() if path.is_dir()):
         for version_dir in sorted(path for path in arch_dir.iterdir() if path.is_dir()):
             for sha_dir in sorted(path for path in version_dir.iterdir() if path.is_dir()):
+                cached = load_cached_entry(sha_dir)
+                if cached is not None:
+                    virtual_binary = sha_dir / cached["shard"]["metadata"]["file"]
+                    if not virtual_binary.exists():
+                        binaries.append(virtual_binary)
                 for binary_path in sorted(path for path in sha_dir.iterdir() if path.is_file()):
                     if version_dir.name.startswith(f"{binary_path.name}."):
                         binaries.append(binary_path)
@@ -211,6 +218,12 @@ def _calculate_sha256(binary_path: Path) -> str:
 
 
 def parse_pe_info(binary_path: Path, expected_sha256: str) -> dict[str, str]:
+    if not Path(binary_path).exists():
+        cached = cached_pe_metadata(binary_path)
+        if cached is not None:
+            if cached["sha256"] != expected_sha256.lower():
+                raise HashMismatchError(f"Cached PE hash differs from {expected_sha256}")
+            return cached
     actual_sha256 = _calculate_sha256(binary_path)
     expected = expected_sha256.lower()
     if actual_sha256 != expected:
@@ -487,6 +500,10 @@ def _find_or_create_fields_id(
 
 
 def _load_binary_metadata(binary_path: Path) -> dict[str, str]:
+    if not Path(binary_path).exists():
+        cached = cached_pe_metadata(binary_path)
+        if cached is not None:
+            return {name: cached[name] for name in ("timestamp", "size")}
     pe = pefile.PE(str(binary_path), fast_load=True)
     try:
         return {

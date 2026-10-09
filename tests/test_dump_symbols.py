@@ -1932,6 +1932,7 @@ class TestDumpSymbols(unittest.TestCase):
             binary_dir = Path(temp_dir)
             binary_path = binary_dir / "ntoskrnl.exe"
             binary_path.write_text("", encoding="utf-8")
+            resolved_binary_path = binary_path.resolve()
             fake_process = MagicMock()
             fake_process.poll.return_value = None
             fake_session = AsyncMock()
@@ -1974,7 +1975,7 @@ class TestDumpSymbols(unittest.TestCase):
         self.assertIs(call_one, first_result)
         self.assertIs(call_two, second_result)
         mock_start.assert_called_once_with(
-            binary_path,
+            resolved_binary_path,
             host="127.0.0.1",
             port=24567,
             debug=False,
@@ -1982,7 +1983,7 @@ class TestDumpSymbols(unittest.TestCase):
         mock_open_session.assert_called_once_with(
             "127.0.0.1",
             24567,
-            expected_binary=binary_path,
+            expected_binary=resolved_binary_path,
             auto_started=True,
         )
         fake_session.call_tool.assert_has_awaits(
@@ -2425,6 +2426,7 @@ class TestDumpSymbols(unittest.TestCase):
             binary_dir = Path(temp_dir)
             binary_path = binary_dir / "ntoskrnl.exe"
             binary_path.write_text("", encoding="utf-8")
+            resolved_binary_path = binary_path.resolve()
             fake_process = MagicMock()
             fake_process.poll.return_value = None
             fake_session = AsyncMock()
@@ -2467,16 +2469,16 @@ class TestDumpSymbols(unittest.TestCase):
         mock_open_session.assert_called_once_with(
             "127.0.0.1",
             24567,
-            expected_binary=binary_path,
+            expected_binary=resolved_binary_path,
             auto_started=True,
         )
         printed_messages = [c.args[0] for c in mock_print.call_args_list if c.args and isinstance(c.args[0], str)]
         self.assertIn(
-            f"[debug] allocating lazy MCP session for {binary_path}",
+            f"[debug] allocating lazy MCP session for {resolved_binary_path}",
             printed_messages,
         )
         self.assertIn(
-            f"[debug] closing lazy MCP session for {binary_path}",
+            f"[debug] closing lazy MCP session for {resolved_binary_path}",
             printed_messages,
         )
 
@@ -2504,6 +2506,7 @@ class TestDumpSymbols(unittest.TestCase):
             binary_dir = Path(temp_dir)
             binary_path = binary_dir / "ntoskrnl.exe"
             binary_path.write_text("", encoding="utf-8")
+            resolved_binary_path = binary_path.resolve()
 
             fake_process = MagicMock()
             fake_process.poll.return_value = None
@@ -2535,7 +2538,7 @@ class TestDumpSymbols(unittest.TestCase):
                     asyncio.run(lazy_session.call_tool("py_eval", {"code": "1"}))
 
         mock_start.assert_called_once_with(
-            binary_path,
+            resolved_binary_path,
             host="127.0.0.1",
             port=24567,
             debug=False,
@@ -2543,7 +2546,7 @@ class TestDumpSymbols(unittest.TestCase):
         mock_open_session.assert_called_once_with(
             "127.0.0.1",
             24567,
-            expected_binary=binary_path,
+            expected_binary=resolved_binary_path,
             auto_started=True,
         )
         fake_context.__aexit__.assert_awaited_once_with(None, None, None)
@@ -2611,6 +2614,7 @@ class TestDumpSymbols(unittest.TestCase):
             binary_dir = Path(temp_dir)
             binary_path = binary_dir / "ntoskrnl.exe"
             binary_path.write_text("", encoding="utf-8")
+            resolved_binary_path = binary_path.resolve()
 
             fake_process = MagicMock()
             fake_process.poll.return_value = None
@@ -2642,7 +2646,7 @@ class TestDumpSymbols(unittest.TestCase):
                     asyncio.run(lazy_session.ensure_started())
 
         mock_start.assert_called_once_with(
-            binary_path,
+            resolved_binary_path,
             host="127.0.0.1",
             port=24567,
             debug=False,
@@ -2650,7 +2654,7 @@ class TestDumpSymbols(unittest.TestCase):
         mock_open_session.assert_called_once_with(
             "127.0.0.1",
             24567,
-            expected_binary=binary_path,
+            expected_binary=resolved_binary_path,
             auto_started=True,
         )
         fake_context.__aexit__.assert_awaited_once_with(None, None, None)

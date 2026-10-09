@@ -36,6 +36,9 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from ci_symbol_cache import ensure_binary_inputs as ensure_cached_binary_inputs
+from symbol_cache_metadata import cached_binary_exists
+
 from agent_runner import DEFAULT_AGENT_MODEL, run_skill
 from ida_llm_utils import create_openai_client
 from ida_mcp_keepalive import keepalive_worker_during
@@ -920,7 +923,10 @@ def _module_skills_are_satisfied(
 ) -> bool:
     if force:
         return False
-    if not any(snapshot.name_exists(candidate) for candidate in module.path):
+    if not any(
+        snapshot.name_exists(candidate) or cached_binary_exists(snapshot.binary_dir, candidate)
+        for candidate in module.path
+    ):
         return False
 
     if selected_skill_name is None:
@@ -1419,7 +1425,10 @@ def _iter_binary_dirs(symboldir: Path, arch: str, config, version: str | None = 
                         continue
                     snapshot = BinaryDirectorySnapshot.capture(sha_dir)
                     pdb_candidates = snapshot.paths_ending_with(".pdb")
-                    if not pdb_candidates and not snapshot.path_is_file(sha_dir / module_path):
+                    if (
+                        not pdb_candidates and not snapshot.path_is_file(sha_dir / module_path)
+                        and not cached_binary_exists(sha_dir, module_path)
+                    ):
                         continue
                     pdb_path = pdb_candidates[0] if pdb_candidates else None
                     yield module, sha_dir, pdb_path, snapshot
@@ -1643,6 +1652,10 @@ def main(argv=None):
                             allow_cached=True,
                         )
                 elif snapshot is not None:
+                    if ensure_cached_binary_inputs(Path(binary_dir)):
+                        snapshot = BinaryDirectorySnapshot.capture(binary_dir)
+                        pdb_candidates = snapshot.paths_ending_with(".pdb")
+                        pdb_path = pdb_candidates[0] if pdb_candidates else None
                     ok, did_work = asyncio.run(
                         _process_module_binary(
                             module,

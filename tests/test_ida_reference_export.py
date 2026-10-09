@@ -189,6 +189,7 @@ class TestIdaReferenceExport(unittest.IsolatedAsyncioTestCase):
         session = AsyncMock()
         with TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / "ref.yaml"
+            resolved_output_path = output_path.resolve()
             output_path.write_text(
                 "\n".join(
                     [
@@ -208,7 +209,7 @@ class TestIdaReferenceExport(unittest.IsolatedAsyncioTestCase):
                         "result": json.dumps(
                             {
                                 "ok": True,
-                                "output_path": str(output_path),
+                                "output_path": str(resolved_output_path),
                                 "bytes_written": 120,
                                 "format": "yaml",
                             }
@@ -224,7 +225,7 @@ class TestIdaReferenceExport(unittest.IsolatedAsyncioTestCase):
                 output_path=output_path,
             )
 
-        self.assertEqual(output_path, result)
+        self.assertEqual(resolved_output_path, result)
         session.call_tool.assert_awaited_once()
 
     async def test_export_code_region_yaml_via_mcp_allows_missing_procedure(
@@ -233,6 +234,7 @@ class TestIdaReferenceExport(unittest.IsolatedAsyncioTestCase):
         session = AsyncMock()
         with TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / "ref.yaml"
+            resolved_output_path = output_path.resolve()
             output_path.write_text(
                 "\n".join(
                     [
@@ -251,7 +253,7 @@ class TestIdaReferenceExport(unittest.IsolatedAsyncioTestCase):
                         "result": json.dumps(
                             {
                                 "ok": True,
-                                "output_path": str(output_path),
+                                "output_path": str(resolved_output_path),
                                 "bytes_written": 120,
                                 "format": "yaml",
                             }
@@ -268,7 +270,7 @@ class TestIdaReferenceExport(unittest.IsolatedAsyncioTestCase):
                 output_path=output_path,
             )
 
-        self.assertEqual(output_path, result)
+        self.assertEqual(resolved_output_path, result)
         session.call_tool.assert_awaited_once()
 
     async def test_export_reference_yaml_via_mcp_rejects_invalid_remote_ack(self) -> None:
