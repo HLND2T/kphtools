@@ -22,3 +22,9 @@ dependencies = [
 
 [tool.uv]
 package = false
+
+[dependency-groups]
+ci = [
+    "boto3>=1.43.110",
+    "zstandard>=0.25.0",
+]

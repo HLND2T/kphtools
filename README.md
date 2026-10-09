@@ -39,6 +39,20 @@ Download [`kphdyn.xml`](https://github.com/HLND2T/kphtools/releases/download/nig
 
 Comparison ignores indentation, line endings, comments, and attribute order. Element order, field IDs, text, and all attribute values remain significant. If the comparison or download fails, publication stops. Unchanged XML skips publication while symbol synchronization still runs. Regular tag releases retain their existing behavior, and the nightly prerelease does not replace the latest stable release.
 
+## Shared CI caches
+
+The Windows self-hosted build and PR jobs use the S3-compatible bucket `actions-cache-kphtools` for symbol shards and the uv dependency cache. Configure `S3_ENDPOINT_URL` (an HTTP(S) origin), `S3_ACCESS_KEY_ID`, and `S3_SECRET_ACCESS_KEY` in the `win64` environment. Provision the bucket with list/read/write access for these credentials; the clients do not create it. Every runner must be able to reach the endpoint, which must support conditional `PutObject` requests (`IfMatch` and `IfNoneMatch`). `PERSISTED_WORKSPACE` is no longer used by CI.
+
+Symbols are sharded by `arch/binary.version/sha256`. Each shard has separate `inputs` (PE/PDB/IDA and other analysis files) and `results` (YAML) archives, compressed with zstd level 1. Builds restore the catalog and YAML first, and fetch inputs only when analysis needs them. Only changed components are uploaded. Immutable archive keys are scoped to this repository and runner OS; the small `catalog.json` is updated conditionally so concurrent producers cannot overwrite a newer catalog. Archives are checked for size, SHA-256, content identity, and safe paths. OSS synchronization retains its existing exclusions and downloads only uncached files.
+
+Do not expire all shard objects by age: an unchanged input may remain referenced by the catalog indefinitely. Any later garbage collection must preserve referenced objects. This migration does not delete old S3 snapshots.
+
+PR validation downloads only the input shards for `amd64/ntoskrnl.exe.10.0.22621.3668` and copies them into an isolated directory, excluding YAML so analysis runs again. Missing PE/PDB inputs are downloaded from the exact upstream XML selection, falling back to the retained download metadata in [`.github/pr-kernel.xml`](.github/pr-kernel.xml) when upstream has pruned this version. Validation fails if no complete input is available. PR results never update the shared catalog. uv caches use the pinned `hzqst/setup-uv` S3 backend in both jobs.
+
+Generated data lives in `.ci-symbol-cache/` and `.ci-pr-analysis/` under the standard checkout. PR XML, YAML, and logs are uploaded as a diagnostic artifact before cleanup. Each job cleans its generated directories on its own runner, including on ordinary failure; uv's post-job cache save retains access to the checkout and dependency files. No PR-close cleanup job or per-PR persistent workspace is needed. Runner shutdown or forced termination still requires runner lifecycle cleanup. Previously created `kphtools-pr-*` directories are not removed by this migration.
+
+Before the first migrated run, seed the bucket from the existing symbol store using [issue #42](https://github.com/HLND2T/kphtools/issues/42) and the matching migration checkout: `uv run --group ci --frozen python ci_symbol_cache.py seed --symbols <source-symbols> --repository HLND2T/kphtools --platform Windows`. The command preserves the source, archives one component at a time, reuses uploaded objects on retry, and publishes the catalog after all shards succeed. A nonempty catalog requires `--merge`, which should only be used with an authoritative source. The fixed PR kernel's PE and PDB returned 404 from Microsoft Symbol Server when checked on 2026-10-09; the seed must include both files. uv is warmed separately by `setup-uv` during CI.
+
 ## Documentation
 
 - [Requirements and environment setup](docs/en/requirements.md)

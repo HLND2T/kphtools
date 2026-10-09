@@ -25,7 +25,10 @@ jobs:
     environment: win64
     runs-on: [self-hosted, windows, x64]
     env:
-      PERSISTED_WORKSPACE: ${{ secrets.PERSISTED_WORKSPACE }}
+      UV_PYTHON: "3.12"
+      S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
+      S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
       KPHTOOLS_AGENT: ${{ secrets.KPHTOOLS_AGENT }}
       KPHTOOLS_AGENT_MODEL: ${{ secrets.KPHTOOLS_AGENT_MODEL }}
       KPHTOOLS_LLM_APIKEY: ${{ secrets.KPHTOOLS_LLM_APIKEY }}
@@ -48,32 +51,41 @@ jobs:
         with:
           submodules: true
 
-      - name: Prepare variables and validate environment configuration
+      - name: Set up uv with shared S3 cache
+        uses: hzqst/setup-uv@ed37cb7af6cd89cb8e2ea2f20674ba1d05dc7b35
+        with:
+          enable-cache: true
+          cache-s3-bucket: actions-cache-kphtools
+          cache-local-path: ${{ runner.temp }}/kphtools-uv-cache
+        env:
+          S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
+          S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+
+      - name: Sync Python dependencies
         shell: pwsh
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:PERSISTED_WORKSPACE)) {
-            throw "PERSISTED_WORKSPACE secret is not configured for the win64 environment."
-          }
+          uv sync --group ci --frozen
+          if ($LASTEXITCODE -ne 0) { throw "uv sync failed." }
 
-          "WORKSPACE=${{ github.workspace }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-      - name: Create persisted symbols link
-        shell: cmd
+      - name: Prepare disposable symbol staging
+        id: s3_layout
+        shell: pwsh
         run: |
-          @echo off
-          if "%PERSISTED_WORKSPACE%"=="" (
-            echo PERSISTED_WORKSPACE is not configured.
-            exit /b 1
-          )
+          uv run --group ci --frozen python ci_s3_cache.py prepare
+          if ($LASTEXITCODE -ne 0) { throw "S3 staging preparation failed." }
 
-          if not exist "%PERSISTED_WORKSPACE%\symbols" mkdir "%PERSISTED_WORKSPACE%\symbols"
+      - name: Restore lightweight symbol results and catalog metadata
+        shell: pwsh
+        run: |
+          uv run --group ci --frozen python ci_symbol_cache.py restore-build
+          if ($LASTEXITCODE -ne 0) { throw "Symbol result shard restore failed." }
 
-          if exist "%WORKSPACE%\symbols" (
-            pwsh -NoProfile -Command "$item = Get-Item -LiteralPath '%WORKSPACE%\symbols' -Force; if (-not ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { Write-Error 'symbols exists but is not a directory junction or symlink.'; exit 1 }; $target = [string]$item.Target; if ($target -ne '%PERSISTED_WORKSPACE%\symbols') { Write-Error ('symbols link target mismatch: ' + $target); exit 1 }"
-            if errorlevel 1 exit /b 1
-          ) else (
-            mklink /d "%WORKSPACE%\symbols" "%PERSISTED_WORKSPACE%\symbols"
-          )
+      - name: Validate restored symbol paths
+        shell: pwsh
+        run: |
+          uv run --group ci --frozen python ci_s3_cache.py validate
+          if ($LASTEXITCODE -ne 0) { throw "Unsafe restored symbol paths." }
 
       - name: Download latest kphdyn.xml from upstream
         shell: cmd
@@ -84,29 +96,39 @@ jobs:
       - name: Sync symbols from OSS
         shell: cmd
         run: |
-          set "KPHTOOLS_SYMBOLDIR=%WORKSPACE%\symbols"
-          uv run python oss_sync.py --direction oss2local --once
+          uv run --group ci --frozen python ci_symbol_cache.py oss-pull
 
       - name: Sync unmanaged ntoskrnl to kphdyn.xml
         shell: cmd
         run: |
-          uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -syncfile
+          uv run --group ci --frozen python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%KPHTOOLS_SYMBOLDIR%" -syncfile
 
       - name: Download ntoskrnl exe and pdb from MSDL
         shell: cmd
         run: |
-          uv sync
-          uv run python download_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -fast
+          uv run --group ci --frozen python ci_symbol_cache.py download --xml "%WORKSPACE%\kphdyn.xml"
 
       - name: Analyze symbols and dump YAML artifacts
         shell: cmd
         run: |
-          uv run python dump_symbols.py -symboldir="%WORKSPACE%\symbols" -configyaml="%WORKSPACE%\config.yaml" -debug
+          uv run --group ci --frozen python dump_symbols.py -symboldir="%KPHTOOLS_SYMBOLDIR%" -configyaml="%WORKSPACE%\config.yaml" -debug
 
       - name: Update kphdyn.xml with offsets from YAML artifacts
         shell: cmd
         run: |
-          uv run python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%WORKSPACE%\symbols" -configyaml="%WORKSPACE%\config.yaml"
+          uv run --group ci --frozen python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%KPHTOOLS_SYMBOLDIR%" -configyaml="%WORKSPACE%\config.yaml"
+
+      - name: Validate symbol snapshot before publication
+        shell: pwsh
+        run: |
+          uv run --group ci --frozen python ci_s3_cache.py validate
+          if ($LASTEXITCODE -ne 0) { throw "Unsafe symbol snapshot paths." }
+
+      - name: Publish changed symbol shards and update catalog
+        shell: pwsh
+        run: |
+          uv run --group ci --frozen python ci_symbol_cache.py publish
+          if ($LASTEXITCODE -ne 0) { throw "Symbol shard publication failed." }
 
       - name: Create release
         if: startsWith(github.ref, 'refs/tags/')
@@ -124,7 +146,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           Set-Location $env:WORKSPACE
-          uv run python check_nightly_release.py --repository $env:GITHUB_REPOSITORY --xml kphdyn.xml --tag nightly
+          uv run --group ci --frozen python check_nightly_release.py --repository $env:GITHUB_REPOSITORY --xml kphdyn.xml --tag nightly
           if ($LASTEXITCODE -ne 0) { throw "Nightly XML comparison failed." }
 
       - name: Publish changed nightly XML
@@ -156,5 +178,11 @@ jobs:
       - name: Sync symbols back to OSS
         shell: cmd
         run: |
-          set "KPHTOOLS_SYMBOLDIR=%WORKSPACE%\symbols"
-          uv run python oss_sync.py --direction local2oss --once
+          uv run --group ci --frozen python ci_symbol_cache.py oss-push
+
+      - name: Clean disposable symbol staging on this runner
+        if: always() && steps.s3_layout.outcome == 'success'
+        shell: pwsh
+        run: |
+          uv run --group ci --frozen python ci_s3_cache.py cleanup
+          if ($LASTEXITCODE -ne 0) { throw "Symbol staging cleanup failed." }
