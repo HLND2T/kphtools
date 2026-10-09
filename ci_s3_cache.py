@@ -17,7 +17,6 @@ import xml.etree.ElementTree as ET
 CACHE_DIRECTORY = ".ci-symbol-cache"
 PR_DIRECTORY = ".ci-pr-analysis"
 YAML_SUFFIXES = frozenset((".yaml", ".yml"))
-KERNEL_PDB_NAMES = ("ntkrnlmp.pdb", "ntoskrnl.pdb")
 
 
 def parse_endpoint(value: str) -> dict[str, str]:
@@ -197,11 +196,8 @@ def verify_pr_inputs(workspace: Path, arch: str, version: str) -> int:
     for binary in binaries:
         if not binary.is_file() or binary.stat().st_size == 0:
             raise ValueError(f"Invalid ntoskrnl.exe input: {binary}")
-        if not any(
-            (binary.parent / name).is_file() and (binary.parent / name).stat().st_size > 0
-            for name in KERNEL_PDB_NAMES
-        ):
-            raise ValueError(f"No kernel PDB input is available for {binary}")
+        # Match the original PR workflow: PDB is optional for the analysis
+        # pipeline, which can use retained IDA databases and its own fallbacks.
     return len(binaries)
 
 
@@ -237,7 +233,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "verify":
             count = verify_pr_inputs(workspace, args.arch, args.version)
-            print(f"Verified {count} kernel binary/PDB input(s) without YAML artifacts")
+            print(f"Verified {count} kernel binary input(s) without YAML artifacts")
             return 0
         if args.command == "prepare":
             outputs = prepare(

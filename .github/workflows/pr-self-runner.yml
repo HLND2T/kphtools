@@ -131,12 +131,12 @@ jobs:
           uv run --group ci --frozen python download_symbols.py "-xml=$env:PR_DOWNLOAD_XML" "-symboldir=$env:KPHTOOLS_SYMBOLDIR"
           if ($LASTEXITCODE -ne 0) { throw "PR input download failed." }
 
-      - name: Verify selected PE and PDB inputs are present without YAML
+      - name: Verify selected PE inputs are present without YAML artifacts
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_s3_cache.py verify --arch $env:PR_VALIDATION_ARCH --version $env:PR_VALIDATION_VERSION
           if ($LASTEXITCODE -ne 0) {
-            throw "PR inputs are unavailable or contain cached YAML. Seed the symbol bucket using https://github.com/HLND2T/kphtools/issues/42 if PE/PDB inputs are missing."
+            throw "PR inputs are unavailable or contain cached YAML. Seed the symbol bucket using https://github.com/HLND2T/kphtools/issues/42 if PE inputs are missing."
           }
 
       - name: Analyze symbols and dump YAML artifacts

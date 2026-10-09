@@ -47,11 +47,11 @@ Windows 自托管构建与 PR job 使用 S3-compatible bucket `actions-cache-kph
 
 不要按对象年龄统一过期所有分片：未变化的输入可能长期被 catalog 引用。后续垃圾回收必须保留仍被引用的对象。迁移不会删除旧 S3 快照。
 
-PR 验证仅下载 `amd64/ntoskrnl.exe.10.0.22621.3668` 的输入分片，再复制到隔离目录，并排除 YAML，确保重新执行分析。缺失的 PE/PDB 根据上游 XML 的精确选择下载；上游已移除此版本时使用 [`.github/pr-kernel.xml`](.github/pr-kernel.xml) 保留的下载元数据。完整输入不可用时验证失败。PR 结果不更新共享 catalog。两个 job 的 uv 缓存均使用固定 SHA 的 `hzqst/setup-uv` S3 backend。
+PR 验证仅下载 `amd64/ntoskrnl.exe.10.0.22621.3668` 的输入分片，再复制到隔离目录，并排除 YAML，确保重新执行分析。缺失的 PE/PDB 根据上游 XML 的精确选择下载；上游已移除此版本时使用 [`.github/pr-kernel.xml`](.github/pr-kernel.xml) 保留的下载元数据。与原 workflow 一致，必须有非空 PE，独立 PDB 可选，分析流程可使用已有 IDA 数据库。验证必须生成新 YAML，实际分析报错时仍失败。PR 结果不更新共享 catalog。两个 job 的 uv 缓存均使用固定 SHA 的 `hzqst/setup-uv` S3 backend。
 
 生成数据位于标准 checkout 下的 `.ci-symbol-cache/` 和 `.ci-pr-analysis/`。PR 的 XML、YAML 和日志在清理前上传为诊断 artifact。每个 job 都在自己的 runner 上清理生成目录，包括正常报错的情况；checkout 和依赖文件保留到 uv 的 post-job 缓存保存结束。不再需要 PR 关闭时的清理 job 或按 PR 编号保留的工作区。runner 关机或被强制终止时仍需 runner 生命周期清理。迁移不会删除历史 `kphtools-pr-*` 目录。
 
-首次运行迁移后的 CI 前，请按 [issue #42](https://github.com/HLND2T/kphtools/issues/42)，在包含迁移代码的 checkout 中运行 `uv run --group ci --frozen python ci_symbol_cache.py seed --symbols <实际-symbols-目录> --repository HLND2T/kphtools --platform Windows`。命令保留源数据，每次仅生成一个组件归档，重试复用已上传对象，全部分片成功后才发布 catalog。已有非空 catalog 时需要 `--merge`，仅在源数据具有权威性时使用。固定 PR 内核版本的 PE/PDB 在 2026-10-09 检查时从 Microsoft Symbol Server 返回 404，预热必须包含两者。uv 由 CI 中的 `setup-uv` 单独预热。
+首次运行迁移后的 CI 前，请按 [issue #42](https://github.com/HLND2T/kphtools/issues/42)，在包含迁移代码的 checkout 中运行 `uv run --group ci --frozen python ci_symbol_cache.py seed --symbols <实际-symbols-目录> --repository HLND2T/kphtools --platform Windows`。命令保留源数据，每次仅生成一个组件归档，重试复用已上传对象，全部分片成功后才发布 catalog。已有非空 catalog 时需要 `--merge`，仅在源数据具有权威性时使用。固定 PR 内核版本的 PE/PDB 在 2026-10-09 检查时从 Microsoft Symbol Server 返回 404，请保留现有 PE 和 IDA 数据库，有 PDB 时一并预热。uv 由 CI 中的 `setup-uv` 单独预热。
 
 ## 文档
 

@@ -205,17 +205,30 @@ class TestPrInputs(WorkspaceTestCase):
         (symbols / "amd64" / f"ntoskrnl.exe.{self.version}" / "abc/ntoskrnl.exe").write_text("changed")
         self.assertEqual("input", (source / "ntoskrnl.exe").read_text())
 
-    def test_empty_cache_can_bootstrap_then_verification_requires_pe_and_pdb(self):
+    def test_existing_ida_inputs_without_pdb_can_be_reanalyzed(self):
+        cache = Path(self.layout()["cache-root"])
+        source = cache / "symbols/amd64" / f"ntoskrnl.exe.{self.version}" / "abc"
+        source.mkdir(parents=True)
+        for name in ("ntoskrnl.exe", "ntoskrnl.exe.i64", "Offset.yaml"):
+            (source / name).write_text("input")
+        result = isolate_pr_inputs(self.workspace, self.make_xml(), "amd64", self.version)
+        self.assertEqual(1, verify_pr_inputs(self.workspace, "amd64", self.version))
+        self.assertEqual(
+            ["ntoskrnl.exe", "ntoskrnl.exe.i64"],
+            sorted(path.name for path in Path(result["symbols-path"]).rglob("*") if path.is_file()),
+        )
+
+    def test_empty_cache_can_bootstrap_then_verification_requires_nonempty_pe_without_yaml(self):
         self.layout()
         result = isolate_pr_inputs(self.workspace, self.make_xml(), "amd64", self.version)
         with self.assertRaisesRegex(ValueError, "ntoskrnl.exe"):
             verify_pr_inputs(self.workspace, "amd64", self.version)
         binary = Path(result["symbols-path"]) / "amd64" / f"ntoskrnl.exe.{self.version}" / "abc/ntoskrnl.exe"
         binary.parent.mkdir(parents=True)
-        binary.write_text("PE")
-        with self.assertRaisesRegex(ValueError, "PDB"):
+        binary.touch()
+        with self.assertRaisesRegex(ValueError, "Invalid ntoskrnl.exe"):
             verify_pr_inputs(self.workspace, "amd64", self.version)
-        binary.with_name("ntkrnlmp.pdb").write_text("PDB")
+        binary.write_text("PE")
         self.assertEqual(1, verify_pr_inputs(self.workspace, "amd64", self.version))
         binary.with_name("Offset.yaml").write_text("stale")
         with self.assertRaisesRegex(ValueError, "YAML"):
