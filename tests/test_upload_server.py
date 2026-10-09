@@ -546,6 +546,7 @@ class TestCodeSigningCertificateBundle(unittest.TestCase):
     def test_loader_reports_missing_file_without_certificate_content(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             missing_path = Path(temp_dir) / "missing.pem"
+            resolved_missing_path = missing_path.resolve()
             with (
                 patch.object(
                     upload_server,
@@ -559,7 +560,7 @@ class TestCodeSigningCertificateBundle(unittest.TestCase):
             ):
                 upload_server.load_windows_code_signing_ca_bundle()
 
-        self.assertIn(str(missing_path), str(error_context.exception))
+        self.assertIn(str(resolved_missing_path), str(error_context.exception))
 
     def test_parser_deduplicates_certificates_by_der_fingerprint(self):
         chain = make_test_chain()

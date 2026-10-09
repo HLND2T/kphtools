@@ -223,8 +223,8 @@ class TestGenerateReferenceYamlContext(unittest.TestCase):
 
             self.assertEqual("amd64", context["arch"])
             self.assertEqual("ntoskrnl", context["module"])
-            self.assertEqual(binary_dir, context["binary_dir"])
-            self.assertEqual(binary_dir / "ntoskrnl.exe", context["binary_path"])
+            self.assertEqual(binary_dir.resolve(), context["binary_dir"])
+            self.assertEqual((binary_dir / "ntoskrnl.exe").resolve(), context["binary_path"])
 
     def test_match_module_spec_falls_back_to_version_dir_name(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
