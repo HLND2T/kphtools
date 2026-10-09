@@ -31,6 +31,14 @@ symbols/<arch>/<file>.<version>/<sha256>/
 
 All four scripts use `symbols` under the current working directory by default. Set `KPHTOOLS_SYMBOLDIR` to override that directory; the environment variable takes precedence over `-symboldir`.
 
+## Nightly releases
+
+The build workflow runs daily at **03:17 Singapore time (19:17 UTC)** from the default branch, `main`. It can also be started manually through **Build On Self Runner → Run workflow**; manual nightly publication is restricted to the default branch.
+
+Download [`kphdyn.xml`](https://github.com/HLND2T/kphtools/releases/download/nightly/kphdyn.xml) from the fixed [`nightly` prerelease](https://github.com/HLND2T/kphtools/releases/tag/nightly). The first run creates the release. Later runs compare the generated XML with that release's attachment and update the release, attachment, and tag only when XML data changes. The tag then points to the source commit used for the build.
+
+Comparison ignores indentation, line endings, comments, and attribute order. Element order, field IDs, text, and all attribute values remain significant. If the comparison or download fails, publication stops. Unchanged XML skips publication while symbol synchronization still runs. Regular tag releases retain their existing behavior, and the nightly prerelease does not replace the latest stable release.
+
 ## Documentation
 
 - [Requirements and environment setup](docs/en/requirements.md)
