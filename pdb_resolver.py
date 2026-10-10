@@ -4,6 +4,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from llvm_tools import LlvmToolNotFoundError, resolve_llvm_tool
+
 
 PUBLIC_RE = re.compile(r"^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}\s+([^\s]+)$", re.MULTILINE)
 TYPE_HEADER_RE = re.compile(r"^\s*([0-9A-Fa-fx]+)\s*\|\s*(LF_[A-Z0-9_]+)\b")
@@ -21,32 +23,27 @@ _LLVM_PDBUTIL_CACHE: dict[tuple[str, str, str], str] = {}
 def run_llvm_pdbutil(
     pdb_path: str | Path,
     mode: str,
-    pdbutil_path: str = "llvm-pdbutil",
+    pdbutil_path: str | None = None,
 ) -> str:
+    pdbutil_path = resolve_llvm_tool("llvm-pdbutil", pdbutil_path)
     cache_key = (str(pdb_path), mode, pdbutil_path)
     cached_output = _LLVM_PDBUTIL_CACHE.get(cache_key)
     if cached_output is not None:
         return cached_output
 
     cmd = [pdbutil_path, "dump", mode, str(pdb_path)]
-    if mode == "-section-headers":
+    try:
         result = subprocess.run(
             cmd,
             capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
             check=True,
             timeout=LLVM_PDBUTIL_TIMEOUT_SECONDS,
         )
-        output = result.stdout.decode(errors="replace")
-        _LLVM_PDBUTIL_CACHE[cache_key] = output
-        return output
-
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        check=True,
-        timeout=LLVM_PDBUTIL_TIMEOUT_SECONDS,
-    )
+    except FileNotFoundError as exc:
+        raise LlvmToolNotFoundError("llvm-pdbutil", f"cannot launch {pdbutil_path!r}") from exc
     _LLVM_PDBUTIL_CACHE[cache_key] = result.stdout
     return result.stdout
 
@@ -389,7 +386,7 @@ def resolve_struct_symbol(
     pdb_path: str | Path,
     symbol_expr: str,
     bits: bool = False,
-    pdbutil_path: str = "llvm-pdbutil",
+    pdbutil_path: str | None = None,
 ) -> dict[str, int | str]:
     try:
         return resolve_struct_symbol_from_text(
@@ -397,14 +394,14 @@ def resolve_struct_symbol(
             symbol_expr,
             bits=bits,
         )
-    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         raise KeyError(symbol_expr) from exc
 
 
 def resolve_public_symbol(
     pdb_path: str | Path,
     symbol_name: str,
-    pdbutil_path: str = "llvm-pdbutil",
+    pdbutil_path: str | None = None,
 ) -> dict[str, int | str]:
     try:
         publics_output = run_llvm_pdbutil(
@@ -412,7 +409,7 @@ def resolve_public_symbol(
             "-publics",
             pdbutil_path=pdbutil_path,
         )
-    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         raise KeyError(symbol_name) from exc
 
     try:
@@ -426,7 +423,7 @@ def resolve_public_symbol(
             "-section-headers",
             pdbutil_path=pdbutil_path,
         )
-    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         raise KeyError(symbol_name) from exc
 
     return resolve_public_symbol_from_text(publics_output, sections_output, symbol_name)

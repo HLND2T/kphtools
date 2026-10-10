@@ -4,22 +4,28 @@ import subprocess
 from collections.abc import Iterator
 from pathlib import Path
 
+from llvm_tools import LlvmToolNotFoundError, resolve_llvm_tool
+
 
 LLVM_READOBJ_TIMEOUT_SECONDS = 300
 
 
 def run_llvm_readobj_exports(
     binary_path: str | Path,
-    readobj_path: str = "llvm-readobj",
+    readobj_path: str | None = None,
 ) -> str:
+    readobj_path = resolve_llvm_tool("llvm-readobj", readobj_path)
     cmd = [readobj_path, "--coff-exports", str(binary_path)]
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        check=True,
-        timeout=LLVM_READOBJ_TIMEOUT_SECONDS,
-    )
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=LLVM_READOBJ_TIMEOUT_SECONDS,
+        )
+    except FileNotFoundError as exc:
+        raise LlvmToolNotFoundError("llvm-readobj", f"cannot launch {readobj_path!r}") from exc
     return result.stdout
 
 
@@ -74,14 +80,14 @@ def resolve_export_symbol_from_text(
 def resolve_export_symbol(
     binary_path: str | Path,
     symbol_name: str,
-    readobj_path: str = "llvm-readobj",
+    readobj_path: str | None = None,
 ) -> dict[str, int | str]:
     try:
         exports_output = run_llvm_readobj_exports(
             binary_path,
             readobj_path=readobj_path,
         )
-    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         raise KeyError(symbol_name) from exc
 
     return resolve_export_symbol_from_text(exports_output, symbol_name)

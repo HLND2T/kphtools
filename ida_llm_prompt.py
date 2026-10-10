@@ -151,7 +151,7 @@ def render_llm_decompile_blocks(
 def derive_module_name(binary_path: Any) -> str:
     if not binary_path:
         return ""
-    path = Path(str(binary_path))
+    path = Path(str(binary_path).replace("\\", "/"))
     candidates = [path.name, *reversed(path.parts)]
     for candidate in candidates:
         lowered = candidate.lower()

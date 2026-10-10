@@ -41,7 +41,7 @@ Comparison ignores indentation, line endings, comments, and attribute order. Ele
 
 ## Shared CI caches
 
-The Windows self-hosted build and PR jobs use the S3-compatible bucket `actions-cache-kphtools` for symbol shards and the uv dependency cache. Configure `S3_ENDPOINT_URL` (an HTTP(S) origin), `S3_ACCESS_KEY_ID`, and `S3_SECRET_ACCESS_KEY` in the `win64` environment. Provision the bucket with list/read/write access for these credentials; the clients do not create it. Every runner must be able to reach the endpoint, which must support conditional `PutObject` requests (`IfMatch` and `IfNoneMatch`). `PERSISTED_WORKSPACE` is no longer used by CI.
+The Windows/Linux self-hosted build and PR jobs use the S3-compatible bucket `actions-cache-kphtools` for symbol shards and the uv dependency cache. Configure `S3_ENDPOINT_URL` (an HTTP(S) origin), `S3_ACCESS_KEY_ID`, and `S3_SECRET_ACCESS_KEY` in the `win64` environment. Provision the bucket with list/read/write access for these credentials; the clients do not create it. Every runner must be able to reach the endpoint, which must support conditional `PutObject` requests (`IfMatch` and `IfNoneMatch`). `PERSISTED_WORKSPACE` is no longer used by CI.
 
 Symbols are sharded by `arch/binary.version/sha256`. Each shard has separate `inputs` (PE/PDB/IDA and other analysis files) and `results` (YAML) archives, compressed with zstd level 1. Builds restore the catalog and YAML first, and fetch inputs only when analysis needs them. Only changed components are uploaded. Immutable archive keys are scoped to this repository and runner OS; the small `catalog.json` is updated conditionally so concurrent producers cannot overwrite a newer catalog. Archives are checked for size, SHA-256, content identity, and safe paths. OSS synchronization retains its existing exclusions and downloads only uncached files.
 
@@ -56,6 +56,7 @@ Before the first migrated run, seed the bucket from the existing symbol store us
 ## Documentation
 
 - [Requirements and environment setup](docs/en/requirements.md)
+- [Linux/WSL validation and cross-platform runners](docs/en/linux.md)
 - [Download PE and PDB symbols](docs/en/download_symbols.md)
 - [Dump YAML artifacts](docs/en/dump_symbols.md)
 - [Generate reference YAML for `LLM_DECOMPILE`](docs/en/reference_yaml.md)

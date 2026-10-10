@@ -26,6 +26,7 @@ import argparse
 import asyncio
 import json
 import os
+import signal
 import socket
 import subprocess
 import time
@@ -81,6 +82,8 @@ SURVEY_CURRENT_IDB_PATH_PY_EVAL = (
 MCP_STARTUP_TIMEOUT = 1200
 MCP_SHUTDOWN_TIMEOUT = 10.0
 MCP_PROCESS_STOP_TIMEOUT = 5.0
+MCP_PROCESS_KILL_TIMEOUT = 1.0
+MCP_PROCESS_POLL_INTERVAL = 0.05
 IDALIB_QEXIT_TIMEOUT_SECONDS = 3
 _IS_WINDOWS = os.name == "nt"
 SUPPORTED_ARCHES = ("amd64", "arm64")
@@ -1072,14 +1075,50 @@ def start_idalib_mcp(
         str(binary_path),
     ]
     popen_kwargs: dict[str, Any] = {"text": True}
+    if not _IS_WINDOWS:
+        popen_kwargs["start_new_session"] = True
     if not debug:
         popen_kwargs["stdout"] = subprocess.DEVNULL
         popen_kwargs["stderr"] = subprocess.DEVNULL
     process = subprocess.Popen(cmd, **popen_kwargs)
-    if not _wait_for_port(host, port, timeout=MCP_STARTUP_TIMEOUT):
+    if not _IS_WINDOWS:
+        # setsid makes this child's PID the group ID, even after the leader exits.
+        process._kphtools_pgid = process.pid
+    try:
+        if not _wait_for_port(host, port, timeout=MCP_STARTUP_TIMEOUT):
+            raise RuntimeError(f"idalib-mcp failed to start for {binary_path}")
+    except BaseException:
         stop_idalib_mcp_process(process, debug=debug)
-        raise RuntimeError(f"idalib-mcp failed to start for {binary_path}")
+        raise
     return process
+
+
+def _stop_posix_mcp_group(process: Any, pgid: int, timeout: float) -> bool:
+    def wait_for_group(seconds: float) -> bool:
+        deadline = time.monotonic() + seconds
+        while True:
+            process.poll()  # Reap the leader before probing its group.
+            try:
+                os.killpg(pgid, 0)
+            except ProcessLookupError:
+                process.wait(timeout=max(0.1, seconds))
+                process._kphtools_pgid = None
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(MCP_PROCESS_POLL_INTERVAL)
+
+    for sig, grace in (
+        (signal.SIGTERM, max(0.1, timeout)),
+        (signal.SIGKILL, MCP_PROCESS_KILL_TIMEOUT),
+    ):
+        try:
+            os.killpg(pgid, sig)
+        except ProcessLookupError:
+            pass
+        if wait_for_group(grace):
+            return True
+    return False
 
 
 def stop_idalib_mcp_process(
@@ -1089,7 +1128,20 @@ def stop_idalib_mcp_process(
     timeout: float = MCP_PROCESS_STOP_TIMEOUT,
 ) -> bool:
     """Stop an owned idalib-mcp process and its descendants."""
-    if process is None or process.poll() is not None:
+    if process is None:
+        return True
+
+    pgid = getattr(process, "_kphtools_pgid", None)
+    if not _IS_WINDOWS and type(pgid) is int and pgid > 0:
+        try:
+            stopped = _stop_posix_mcp_group(process, pgid, timeout)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            print(f"Failed to stop owned MCP process group {pgid}: {exc}")
+            return False
+        if not stopped:
+            print(f"Owned MCP process group {pgid} remained after SIGKILL")
+        return stopped
+    if process.poll() is not None:
         return True
 
     pid = getattr(process, "pid", None)
@@ -1130,7 +1182,7 @@ def stop_idalib_mcp_process(
         except Exception:
             pass
         try:
-            process.wait(timeout=1)
+            process.wait(timeout=MCP_PROCESS_KILL_TIMEOUT)
             return True
         except (OSError, subprocess.TimeoutExpired):
             return process.poll() is not None
@@ -1189,7 +1241,7 @@ class LazyIdalibSession:
             await self._close_handles()
         except BaseException:
             pass
-        if process is not None and process.poll() is None:
+        if process is not None:
             await asyncio.to_thread(
                 stop_idalib_mcp_process,
                 process,
@@ -1240,14 +1292,18 @@ class LazyIdalibSession:
     async def _stop_for_recovery(self) -> bool:
         process = self.process
         self.process = None
-        await self._close_handles()
-        if process is not None and process.poll() is None:
-            await asyncio.to_thread(
-                stop_idalib_mcp_process,
-                process,
-                debug=self.debug,
-            )
-        return await self._wait_for_port_release()
+        stopped = True
+        try:
+            await self._close_handles()
+        finally:
+            if process is not None:
+                stopped = await asyncio.to_thread(
+                    stop_idalib_mcp_process,
+                    process,
+                    debug=self.debug,
+                )
+            released = await self._wait_for_port_release()
+        return stopped and released
 
     async def _restart_once(self) -> bool:
         if not self.recovery_budget.consume_restart():
@@ -1386,19 +1442,19 @@ class LazyIdalibSession:
                         pass
 
             await self._close_handles()
-            if process.poll() is None:
-                await asyncio.to_thread(
-                    stop_idalib_mcp_process,
-                    process,
-                    debug=self.debug,
-                )
-            return await self._wait_for_port_release()
+            stopped = await asyncio.to_thread(
+                stop_idalib_mcp_process,
+                process,
+                debug=self.debug,
+            )
+            released = await self._wait_for_port_release()
+            return stopped and released
         except asyncio.CancelledError:
             try:
                 await self._close_handles()
             except BaseException:
                 pass
-            if process is not None and process.poll() is None:
+            if process is not None:
                 await asyncio.to_thread(
                     stop_idalib_mcp_process,
                     process,

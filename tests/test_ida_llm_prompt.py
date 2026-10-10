@@ -51,6 +51,8 @@ class TestIdaLlmPrompt(unittest.TestCase):
             derive_module_name(r"D:\symbols\amd64\ntoskrnl.exe.10.0.1.2\hash"),
         )
         self.assertEqual("ntoskrnl", derive_module_name(r"D:\bin\ntoskrnl.exe"))
+        self.assertEqual("ntoskrnl", derive_module_name("/mnt/d/symbols/amd64/ntoskrnl.exe.10.0.1.2/hash"))
+        self.assertEqual("ntoskrnl", derive_module_name("/home/runner/ntoskrnl.exe"))
 
 if __name__ == "__main__":
     unittest.main()
