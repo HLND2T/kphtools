@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -10,6 +11,16 @@ ENTRY_NAME = ".ci-cache-entry.json"
 SCHEMA_VERSION = 1
 ARCHES = ("amd64", "arm64")
 SHA256_PATTERN = r"[0-9a-f]{64}"
+
+
+def cache_namespace(repository: str, platform: str) -> str:
+    """Use one symbol store for every runner OS, retaining the platform argument."""
+    if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*/[A-Za-z0-9_.-]+", repository):
+        raise ValueError("Invalid repository")
+    if repository.split("/")[-1] in (".", "..") or platform not in ("Windows", "Linux", "macOS"):
+        raise ValueError("Invalid cache identity")
+    digest = hashlib.sha256(repository.lower().encode()).hexdigest()
+    return f"kphtools-symbols-v2/{digest}/shared"
 
 
 def parse_shard_id(value: str) -> dict[str, str]:

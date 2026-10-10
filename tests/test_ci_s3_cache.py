@@ -61,6 +61,16 @@ class WorkspaceTestCase(unittest.TestCase):
 
 
 class TestCacheLayout(WorkspaceTestCase):
+    def test_staging_and_symbol_store_share_the_same_namespace_on_every_platform(self):
+        from ci_symbol_cache import cache_namespace
+
+        expected = cache_namespace("HLND2T/kphtools", "Windows")
+        for platform in ("Windows", "Linux", "macOS"):
+            with self.subTest(platform=platform):
+                layout = prepare(self.workspace, "HLND2T/kphtools", platform, "123", "1")
+                self.assertEqual(expected, layout["namespace"])
+                self.assertEqual(expected, cache_namespace("HLND2T/kphtools", platform))
+
     def test_fresh_staging_preserves_checkout_and_repository_namespace(self):
         sentinel = self.workspace / "keep"
         sentinel.write_text("keep")

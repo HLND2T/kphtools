@@ -82,6 +82,7 @@ class TestShardedSymbolCache(unittest.TestCase):
         (path / "ntoskrnl.exe").write_bytes(pe)
         (path / "ntkrnlmp.pdb").write_bytes(b"PDB data")
         (path / "ntoskrnl.exe.i64").write_bytes(b"IDA data")
+        (path / "ntoskrnl.exe.idb").write_bytes(b"IDA 32-bit data")
         (path / "Offset.yaml").write_text("offset: 4\n", encoding="utf-8")
         return path
 
@@ -90,6 +91,140 @@ class TestShardedSymbolCache(unittest.TestCase):
             source or self.source, self.store, self.namespace, base=base,
             metadata_reader=lambda _path: {"timestamp": "0x1234", "size": "0x1000"},
         )
+
+    def legacy_namespace(self, platform):
+        return self.namespace.rsplit("/", 1)[0] + "/" + platform.lower()
+
+    def publish_legacy(self, platform, source=None):
+        return publish(
+            source or self.source, self.store, self.legacy_namespace(platform),
+            metadata_reader=lambda _path: {"timestamp": "0x1234", "size": "0x1000"},
+        )
+
+    def test_symbol_namespace_is_shared_by_runner_platforms_and_isolates_repositories(self):
+        for platform in ("Windows", "Linux", "macOS"):
+            with self.subTest(platform=platform):
+                self.assertEqual(self.namespace, cache_namespace("hlnd2t/KPHTOOLS", platform))
+        self.assertNotEqual(self.namespace, cache_namespace("Owner/Other", "Linux"))
+        for repository, platform in (("../other", "Linux"), ("Owner/Other", "unknown")):
+            with self.subTest(repository=repository, platform=platform), self.assertRaises(ValueError):
+                cache_namespace(repository, platform)
+
+    def test_windows_publication_restores_all_components_on_linux_and_macos(self):
+        self.publish()
+        writes = list(self.store.writes)
+        for platform in ("Linux", "macOS"):
+            with self.subTest(platform=platform):
+                namespace = cache_namespace("HLND2T/kphtools", platform)
+                destination = self.root / platform
+                base = restore(destination, self.store, namespace, mode="build")
+                restored = destination / self.first.relative_to(self.source)
+                self.assertEqual("offset: 4\n", (restored / "Offset.yaml").read_text())
+                self.assertTrue(ensure_binary_inputs(restored, store=self.store))
+                for name in ("ntoskrnl.exe", "ntkrnlmp.pdb", "ntoskrnl.exe.idb", "ntoskrnl.exe.i64"):
+                    self.assertEqual((self.first / name).read_bytes(), (restored / name).read_bytes())
+                publish(destination, self.store, namespace, base=base,
+                        metadata_reader=lambda _path: {"timestamp": "0x1234", "size": "0x1000"})
+                self.assertEqual(writes, self.store.writes)
+
+    def test_linux_result_update_is_restored_by_windows(self):
+        self.publish()
+        linux_namespace = cache_namespace("HLND2T/kphtools", "Linux")
+        linux = self.root / "linux"
+        base = restore(linux, self.store, linux_namespace, mode="build")
+        (linux / self.first.relative_to(self.source) / "Offset.yaml").write_text("offset: 99\n")
+        publish(linux, self.store, linux_namespace, base=base)
+        windows = self.root / "windows"
+        restore(windows, self.store, self.namespace, mode="build")
+        self.assertEqual("offset: 99\n", (windows / self.first.relative_to(self.source) / "Offset.yaml").read_text())
+
+    def test_legacy_windows_cache_restores_on_linux_without_writing_or_reuploading(self):
+        self.publish_legacy("Windows")
+        old_objects = dict(self.store.objects)
+        old_writes = list(self.store.writes)
+        destination = self.root / "linux"
+        namespace = cache_namespace("HLND2T/kphtools", "Linux")
+        base = restore(destination, self.store, namespace, mode="build")
+        restored = destination / self.first.relative_to(self.source)
+        self.assertTrue((restored / "Offset.yaml").is_file())
+        self.assertTrue(ensure_binary_inputs(restored, store=self.store))
+        self.assertEqual(b"IDA data", (restored / "ntoskrnl.exe.i64").read_bytes())
+        self.assertEqual(old_objects, self.store.objects)
+        self.assertEqual(old_writes, self.store.writes)
+        self.publish(destination, base)
+        self.assertEqual([self.namespace + "/catalog.json"], self.store.writes[len(old_writes):])
+        self.assertTrue(all(self.store.objects[key] == value for key, value in old_objects.items()))
+        before = list(self.store.writes)
+        self.publish(destination)
+        self.assertEqual(before, self.store.writes)
+
+    def test_pr_restores_legacy_inputs_from_another_platform_without_results(self):
+        self.publish_legacy("Windows")
+        destination = self.root / "linux-pr"
+        restore(destination, self.store, cache_namespace("HLND2T/kphtools", "Linux"),
+                mode="pr", arch="amd64", version="10.0.1.1")
+        restored = destination / self.first.relative_to(self.source)
+        for name in ("ntoskrnl.exe", "ntkrnlmp.pdb", "ntoskrnl.exe.idb", "ntoskrnl.exe.i64"):
+            self.assertEqual((self.first / name).read_bytes(), (restored / name).read_bytes())
+        self.assertFalse((restored / "Offset.yaml").exists())
+        self.assertFalse((restored / ENTRY_NAME).exists())
+
+    def test_legacy_catalog_union_prefers_windows_and_keeps_other_platform_only_shards(self):
+        self.publish_legacy("Windows")
+        (self.first / "Offset.yaml").write_text("offset: 8\n")
+        third = self.make_binary("10.0.3.3", b"Linux-only PE")
+        self.publish_legacy("Linux")
+        destination = self.root / "merged"
+        base = restore(destination, self.store, self.namespace, mode="build")
+        self.assertEqual(3, len(base["catalog"]["shards"]))
+        self.assertEqual("offset: 4\n", (destination / self.first.relative_to(self.source) / "Offset.yaml").read_text())
+        self.assertTrue((destination / third.relative_to(self.source) / "Offset.yaml").is_file())
+        self.publish(destination, base)
+        shared = json.loads(self.store.objects[self.namespace + "/catalog.json"])
+        self.assertEqual(base["catalog"], shared)
+
+    def test_shared_results_take_precedence_over_legacy_results(self):
+        self.publish_legacy("Windows")
+        (self.first / "Offset.yaml").write_text("offset: 99\n")
+        self.publish()
+        destination = self.root / "shared"
+        restore(destination, self.store, self.namespace, mode="build")
+        self.assertEqual("offset: 99\n", (destination / self.first.relative_to(self.source) / "Offset.yaml").read_text())
+
+    def test_late_legacy_shards_are_imported_without_reverting_shared_results(self):
+        self.publish()
+        (self.first / "Offset.yaml").write_text("offset: 8\n")
+        third = self.make_binary("10.0.3.3", b"late legacy PE")
+        self.publish_legacy("Linux")
+        destination = self.root / "merged"
+        base = restore(destination, self.store, self.namespace, mode="build")
+        self.assertEqual("offset: 4\n", (destination / self.first.relative_to(self.source) / "Offset.yaml").read_text())
+        self.assertTrue((destination / third.relative_to(self.source) / "Offset.yaml").is_file())
+        before = len(self.store.writes)
+        self.publish(destination, base)
+        self.assertEqual([self.namespace + "/catalog.json"], self.store.writes[before:])
+
+    def test_shared_catalog_rejects_cross_repository_legacy_references(self):
+        catalog = self.publish()
+        catalog_key = self.namespace + "/catalog.json"
+        shard = next(iter(catalog["shards"].values()))
+        foreign = cache_namespace("Owner/Other", "Windows").rsplit("/", 1)[0] + "/windows"
+        shard["inputs"]["key"] = shard["inputs"]["key"].replace(self.namespace, foreign)
+        self.store.objects[catalog_key] = json.dumps(catalog).encode()
+        with self.assertRaisesRegex(ValueError, "namespace"):
+            restore(self.root / "unsafe", self.store, self.namespace, mode="build")
+
+    def test_concurrent_migration_does_not_overwrite_shared_catalog(self):
+        self.publish_legacy("Windows")
+        first = self.root / "first"
+        second = self.root / "second"
+        first_base = restore(first, self.store, self.namespace, mode="build")
+        second_base = restore(second, self.store, self.namespace, mode="build")
+        self.publish(first, first_base)
+        previous = self.store.objects[self.namespace + "/catalog.json"]
+        with self.assertRaises(CatalogConflict):
+            self.publish(second, second_base)
+        self.assertEqual(previous, self.store.objects[self.namespace + "/catalog.json"])
 
     def test_publication_is_content_addressed_and_timestamp_changes_do_not_upload(self):
         self.publish()

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import copy
-import hashlib
 import os
 from pathlib import Path
 import re
@@ -12,6 +11,8 @@ import shutil
 import stat
 from urllib.parse import urlsplit
 import xml.etree.ElementTree as ET
+
+from symbol_cache_metadata import cache_namespace
 
 
 CACHE_DIRECTORY = ".ci-symbol-cache"
@@ -108,26 +109,19 @@ def cleanup(workspace: Path) -> None:
 def prepare(
     workspace: Path, repository: str, platform: str, run_id: str, attempt: str,
 ) -> dict[str, str]:
-    if (
-        not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*/[A-Za-z0-9_.-]+", repository)
-        or repository.split("/")[-1] in (".", "..")
-    ):
-        raise ValueError("Invalid repository")
-    if platform not in ("Windows", "Linux", "macOS"):
-        raise ValueError("Invalid runner platform")
+    namespace = cache_namespace(repository, platform)
     if not re.fullmatch(r"[1-9][0-9]*", run_id) or not re.fullmatch(r"[1-9][0-9]*", attempt):
         raise ValueError("Invalid run identity")
     cache, analysis = _managed_paths(workspace)
     cleanup(workspace)
     (cache / "symbols").mkdir(parents=True)
     analysis.mkdir()
-    repository_id = hashlib.sha256(repository.lower().encode()).hexdigest()
     return {
         "cache-path": CACHE_DIRECTORY,
         "cache-root": str(cache),
         "analysis-root": str(analysis),
         "symbols-path": str(cache / "symbols"),
-        "namespace": f"kphtools-symbols-v2/{repository_id}/{platform.lower()}",
+        "namespace": namespace,
     }
 
 

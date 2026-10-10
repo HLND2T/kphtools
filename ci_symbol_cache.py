@@ -16,11 +16,12 @@ import tempfile
 from ci_s3_cache import parse_endpoint, validate_tree, YAML_SUFFIXES
 from symbol_cache_metadata import (
     ARCHES, ENTRY_NAME, SCHEMA_VERSION, SHA256_PATTERN,
-    load_cached_entry, parse_shard_id, validate_metadata,
+    cache_namespace, load_cached_entry, parse_shard_id, validate_metadata,
 )
 
 BUCKET = "actions-cache-kphtools"
 COMPONENTS = ("inputs", "results")
+LEGACY_PLATFORMS = ("windows", "linux", "macos")
 COPY_BUFFER_SIZE = 1024 * 1024
 ZSTD_LEVEL = 1
 MAX_COMPRESSION_THREADS = 4
@@ -30,18 +31,16 @@ class CatalogConflict(RuntimeError):
     """Another producer updated the catalog after this run's restore."""
 
 
-def cache_namespace(repository: str, platform: str) -> str:
-    if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*/[A-Za-z0-9_.-]+", repository):
-        raise ValueError("Invalid repository")
-    if repository.split("/")[-1] in (".", "..") or platform not in ("Windows", "Linux", "macOS"):
-        raise ValueError("Invalid cache identity")
-    digest = hashlib.sha256(repository.lower().encode()).hexdigest()
-    return f"kphtools-symbols-v2/{digest}/{platform.lower()}"
-
-
 def _validate_namespace(value: str) -> None:
-    if not re.fullmatch(r"kphtools-symbols-v2/[0-9a-f]{64}/(?:windows|linux|macos)", value):
+    if not re.fullmatch(r"kphtools-symbols-v2/[0-9a-f]{64}/(?:shared|windows|linux|macos)", value):
         raise ValueError("Invalid cache namespace")
+
+
+def _legacy_namespaces(namespace: str) -> tuple[str, ...]:
+    if not namespace.endswith("/shared"):
+        return ()
+    repository_prefix = namespace.rsplit("/", 1)[0]
+    return tuple(f"{repository_prefix}/{platform}" for platform in LEGACY_PLATFORMS)
 
 
 def _json_bytes(value: dict) -> bytes:
@@ -141,8 +140,12 @@ def _validate_ref(namespace: str, shard_id: str, component: str, ref: dict) -> N
     for name in ("digest", "archive_sha256"):
         if not isinstance(ref.get(name), str) or not re.fullmatch(SHA256_PATTERN, ref[name]):
             raise ValueError(f"Invalid shard {name}")
-    expected = f"{namespace}/shards/{shard_id}/{component}/{ref['digest']}.tar.zst"
-    if ref.get("key") != expected:
+    # Shared catalogs can retain immutable objects from this repository's old stores.
+    allowed_keys = (
+        f"{source}/shards/{shard_id}/{component}/{ref['digest']}.tar.zst"
+        for source in (namespace, *_legacy_namespaces(namespace))
+    )
+    if ref.get("key") not in allowed_keys:
         raise ValueError("Shard object escapes the expected namespace")
     for name in ("archive_size", "unpacked_size", "file_count"):
         if type(ref.get(name)) is not int or ref[name] < (1 if name == "archive_size" else 0):
@@ -166,10 +169,23 @@ def _validate_catalog(catalog: dict, namespace: str) -> dict:
 
 
 def _read_catalog(store, namespace: str) -> dict:
+    _validate_namespace(namespace)
     value, etag = store.get_catalog(namespace + "/catalog.json")
     if value is None:
         value = {"schema": SCHEMA_VERSION, "namespace": namespace, "shards": {}}
-    return {"catalog": _validate_catalog(value, namespace), "etag": etag}
+    catalog = copy.deepcopy(_validate_catalog(value, namespace))
+    imported = 0
+    # Prefer shared data, then the original Windows seed, then other legacy stores.
+    # Read-only restores also work before a build publishes the shared catalog.
+    for legacy_namespace in _legacy_namespaces(namespace):
+        legacy = _read_catalog(store, legacy_namespace)["catalog"]
+        for shard_id, shard in legacy["shards"].items():
+            if shard_id not in catalog["shards"]:
+                catalog["shards"][shard_id] = shard
+                imported += 1
+    if imported:
+        print(f"Using {imported} legacy symbol shard(s) in {namespace}", flush=True)
+    return {"catalog": catalog, "etag": etag, "needs_publication": catalog != value}
 
 
 def _component_files(root: Path, component: str) -> list[Path]:
@@ -396,9 +412,10 @@ def publish(symbols: Path, store, namespace: str, *, base=None, metadata_reader=
             )
         catalog["shards"][shard_id] = {"metadata": metadata, "inputs": input_ref, "results": results}
     _validate_catalog(catalog, namespace)
-    if catalog != previous:
+    changed = catalog != previous or base.get("needs_publication", False)
+    if changed:
         store.put_catalog(namespace + "/catalog.json", catalog, base["etag"])
-    print(f"Catalog contains {len(catalog['shards'])} binary shard(s); changed={catalog != previous}", flush=True)
+    print(f"Catalog contains {len(catalog['shards'])} binary shard(s); changed={changed}", flush=True)
     return catalog
 
 
@@ -447,7 +464,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--symbols", type=Path, default=None)
     parser.add_argument("--xml", type=Path)
     parser.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY", "HLND2T/kphtools"))
-    parser.add_argument("--platform", default=os.environ.get("RUNNER_OS", "Windows"))
+    parser.add_argument("--platform", default=os.environ.get("RUNNER_OS", "Windows"),
+                        help="Runner OS (accepted for compatibility; symbols use a shared cache)")
     parser.add_argument("--arch")
     parser.add_argument("--version")
     parser.add_argument("--merge", action="store_true")
