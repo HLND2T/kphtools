@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   validate:
@@ -33,13 +34,36 @@ jobs:
       KPHTOOLS_LLM_TEMPERATURE: ${{ secrets.KPHTOOLS_LLM_TEMPERATURE }}
 
     steps:
+      - name: Check current PR state before checkout
+        id: pr_state
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pullRequest } = await github.rest.pulls.get({
+              ...context.repo,
+              pull_number: context.payload.pull_request.number,
+            });
+            const shouldValidate = pullRequest.state === 'open' && !pullRequest.merged;
+            core.setOutput('should_validate', String(shouldValidate));
+            if (!shouldValidate) {
+              const state = pullRequest.merged ? 'merged' : pullRequest.state;
+              const message = `PR #${pullRequest.number} is ${state}; skipping queued validation.`;
+              core.info(message);
+              await core.summary
+                .addHeading('PR self-runner validation skipped')
+                .addRaw(message)
+                .write();
+            }
+
       - name: Checkout PR merge ref
+        if: steps.pr_state.outputs.should_validate == 'true'
         uses: actions/checkout@v4
         with:
           submodules: recursive
           persist-credentials: false
 
       - name: Set up uv with shared S3 cache
+        if: steps.pr_state.outputs.should_validate == 'true'
         uses: hzqst/setup-uv@ed37cb7af6cd89cb8e2ea2f20674ba1d05dc7b35
         with:
           enable-cache: true
@@ -51,7 +75,7 @@ jobs:
           S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
 
       - name: Sync Python dependencies
-        if: runner.os == 'Windows'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Windows')
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -59,14 +83,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "uv sync failed." }
 
       - name: Sync Python dependencies (Linux)
-        if: runner.os == 'Linux'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Linux')
         shell: bash
         run: |
           set -euo pipefail
           uv sync --group ci --frozen
 
       - name: Run complete unittest suite
-        if: runner.os == 'Windows'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Windows')
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -74,7 +98,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Complete unittest suite failed." }
 
       - name: Run complete unittest suite (Linux)
-        if: runner.os == 'Linux'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Linux')
         shell: bash
         run: |
           set -euo pipefail
@@ -82,7 +106,7 @@ jobs:
 
       - name: Prepare disposable symbol staging
         id: s3_layout_windows
-        if: runner.os == 'Windows'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Windows')
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_s3_cache.py prepare
@@ -90,14 +114,14 @@ jobs:
 
       - name: Prepare disposable symbol staging (Linux)
         id: s3_layout_linux
-        if: runner.os == 'Linux'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Linux')
         shell: bash
         run: |
           set -euo pipefail
           uv run --group ci --frozen python ci_s3_cache.py prepare
 
       - name: Restore only selected PR binary input shards
-        if: runner.os == 'Windows'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Windows')
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_symbol_cache.py restore-pr `
@@ -105,7 +129,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Selected PR input shard restore failed." }
 
       - name: Restore only selected PR binary input shards (Linux)
-        if: runner.os == 'Linux'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Linux')
         shell: bash
         run: |
           set -euo pipefail
@@ -113,21 +137,21 @@ jobs:
             --arch "$PR_VALIDATION_ARCH" --version "$PR_VALIDATION_VERSION"
 
       - name: Validate restored symbol paths
-        if: runner.os == 'Windows'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Windows')
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_s3_cache.py validate
           if ($LASTEXITCODE -ne 0) { throw "Unsafe restored symbol paths." }
 
       - name: Validate restored symbol paths (Linux)
-        if: runner.os == 'Linux'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Linux')
         shell: bash
         run: |
           set -euo pipefail
           uv run --group ci --frozen python ci_s3_cache.py validate
 
       - name: Download upstream kphdyn.xml
-        if: runner.os == 'Windows'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Windows')
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -156,7 +180,7 @@ jobs:
           "PR_INPUT_XML=$inputXml" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Download upstream kphdyn.xml (Linux)
-        if: runner.os == 'Linux'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Linux')
         shell: bash
         run: |
           set -euo pipefail
@@ -171,7 +195,7 @@ jobs:
 
       - name: Materialize isolated PR inputs without YAML artifacts
         id: pr_inputs_windows
-        if: runner.os == 'Windows'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Windows')
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -183,7 +207,7 @@ jobs:
 
       - name: Materialize isolated PR inputs without YAML artifacts (Linux)
         id: pr_inputs_linux
-        if: runner.os == 'Linux'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Linux')
         shell: bash
         run: |
           set -euo pipefail
@@ -193,7 +217,7 @@ jobs:
             --arch "$PR_VALIDATION_ARCH" --version "$PR_VALIDATION_VERSION"
 
       - name: Download missing selected PE and PDB inputs from MSDL
-        if: runner.os == 'Windows'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Windows')
         shell: pwsh
         env:
           PR_DOWNLOAD_XML: ${{ steps.pr_inputs_windows.outputs.download-xml }}
@@ -202,7 +226,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "PR input download failed." }
 
       - name: Download missing selected PE and PDB inputs from MSDL (Linux)
-        if: runner.os == 'Linux'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Linux')
         shell: bash
         env:
           PR_DOWNLOAD_XML: ${{ steps.pr_inputs_linux.outputs.download-xml }}
@@ -211,7 +235,7 @@ jobs:
           uv run --group ci --frozen python download_symbols.py "-xml=$PR_DOWNLOAD_XML" "-symboldir=$KPHTOOLS_SYMBOLDIR"
 
       - name: Verify selected PE inputs are present without YAML artifacts
-        if: runner.os == 'Windows'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Windows')
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_s3_cache.py verify --arch $env:PR_VALIDATION_ARCH --version $env:PR_VALIDATION_VERSION
@@ -220,14 +244,14 @@ jobs:
           }
 
       - name: Verify selected PE inputs are present without YAML artifacts (Linux)
-        if: runner.os == 'Linux'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Linux')
         shell: bash
         run: |
           set -euo pipefail
           uv run --group ci --frozen python ci_s3_cache.py verify --arch "$PR_VALIDATION_ARCH" --version "$PR_VALIDATION_VERSION"
 
       - name: Analyze symbols and dump YAML artifacts
-        if: runner.os == 'Windows'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Windows')
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -253,7 +277,7 @@ jobs:
             Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Analyze symbols and dump YAML artifacts (Linux)
-        if: runner.os == 'Linux'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Linux')
         shell: bash
         run: |
           set -euo pipefail
@@ -271,7 +295,7 @@ jobs:
           printf 'PR_GENERATED_YAML_COUNT=%s\n' "$yaml_count" >> "$GITHUB_ENV"
 
       - name: Update candidate kphdyn.xml from YAML artifacts
-        if: runner.os == 'Windows'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Windows')
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -304,7 +328,7 @@ jobs:
           "PR_CANDIDATE_XML=$candidateXml" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Update candidate kphdyn.xml from YAML artifacts (Linux)
-        if: runner.os == 'Linux'
+        if: steps.pr_state.outputs.should_validate == 'true' && (runner.os == 'Linux')
         shell: bash
         run: |
           set -euo pipefail
@@ -319,7 +343,7 @@ jobs:
           printf 'PR_CANDIDATE_XML=%s\n' "$candidate_xml" >> "$GITHUB_ENV"
 
       - name: Write validation summary
-        if: always() && runner.os == 'Windows'
+        if: steps.pr_state.outputs.should_validate == 'true' && (always() && runner.os == 'Windows')
         shell: pwsh
         run: |
           "## PR self-runner validation" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
@@ -337,7 +361,7 @@ jobs:
           }
 
       - name: Write validation summary (Linux)
-        if: always() && runner.os == 'Linux'
+        if: steps.pr_state.outputs.should_validate == 'true' && (always() && runner.os == 'Linux')
         shell: bash
         env:
           JOB_STATUS: ${{ job.status }}
@@ -357,7 +381,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload PR validation diagnostics
-        if: always() && (steps.s3_layout_windows.outcome == 'success' || steps.s3_layout_linux.outcome == 'success')
+        if: steps.pr_state.outputs.should_validate == 'true' && (always() && (steps.s3_layout_windows.outcome == 'success' || steps.s3_layout_linux.outcome == 'success'))
         uses: actions/upload-artifact@v4
         with:
           name: pr-validation-${{ github.event.pull_request.number }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -370,14 +394,14 @@ jobs:
           retention-days: 14
 
       - name: Clean disposable PR data on this runner
-        if: always() && runner.os == 'Windows' && steps.s3_layout_windows.outcome == 'success'
+        if: steps.pr_state.outputs.should_validate == 'true' && (always() && runner.os == 'Windows' && steps.s3_layout_windows.outcome == 'success')
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_s3_cache.py cleanup
           if ($LASTEXITCODE -ne 0) { throw "PR staging cleanup failed." }
 
       - name: Clean disposable PR data on this runner (Linux)
-        if: always() && runner.os == 'Linux' && steps.s3_layout_linux.outcome == 'success'
+        if: steps.pr_state.outputs.should_validate == 'true' && (always() && runner.os == 'Linux' && steps.s3_layout_linux.outcome == 'success')
         shell: bash
         run: |
           set -euo pipefail
