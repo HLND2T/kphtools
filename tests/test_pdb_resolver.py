@@ -1,4 +1,5 @@
 import subprocess
+import sys
 import unittest
 from unittest import mock
 
@@ -133,6 +134,9 @@ SECTION HEADER #26
 class TestPdbResolver(unittest.TestCase):
     def setUp(self) -> None:
         pdb_resolver._LLVM_PDBUTIL_CACHE.clear()
+        resolver = mock.patch("pdb_resolver.resolve_llvm_tool", return_value="llvm-pdbutil")
+        resolver.start()
+        self.addCleanup(resolver.stop)
 
     def test_run_llvm_pdbutil_reuses_cached_dump(self) -> None:
         completed_process = subprocess.CompletedProcess(
@@ -154,15 +158,11 @@ class TestPdbResolver(unittest.TestCase):
         self.assertEqual(1, run_mock.call_count)
 
     def test_run_llvm_pdbutil_decodes_section_headers_with_replace(self) -> None:
+        real_run = subprocess.run
         def fake_run(*args, **kwargs):
-            if kwargs.get("text"):
-                raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
-
-            return subprocess.CompletedProcess(
-                args=args[0],
-                returncode=0,
-                stdout=b"SECTION HEADER #1\n\xff\n",
-                stderr=b"\xfe",
+            return real_run(
+                [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'SECTION HEADER #1\\n\\xff\\n')"],
+                **kwargs,
             )
 
         with mock.patch("pdb_resolver.subprocess.run", side_effect=fake_run):

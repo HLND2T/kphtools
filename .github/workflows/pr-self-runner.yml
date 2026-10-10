@@ -14,7 +14,7 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.draft == false
     environment: win64
-    runs-on: [self-hosted, windows, x64]
+    runs-on: [self-hosted, cross-platform]
     timeout-minutes: 180
     env:
       UV_PYTHON: "3.12"
@@ -51,40 +51,83 @@ jobs:
           S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
 
       - name: Sync Python dependencies
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           uv sync --group ci --frozen
           if ($LASTEXITCODE -ne 0) { throw "uv sync failed." }
 
+      - name: Sync Python dependencies (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv sync --group ci --frozen
+
       - name: Run complete unittest suite
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           uv run --group ci --frozen python -m unittest discover -s tests -v
           if ($LASTEXITCODE -ne 0) { throw "Complete unittest suite failed." }
 
+      - name: Run complete unittest suite (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --group ci --frozen python -m unittest discover -s tests -v
+
       - name: Prepare disposable symbol staging
-        id: s3_layout
+        id: s3_layout_windows
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_s3_cache.py prepare
           if ($LASTEXITCODE -ne 0) { throw "S3 staging preparation failed." }
 
+      - name: Prepare disposable symbol staging (Linux)
+        id: s3_layout_linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --group ci --frozen python ci_s3_cache.py prepare
+
       - name: Restore only selected PR binary input shards
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_symbol_cache.py restore-pr `
             --arch $env:PR_VALIDATION_ARCH --version $env:PR_VALIDATION_VERSION
           if ($LASTEXITCODE -ne 0) { throw "Selected PR input shard restore failed." }
 
+      - name: Restore only selected PR binary input shards (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --group ci --frozen python ci_symbol_cache.py restore-pr \
+            --arch "$PR_VALIDATION_ARCH" --version "$PR_VALIDATION_VERSION"
+
       - name: Validate restored symbol paths
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_s3_cache.py validate
           if ($LASTEXITCODE -ne 0) { throw "Unsafe restored symbol paths." }
 
+      - name: Validate restored symbol paths (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --group ci --frozen python ci_s3_cache.py validate
+
       - name: Download upstream kphdyn.xml
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -112,8 +155,23 @@ jobs:
 
           "PR_INPUT_XML=$inputXml" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Download upstream kphdyn.xml (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$WORKSPACE"
+          input_xml="$CI_PR_ROOT/output/kphdyn.official.xml"
+          mkdir -p "$(dirname "$input_xml")"
+          curl --fail --location --show-error \
+            --output "$input_xml" \
+            https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml
+          uv run --group ci --frozen python -c 'import sys, xml.etree.ElementTree as ET; ET.parse(sys.argv[1])' "$input_xml"
+          printf 'PR_INPUT_XML=%s\n' "$input_xml" >> "$GITHUB_ENV"
+
       - name: Materialize isolated PR inputs without YAML artifacts
-        id: pr_inputs
+        id: pr_inputs_windows
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -123,15 +181,37 @@ jobs:
             --arch $env:PR_VALIDATION_ARCH --version $env:PR_VALIDATION_VERSION
           if ($LASTEXITCODE -ne 0) { throw "PR input isolation failed." }
 
+      - name: Materialize isolated PR inputs without YAML artifacts (Linux)
+        id: pr_inputs_linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$WORKSPACE"
+          uv run --group ci --frozen python ci_s3_cache.py isolate \
+            --xml "$PR_INPUT_XML" --baseline-xml .github/pr-kernel.xml \
+            --arch "$PR_VALIDATION_ARCH" --version "$PR_VALIDATION_VERSION"
+
       - name: Download missing selected PE and PDB inputs from MSDL
+        if: runner.os == 'Windows'
         shell: pwsh
         env:
-          PR_DOWNLOAD_XML: ${{ steps.pr_inputs.outputs.download-xml }}
+          PR_DOWNLOAD_XML: ${{ steps.pr_inputs_windows.outputs.download-xml }}
         run: |
           uv run --group ci --frozen python download_symbols.py "-xml=$env:PR_DOWNLOAD_XML" "-symboldir=$env:KPHTOOLS_SYMBOLDIR"
           if ($LASTEXITCODE -ne 0) { throw "PR input download failed." }
 
+      - name: Download missing selected PE and PDB inputs from MSDL (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          PR_DOWNLOAD_XML: ${{ steps.pr_inputs_linux.outputs.download-xml }}
+        run: |
+          set -euo pipefail
+          uv run --group ci --frozen python download_symbols.py "-xml=$PR_DOWNLOAD_XML" "-symboldir=$KPHTOOLS_SYMBOLDIR"
+
       - name: Verify selected PE inputs are present without YAML artifacts
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_s3_cache.py verify --arch $env:PR_VALIDATION_ARCH --version $env:PR_VALIDATION_VERSION
@@ -139,7 +219,15 @@ jobs:
             throw "PR inputs are unavailable or contain cached YAML. Seed the symbol bucket using https://github.com/HLND2T/kphtools/issues/42 if PE inputs are missing."
           }
 
+      - name: Verify selected PE inputs are present without YAML artifacts (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --group ci --frozen python ci_s3_cache.py verify --arch "$PR_VALIDATION_ARCH" --version "$PR_VALIDATION_VERSION"
+
       - name: Analyze symbols and dump YAML artifacts
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -164,7 +252,26 @@ jobs:
           "PR_GENERATED_YAML_COUNT=$($generatedYaml.Count)" |
             Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Analyze symbols and dump YAML artifacts (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$WORKSPACE"
+          uv run --group ci --frozen python dump_symbols.py \
+            "-symboldir=$KPHTOOLS_SYMBOLDIR" \
+            "-configyaml=$WORKSPACE/config.yaml" \
+            "-arch=$PR_VALIDATION_ARCH" \
+            "-version=$PR_VALIDATION_VERSION" -debug
+          yaml_count=$(find "$KPHTOOLS_SYMBOLDIR" -type f -name '*.yaml' -printf '.\n' | wc -l)
+          if (( yaml_count == 0 )); then
+            echo 'Symbol analysis completed without generating YAML artifacts.' >&2
+            exit 1
+          fi
+          printf 'PR_GENERATED_YAML_COUNT=%s\n' "$yaml_count" >> "$GITHUB_ENV"
+
       - name: Update candidate kphdyn.xml from YAML artifacts
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -196,8 +303,23 @@ jobs:
 
           "PR_CANDIDATE_XML=$candidateXml" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Update candidate kphdyn.xml from YAML artifacts (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$WORKSPACE"
+          candidate_xml="$CI_PR_ROOT/output/kphdyn.candidate.xml"
+          uv run --group ci --frozen python update_symbols.py \
+            "-xml=$PR_INPUT_XML" \
+            "-symboldir=$KPHTOOLS_SYMBOLDIR" \
+            "-configyaml=$WORKSPACE/config.yaml" \
+            "-outxml=$candidate_xml"
+          uv run --group ci --frozen python -c 'import sys, xml.etree.ElementTree as ET; ET.parse(sys.argv[1])' "$candidate_xml"
+          printf 'PR_CANDIDATE_XML=%s\n' "$candidate_xml" >> "$GITHUB_ENV"
+
       - name: Write validation summary
-        if: always()
+        if: always() && runner.os == 'Windows'
         shell: pwsh
         run: |
           "## PR self-runner validation" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
@@ -214,8 +336,28 @@ jobs:
               Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
           }
 
+      - name: Write validation summary (Linux)
+        if: always() && runner.os == 'Linux'
+        shell: bash
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          {
+            printf '## PR self-runner validation\n\n'
+            printf -- '- Result: %s\n' "$JOB_STATUS"
+            printf -- '- Workspace: `%s`\n' "${WORKSPACE:-$GITHUB_WORKSPACE}"
+            printf -- '- Version: `%s/%s`\n' "$PR_VALIDATION_ARCH" "$PR_VALIDATION_VERSION"
+            if [[ -n "${PR_GENERATED_YAML_COUNT:-}" ]]; then
+              printf -- '- Generated YAML artifacts: %s\n' "$PR_GENERATED_YAML_COUNT"
+            fi
+            if [[ -n "${PR_CANDIDATE_XML:-}" ]]; then
+              printf -- '- Candidate XML: `%s`\n' "$PR_CANDIDATE_XML"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload PR validation diagnostics
-        if: always() && steps.s3_layout.outcome == 'success'
+        if: always() && (steps.s3_layout_windows.outcome == 'success' || steps.s3_layout_linux.outcome == 'success')
         uses: actions/upload-artifact@v4
         with:
           name: pr-validation-${{ github.event.pull_request.number }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -228,8 +370,15 @@ jobs:
           retention-days: 14
 
       - name: Clean disposable PR data on this runner
-        if: always() && steps.s3_layout.outcome == 'success'
+        if: always() && runner.os == 'Windows' && steps.s3_layout_windows.outcome == 'success'
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_s3_cache.py cleanup
           if ($LASTEXITCODE -ne 0) { throw "PR staging cleanup failed." }
+
+      - name: Clean disposable PR data on this runner (Linux)
+        if: always() && runner.os == 'Linux' && steps.s3_layout_linux.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --group ci --frozen python ci_s3_cache.py cleanup

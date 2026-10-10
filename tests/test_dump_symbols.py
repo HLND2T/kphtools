@@ -2952,6 +2952,7 @@ class TestDumpSymbols(unittest.TestCase):
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             text=True,
+            **({"start_new_session": True} if os.name != "nt" else {}),
         )
 
     def test_start_idalib_mcp_waits_after_timeout_failure(self) -> None:

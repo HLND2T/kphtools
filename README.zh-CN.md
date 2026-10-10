@@ -41,7 +41,7 @@ symbols/<arch>/<file>.<version>/<sha256>/
 
 ## CI 共享缓存
 
-Windows 自托管构建与 PR job 使用 S3-compatible bucket `actions-cache-kphtools` 保存符号分片和 uv 依赖缓存。在 `win64` environment 配置 `S3_ENDPOINT_URL`（仅 HTTP(S) origin）、`S3_ACCESS_KEY_ID` 和 `S3_SECRET_ACCESS_KEY`。需要预先创建 bucket，并授予这些凭证列举、读取和写入权限；客户端不会创建 bucket。所有 runner 都需要能够访问 endpoint，服务端须支持带 `IfMatch` 和 `IfNoneMatch` 条件的 `PutObject`。CI 不再使用 `PERSISTED_WORKSPACE`。
+Windows / Linux 自托管构建与 PR job 使用 S3-compatible bucket `actions-cache-kphtools` 保存符号分片和 uv 依赖缓存。在 `win64` environment 配置 `S3_ENDPOINT_URL`（仅 HTTP(S) origin）、`S3_ACCESS_KEY_ID` 和 `S3_SECRET_ACCESS_KEY`。需要预先创建 bucket，并授予这些凭证列举、读取和写入权限；客户端不会创建 bucket。所有 runner 都需要能够访问 endpoint，服务端须支持带 `IfMatch` 和 `IfNoneMatch` 条件的 `PutObject`。CI 不再使用 `PERSISTED_WORKSPACE`。
 
 符号按 `arch/binary.version/sha256` 分片，每片分为 `inputs`（PE/PDB/IDA 等分析输入）和 `results`（YAML）两个归档，采用 zstd level 1 压缩。构建先恢复 catalog 和 YAML，真正需要分析时才下载对应输入；发布仅上传有变化的部分。不可变归档的 key 按仓库和 runner OS 隔离，小型 `catalog.json` 使用条件写入，避免并发生产者覆盖新 catalog。恢复时校验大小、SHA-256、内容身份和安全路径。OSS 同步保留原有排除规则，仅下载未缓存文件。
 
@@ -56,6 +56,7 @@ PR 验证仅下载 `amd64/ntoskrnl.exe.10.0.22621.3668` 的输入分片，再复
 ## 文档
 
 - [依赖与环境配置](docs/zh-CN/requirements.md)
+- [Linux/WSL 验证与跨平台 runner](docs/zh-CN/linux.md)
 - [下载 PE 与 PDB 符号](docs/zh-CN/download_symbols.md)
 - [导出 YAML 工件](docs/zh-CN/dump_symbols.md)
 - [`LLM_DECOMPILE` Reference YAML](docs/zh-CN/reference_yaml.md)

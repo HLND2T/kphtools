@@ -20,6 +20,11 @@ Export {
 
 
 class TestPeResolver(unittest.TestCase):
+    def setUp(self):
+        resolver = mock.patch("pe_resolver.resolve_llvm_tool", return_value="llvm-readobj")
+        resolver.start()
+        self.addCleanup(resolver.stop)
+
     def test_resolve_export_symbol_from_text_returns_rva(self) -> None:
         result = pe_resolver.resolve_export_symbol_from_text(
             COFF_EXPORTS_OUTPUT,

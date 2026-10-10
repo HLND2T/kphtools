@@ -23,7 +23,7 @@ jobs:
       (github.event_name == 'push' ||
        github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
     environment: win64
-    runs-on: [self-hosted, windows, x64]
+    runs-on: [self-hosted, cross-platform]
     env:
       UV_PYTHON: "3.12"
       S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
@@ -63,72 +63,176 @@ jobs:
           S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
 
       - name: Sync Python dependencies
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           uv sync --group ci --frozen
           if ($LASTEXITCODE -ne 0) { throw "uv sync failed." }
 
+      - name: Sync Python dependencies (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv sync --group ci --frozen
+
       - name: Prepare disposable symbol staging
-        id: s3_layout
+        id: s3_layout_windows
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_s3_cache.py prepare
           if ($LASTEXITCODE -ne 0) { throw "S3 staging preparation failed." }
 
+      - name: Prepare disposable symbol staging (Linux)
+        id: s3_layout_linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --group ci --frozen python ci_s3_cache.py prepare
+
       - name: Restore lightweight symbol results and catalog metadata
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_symbol_cache.py restore-build
           if ($LASTEXITCODE -ne 0) { throw "Symbol result shard restore failed." }
 
+      - name: Restore lightweight symbol results and catalog metadata (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --group ci --frozen python ci_symbol_cache.py restore-build
+
       - name: Validate restored symbol paths
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_s3_cache.py validate
           if ($LASTEXITCODE -ne 0) { throw "Unsafe restored symbol paths." }
 
-      - name: Download latest kphdyn.xml from upstream
-        shell: cmd
+      - name: Validate restored symbol paths (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
         run: |
-          powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml' -OutFile kphdyn.official.xml"
-          copy kphdyn.official.xml kphdyn.xml /y
+          set -euo pipefail
+          uv run --group ci --frozen python ci_s3_cache.py validate
+
+      - name: Download latest kphdyn.xml from upstream
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml' -OutFile kphdyn.official.xml
+          Copy-Item -LiteralPath kphdyn.official.xml -Destination kphdyn.xml -Force
+
+      - name: Download latest kphdyn.xml from upstream (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --show-error --output kphdyn.official.xml https://raw.githubusercontent.com/winsiderss/systeminformer/refs/heads/master/kphlib/kphdyn.xml
+          cp kphdyn.official.xml kphdyn.xml
 
       - name: Sync symbols from OSS
-        shell: cmd
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
+          uv run --group ci --frozen python ci_symbol_cache.py oss-pull
+          if ($LASTEXITCODE -ne 0) { throw "OSS pull failed." }
+
+      - name: Sync symbols from OSS (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
           uv run --group ci --frozen python ci_symbol_cache.py oss-pull
 
       - name: Sync unmanaged ntoskrnl to kphdyn.xml
-        shell: cmd
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          uv run --group ci --frozen python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%KPHTOOLS_SYMBOLDIR%" -syncfile
+          uv run --group ci --frozen python update_symbols.py "-xml=$env:WORKSPACE/kphdyn.xml" "-symboldir=$env:KPHTOOLS_SYMBOLDIR" -syncfile
+          if ($LASTEXITCODE -ne 0) { throw "Unmanaged symbol sync failed." }
+
+      - name: Sync unmanaged ntoskrnl to kphdyn.xml (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --group ci --frozen python update_symbols.py "-xml=$WORKSPACE/kphdyn.xml" "-symboldir=$KPHTOOLS_SYMBOLDIR" -syncfile
 
       - name: Download ntoskrnl exe and pdb from MSDL
-        shell: cmd
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          uv run --group ci --frozen python ci_symbol_cache.py download --xml "%WORKSPACE%\kphdyn.xml"
+          uv run --group ci --frozen python ci_symbol_cache.py download --xml "$env:WORKSPACE/kphdyn.xml"
+          if ($LASTEXITCODE -ne 0) { throw "Symbol download failed." }
+
+      - name: Download ntoskrnl exe and pdb from MSDL (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --group ci --frozen python ci_symbol_cache.py download --xml "$WORKSPACE/kphdyn.xml"
 
       - name: Analyze symbols and dump YAML artifacts
-        shell: cmd
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          uv run --group ci --frozen python dump_symbols.py -symboldir="%KPHTOOLS_SYMBOLDIR%" -configyaml="%WORKSPACE%\config.yaml" -debug
+          uv run --group ci --frozen python dump_symbols.py "-symboldir=$env:KPHTOOLS_SYMBOLDIR" "-configyaml=$env:WORKSPACE/config.yaml" -debug
+          if ($LASTEXITCODE -ne 0) { throw "Symbol analysis failed." }
+
+      - name: Analyze symbols and dump YAML artifacts (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --group ci --frozen python dump_symbols.py "-symboldir=$KPHTOOLS_SYMBOLDIR" "-configyaml=$WORKSPACE/config.yaml" -debug
 
       - name: Update kphdyn.xml with offsets from YAML artifacts
-        shell: cmd
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          uv run --group ci --frozen python update_symbols.py -xml="%WORKSPACE%\kphdyn.xml" -symboldir="%KPHTOOLS_SYMBOLDIR%" -configyaml="%WORKSPACE%\config.yaml"
+          uv run --group ci --frozen python update_symbols.py "-xml=$env:WORKSPACE/kphdyn.xml" "-symboldir=$env:KPHTOOLS_SYMBOLDIR" "-configyaml=$env:WORKSPACE/config.yaml"
+          if ($LASTEXITCODE -ne 0) { throw "XML export failed." }
+
+      - name: Update kphdyn.xml with offsets from YAML artifacts (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --group ci --frozen python update_symbols.py "-xml=$WORKSPACE/kphdyn.xml" "-symboldir=$KPHTOOLS_SYMBOLDIR" "-configyaml=$WORKSPACE/config.yaml"
 
       - name: Validate symbol snapshot before publication
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_s3_cache.py validate
           if ($LASTEXITCODE -ne 0) { throw "Unsafe symbol snapshot paths." }
 
+      - name: Validate symbol snapshot before publication (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --group ci --frozen python ci_s3_cache.py validate
+
       - name: Publish changed symbol shards and update catalog
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_symbol_cache.py publish
           if ($LASTEXITCODE -ne 0) { throw "Symbol shard publication failed." }
+
+      - name: Publish changed symbol shards and update catalog (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --group ci --frozen python ci_symbol_cache.py publish
 
       - name: Create release
         if: startsWith(github.ref, 'refs/tags/')
@@ -138,8 +242,8 @@ jobs:
           files: kphdyn.xml
 
       - name: Check nightly XML changes
-        id: nightly_changes
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        id: nightly_changes_windows
+        if: runner.os == 'Windows' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -149,8 +253,19 @@ jobs:
           uv run --group ci --frozen python check_nightly_release.py --repository $env:GITHUB_REPOSITORY --xml kphdyn.xml --tag nightly
           if ($LASTEXITCODE -ne 0) { throw "Nightly XML comparison failed." }
 
+      - name: Check nightly XML changes (Linux)
+        id: nightly_changes_linux
+        if: runner.os == 'Linux' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd "$WORKSPACE"
+          uv run --group ci --frozen python check_nightly_release.py --repository "$GITHUB_REPOSITORY" --xml kphdyn.xml --tag nightly
+
       - name: Publish changed nightly XML
-        if: steps.nightly_changes.outputs.changed == 'true'
+        if: steps.nightly_changes_windows.outputs.changed == 'true' || steps.nightly_changes_linux.outputs.changed == 'true'
         uses: softprops/action-gh-release@v2
         with:
           name: kphdyn-nightly
@@ -167,7 +282,7 @@ jobs:
             Build: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
       - name: Update nightly tag after publication
-        if: steps.nightly_changes.outputs.changed == 'true'
+        if: runner.os == 'Windows' && steps.nightly_changes_windows.outputs.changed == 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -175,14 +290,38 @@ jobs:
           git push origin "$($env:GITHUB_SHA):refs/tags/nightly" --force
           if ($LASTEXITCODE -ne 0) { throw "Unable to update the nightly tag." }
 
-      - name: Sync symbols back to OSS
-        shell: cmd
+      - name: Update nightly tag after publication (Linux)
+        if: runner.os == 'Linux' && steps.nightly_changes_linux.outputs.changed == 'true'
+        shell: bash
         run: |
+          set -euo pipefail
+          cd "$WORKSPACE"
+          git push origin "$GITHUB_SHA:refs/tags/nightly" --force
+
+      - name: Sync symbols back to OSS
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          uv run --group ci --frozen python ci_symbol_cache.py oss-push
+          if ($LASTEXITCODE -ne 0) { throw "OSS push failed." }
+
+      - name: Sync symbols back to OSS (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
           uv run --group ci --frozen python ci_symbol_cache.py oss-push
 
       - name: Clean disposable symbol staging on this runner
-        if: always() && steps.s3_layout.outcome == 'success'
+        if: always() && runner.os == 'Windows' && steps.s3_layout_windows.outcome == 'success'
         shell: pwsh
         run: |
           uv run --group ci --frozen python ci_s3_cache.py cleanup
           if ($LASTEXITCODE -ne 0) { throw "Symbol staging cleanup failed." }
+
+      - name: Clean disposable symbol staging on this runner (Linux)
+        if: always() && runner.os == 'Linux' && steps.s3_layout_linux.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --group ci --frozen python ci_s3_cache.py cleanup
